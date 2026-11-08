@@ -66,6 +66,14 @@ export default function Home() {
             <p className="mt-3 text-slate-500">Apply for leave and review employee requests.</p>
             <p className="mt-4 text-sm font-medium text-blue-600">Manage Leaves</p>
           </Link>
+          <Link href="/holidays" className="block rounded-xl bg-white p-6 shadow-sm transition hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Holiday Calendar</h2>
+              <ArrowRight className="h-5 w-5 text-blue-600" />
+            </div>
+            <p className="mt-3 text-slate-500">View and manage company holidays.</p>
+            <p className="mt-4 text-sm font-medium text-blue-600">Manage Holidays</p>
+          </Link>
           <Link href="/organization" className="block rounded-xl bg-white p-6 shadow-sm transition hover:shadow-md">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Organization Structure</h2>
