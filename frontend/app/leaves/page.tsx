@@ -113,16 +113,20 @@ function LeaveManagement() {
     if (stored) {
       try {
         const user = JSON.parse(stored);
-        setRole(user.role || "employee");
-        setEmployeeId(user.employeeId || "");
+        const nextRole = user.role || "employee";
+        const nextEmployeeId = user.employeeId || "";
+        void Promise.resolve().then(() => {
+          setRole(nextRole);
+          setEmployeeId(nextEmployeeId);
+        });
       } catch {
-        setRole("employee");
+        void Promise.resolve().then(() => setRole("employee"));
       }
     }
   }, []);
 
   useEffect(() => {
-    loadLeaves();
+    void Promise.resolve().then(loadLeaves);
   }, [loadLeaves]);
 
   const submitLeave = async (event: FormEvent<HTMLFormElement>) => {
