@@ -325,6 +325,40 @@ export const getMyAttendance = async (req, res) => {
     }
 };
 
+// MANAGER'S ASSIGNED TEAM (for team attendance filters)
+export const getAttendanceTeam = async (req, res) => {
+    try {
+        if (req.user.role === "admin" || req.user.role === "hr") {
+            const employees = await Employee.find({ employmentStatus: "active" })
+                .select("employeeCode firstName lastName")
+                .sort({ firstName: 1, lastName: 1 });
+            return res.status(200).json({ success: true, data: employees });
+        }
+
+        if (req.user.role !== "manager") {
+            return res.status(403).json({
+                success: false,
+                message: "Team attendance is available to managers only"
+            });
+        }
+
+        const employees = await Employee.find({
+            reportingManager: req.user.employeeId,
+            employmentStatus: "active"
+        })
+            .select("employeeCode firstName lastName")
+            .sort({ firstName: 1, lastName: 1 });
+
+        return res.status(200).json({ success: true, data: employees });
+    } catch (error) {
+        console.error("Attendance team error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load attendance team"
+        });
+    }
+};
+
 // ADMIN / HR ATTENDANCE REGISTER
 export const getAttendanceRegister = async (req, res) => {
     try {
@@ -332,7 +366,25 @@ export const getAttendanceRegister = async (req, res) => {
 
         const { date, from, to, employeeId } = req.query;
 
-        if (req.user.role !== "admin" && req.user.role !== "hr") {
+        if (req.user.role === "manager") {
+            const teamIds = await Employee.find({
+                reportingManager: req.user.employeeId,
+                employmentStatus: "active"
+            }).distinct("_id");
+            const allowedIds = [...teamIds, new mongoose.Types.ObjectId(req.user.employeeId)];
+            filter.employee = { $in: allowedIds };
+
+            if (employeeId) {
+                if (!mongoose.isValidObjectId(employeeId) ||
+                    !allowedIds.some((id) => id.toString() === employeeId)) {
+                    return res.status(403).json({
+                        success: false,
+                        message: "You can only view attendance for yourself and your assigned team"
+                    });
+                }
+                filter.employee = employeeId;
+            }
+        } else if (req.user.role !== "admin" && req.user.role !== "hr") {
             filter.employee = req.user.employeeId;
         } else if (employeeId) {
             if (!mongoose.isValidObjectId(employeeId)) {
