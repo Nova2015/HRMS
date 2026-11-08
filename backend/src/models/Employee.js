@@ -46,6 +46,12 @@ const employeeSchema = new mongoose.Schema(
             ref: "Shift",
             default: null
         },
+        reportingManager: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Employee",
+            default: null,
+            index: true
+        },
         joiningDate: {
             type: Date,
             required: true
