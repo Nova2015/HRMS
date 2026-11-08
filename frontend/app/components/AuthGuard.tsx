@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 
 export default function AuthGuard({
   children,
@@ -81,13 +82,20 @@ export default function AuthGuard({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="fixed right-5 top-5 z-50 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-red-700"
-      >
-        Logout
-      </button>
+      <div className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6">
+        <button
+          type="button"
+          onClick={handleLogout}
+          aria-label="Logout from HRMS"
+          title="Logout"
+          className="group inline-flex items-center gap-2.5 rounded-full border border-slate-200/90 bg-white/95 py-2 pl-3 pr-4 text-sm font-semibold text-slate-700 shadow-lg shadow-slate-900/10 backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 hover:shadow-xl hover:shadow-rose-900/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200 active:translate-y-0"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600 transition-colors group-hover:bg-rose-100">
+            <LogOut size={16} strokeWidth={2.2} />
+          </span>
+          <span className="hidden sm:inline">Logout</span>
+        </button>
+      </div>
 
       {children}
     </>
