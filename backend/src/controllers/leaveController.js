@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import LeaveRequest from "../models/LeaveRequest.js";
 import Employee from "../models/Employee.js";
+import Holiday from "../models/Holiday.js";
 
 const ALLOWED_LEAVE_TYPES = ["casual", "sick", "earned", "unpaid"];
 const REVIEW_ROLES = ["admin", "hr"];
@@ -15,10 +16,22 @@ const isValidDateKey = (value) => {
         date.toISOString().slice(0, 10) === value;
 };
 
-const countCalendarDays = (startDate, endDate) => {
-    const start = new Date(startDate + "T00:00:00.000Z");
+const countWorkingDays = (startDate, endDate, weeklyOffDays, holidayDates) => {
+    const current = new Date(startDate + "T00:00:00.000Z");
     const end = new Date(endDate + "T00:00:00.000Z");
-    return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+    const weeklyOffSet = new Set(weeklyOffDays || []);
+    let total = 0;
+
+    while (current <= end) {
+        const dateKey = current.toISOString().slice(0, 10);
+        const weekday = current.getUTCDay();
+        if (!weeklyOffSet.has(weekday) && !holidayDates.has(dateKey)) {
+            total += 1;
+        }
+        current.setUTCDate(current.getUTCDate() + 1);
+    }
+
+    return total;
 };
 
 const populateLeave = (query) => query
@@ -61,11 +74,18 @@ export const createLeaveRequest = async (req, res) => {
             });
         }
 
-        const employee = await Employee.findById(req.user.employeeId);
+        const employee = await Employee.findById(req.user.employeeId).populate("shift", "weeklyOffDays isActive");
         if (!employee || employee.employmentStatus !== "active") {
             return res.status(403).json({
                 success: false,
                 message: "Active employee account required"
+            });
+        }
+
+        if (!employee.shift || !employee.shift.isActive) {
+            return res.status(400).json({
+                success: false,
+                message: "Please contact HR to assign an active work shift before applying for leave"
             });
         }
 
@@ -83,12 +103,32 @@ export const createLeaveRequest = async (req, res) => {
             });
         }
 
+        const holidays = await Holiday.find({
+            dateKey: { $gte: startDate, $lte: endDate },
+            isActive: true,
+            type: { $in: ["public", "company"] }
+        }).select("dateKey -_id");
+        const holidayDates = new Set(holidays.map((holiday) => holiday.dateKey));
+        const totalDays = countWorkingDays(
+            startDate,
+            endDate,
+            employee.shift.weeklyOffDays,
+            holidayDates
+        );
+
+        if (totalDays < 1) {
+            return res.status(400).json({
+                success: false,
+                message: "The selected date range contains no working days for your assigned shift"
+            });
+        }
+
         const leave = await LeaveRequest.create({
             employee: employee._id,
             leaveType,
             startDate,
             endDate,
-            totalDays: countCalendarDays(startDate, endDate),
+            totalDays,
             reason: cleanReason
         });
 
