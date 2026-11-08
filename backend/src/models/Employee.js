@@ -41,7 +41,7 @@ const employeeSchema = new mongoose.Schema(
             ref: "Designation",
             required: true
         },
-        joiningDate: {
+        shift: {\n            type: mongoose.Schema.Types.ObjectId,\n            ref: "Shift",\n            default: null\n        },\n        joiningDate: {
             type: Date,
             required: true
         },
