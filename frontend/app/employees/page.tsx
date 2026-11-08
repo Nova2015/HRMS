@@ -96,7 +96,7 @@ function EmployeeList() {
   }, [router]);
 
   useEffect(() => {
-    loadEmployees();
+    void Promise.resolve().then(loadEmployees);
   }, [loadEmployees]);
 
   const departments = useMemo(() => {
