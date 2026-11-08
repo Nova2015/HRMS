@@ -4,8 +4,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3, Download,
-  LogIn, LogOut, RefreshCw, Save, Search, Users, CheckCircle2,
+  ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3,
+  LogIn, LogOut, RefreshCw, Save, Users, CheckCircle2,
   AlertCircle, Timer, CalendarCheck2, X
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
@@ -59,19 +59,10 @@ const statusClass: Record<AttendanceStatus, string> = {
   absent: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
-function getInitialRole(): Role {
-  if (typeof window === "undefined") return "employee";
-  try {
-    const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
-    return (["admin", "hr", "manager", "employee"].includes(user.role) ? user.role : "employee") as Role;
-  } catch {
-    return "employee";
-  }
-}
-
 function AttendanceWorkspace() {
   const router = useRouter();
-  const [role] = useState<Role>(getInitialRole);
+  const [role, setRole] = useState<Role>("employee");
+  const [roleReady, setRoleReady] = useState(false);
   const [today, setToday] = useState<AttendanceRecord | null>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -147,7 +138,20 @@ function AttendanceWorkspace() {
     }
   }, [apiRequest, canSeeTeam, employeeFilter, monthStart, monthEnd]);
 
-  useEffect(() => { loadWorkspace(); }, [loadWorkspace]);
+  useEffect(() => {
+    try {
+      const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
+      setRole((["admin", "hr", "manager", "employee"].includes(user.role) ? user.role : "employee") as Role);
+    } catch {
+      setRole("employee");
+    } finally {
+      setRoleReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (roleReady) loadWorkspace();
+  }, [loadWorkspace, roleReady]);
 
   const performAttendanceAction = async (action: "check-in" | "check-out") => {
     setSaving(true); setError(""); setNotice("");
