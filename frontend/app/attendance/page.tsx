@@ -264,14 +264,14 @@ function AttendanceWorkspace() {
           <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"><div className="flex items-center justify-between text-emerald-700"><span className="text-sm font-medium">Working Time</span><Clock3 size={20} /></div><p className="mt-3 text-2xl font-bold text-slate-900">{formatHours(summary.hours)}</p><p className="mt-1 text-xs text-slate-500">Total recorded hours</p></div>
         </section>
 
-        {isAdmin && (
+        {canSeeTeam && (
           <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800"><Users size={18} className="text-indigo-600" /> Attendance scope</div>
             <div className="grid gap-3 sm:grid-cols-[minmax(220px,360px)_1fr]">
               <select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100">
-                <option value="">All employees</option>{employees.map((employee) => <option key={employee._id} value={employee._id}>{employee.employeeCode} · {employee.firstName} {employee.lastName}</option>)}
+                <option value="">{isAdmin ? "All company employees" : "All assigned team members"}</option>{employees.map((employee) => <option key={employee._id} value={employee._id}>{employee.employeeCode} · {employee.firstName} {employee.lastName}</option>)}
               </select>
-              <p className="self-center text-xs text-slate-500">Choose an employee to focus the calendar and register. Admin/HR can view the entire company.</p>
+              <p className="self-center text-xs text-slate-500">Choose an employee to focus the calendar. {isAdmin ? "Admin/HR can view the entire company." : "Managers can only view their assigned team."}</p>
             </div>
           </section>
         )}
