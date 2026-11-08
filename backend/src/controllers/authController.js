@@ -15,8 +15,7 @@ export const login = async (req, res) => {
             typeof password !== "string" ||
             !email.trim() ||
             !password ||
-            email.length > 254 ||
-            Buffer.byteLength(password, "utf8") > 72
+            email.length > 254
         ) {
             return res.status(400).json({
                 success: false,
