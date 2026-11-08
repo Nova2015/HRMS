@@ -82,7 +82,7 @@ function OrganizationManagement() {
     }
   }, [apiRequest]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { void Promise.resolve().then(loadData); }, [loadData]);
 
   const submitDepartment = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
