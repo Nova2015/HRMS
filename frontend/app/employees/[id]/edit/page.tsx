@@ -170,7 +170,7 @@ function EditEmployeeForm() {
   }, [id, router]);
 
   useEffect(() => {
-    loadData();
+    void Promise.resolve().then(loadData);
   }, [loadData]);
 
   const filteredDesignations = designations.filter((item) => {
