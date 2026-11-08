@@ -95,7 +95,7 @@ function PayrollContent() {
     }
   }, [apiRequest, period, workingDays]);
 
-  useEffect(() => { loadPage(); }, [loadPage]);
+  useEffect(() => { void Promise.resolve().then(loadPage); }, [loadPage]);
 
   const structureEmployeeIds = useMemo(() => new Set(structures.map((item) => item.employee?._id)), [structures]);
   const totalNet = records.reduce((sum, item) => sum + item.netPay, 0);
@@ -202,7 +202,7 @@ function PayrollContent() {
 
           <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-7">
-              <div><h2 className="text-lg font-bold text-slate-900">Process monthly payroll</h2><p className="mt-1 text-sm text-slate-500">Set working days and verify each employee's payable days.</p></div>
+              <div><h2 className="text-lg font-bold text-slate-900">Process monthly payroll</h2><p className="mt-1 text-sm text-slate-500">Set working days and verify each employee&apos;s payable days.</p></div>
               <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700">{structures.length} salary structures</span>
             </div>
             <div className="p-5 sm:p-7">
