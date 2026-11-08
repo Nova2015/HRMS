@@ -13,7 +13,7 @@ const router = express.Router();
 router.use(protect);
 router.get("/", getLeaveRequests);
 router.post("/", createLeaveRequest);
-router.patch("/:id/review", authorizeRoles("admin", "hr"), reviewLeaveRequest);
+router.patch("/:id/review", authorizeRoles("admin", "hr", "manager"), reviewLeaveRequest);
 router.patch("/:id/cancel", cancelLeaveRequest);
 
 export default router;
