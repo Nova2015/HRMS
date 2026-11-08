@@ -330,7 +330,8 @@ export const getAttendanceTeam = async (req, res) => {
     try {
         if (req.user.role === "admin" || req.user.role === "hr") {
             const employees = await Employee.find({ employmentStatus: "active" })
-                .select("employeeCode firstName lastName")
+                .select("employeeCode firstName lastName shift")
+                .populate("shift", "name weeklyOffDays")
                 .sort({ firstName: 1, lastName: 1 });
             return res.status(200).json({ success: true, data: employees });
         }
@@ -346,7 +347,8 @@ export const getAttendanceTeam = async (req, res) => {
             reportingManager: req.user.employeeId,
             employmentStatus: "active"
         })
-            .select("employeeCode firstName lastName")
+            .select("employeeCode firstName lastName shift")
+            .populate("shift", "name weeklyOffDays")
             .sort({ firstName: 1, lastName: 1 });
 
         return res.status(200).json({ success: true, data: employees });
