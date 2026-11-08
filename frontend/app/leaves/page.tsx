@@ -202,7 +202,7 @@ function LeaveManagement() {
               <div className="rounded-lg bg-blue-100 p-3"><CalendarDays size={23} className="text-blue-600" /></div>
               <div>
                 <h2 className="text-xl font-bold text-slate-900">Apply for Leave</h2>
-                <p className="text-sm text-slate-500">Leave duration is counted in calendar days, including weekends.</p>
+                <p className="text-sm text-slate-500">Leave days use the employee's assigned shift weekly offs and active public/company holidays. Optional holidays are not deducted.</p>
               </div>
             </div>
             <form onSubmit={submitLeave} className="grid gap-4 md:grid-cols-2">
