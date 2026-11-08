@@ -15,6 +15,7 @@ type Shift = {
   startTime: string;
   endTime: string;
   gracePeriodMinutes: number;
+  weeklyOffDays: number[];
   description?: string;
   isActive: boolean;
 };
@@ -41,7 +42,7 @@ function ShiftManagement() {
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     name: "", code: "", startTime: "09:00", endTime: "18:00",
-    gracePeriodMinutes: "15", description: "",
+    gracePeriodMinutes: "15", weeklyOffDays: [], description: "",
   });
   const canManage = role === "admin" || role === "hr";
 
@@ -110,12 +111,13 @@ function ShiftManagement() {
           name: form.name.trim(),
           code: form.code.trim().toUpperCase(),
           gracePeriodMinutes: Number(form.gracePeriodMinutes),
+          weeklyOffDays: form.weeklyOffDays,
           description: form.description.trim(),
         }),
       });
       setMessage(result.message || "Shift saved.");
       setEditId("");
-      setForm({ name: "", code: "", startTime: "09:00", endTime: "18:00", gracePeriodMinutes: "15", description: "" });
+      setForm({ name: "", code: "", startTime: "09:00", endTime: "18:00", gracePeriodMinutes: "15", weeklyOffDays: [], description: "" });
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save shift");
@@ -186,6 +188,18 @@ function ShiftManagement() {
                 <label className="text-sm text-slate-600">Start time<input required type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
                 <label className="text-sm text-slate-600">End time<input required type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
                 <label className="text-sm text-slate-600">Grace period (minutes)<input required type="number" min="0" max="180" value={form.gracePeriodMinutes} onChange={(e) => setForm({ ...form, gracePeriodMinutes: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
+                <div className="rounded-lg border border-slate-200 p-3 md:col-span-2 lg:col-span-3">
+                  <p className="mb-2 text-sm font-semibold text-slate-700">Weekly Off Days</p>
+                  <div className="flex flex-wrap gap-x-5 gap-y-2">
+                    {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => (
+                      <label key={day} className="inline-flex items-center gap-2 text-sm text-slate-600">
+                        <input type="checkbox" checked={form.weeklyOffDays.includes(index)} onChange={(e) => setForm({ ...form, weeklyOffDays: e.target.checked ? [...form.weeklyOffDays, index].sort() : form.weeklyOffDays.filter((value) => value !== index) })} />
+                        {day}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">Select the weekly off pattern applicable to employees assigned to this shift.</p>
+                </div>
                 <input maxLength={500} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description (optional)" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                 <div className="flex gap-2 lg:col-span-3">
                   <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"><Plus size={16} /> {saving ? "Saving..." : editId ? "Update Shift" : "Create Shift"}</button>
@@ -203,9 +217,10 @@ function ShiftManagement() {
                       <div className="flex items-start justify-between gap-2"><div><h3 className="font-bold text-slate-900">{shift.name}</h3><p className="text-xs text-slate-500">{shift.code}</p></div><span className={`rounded-full px-2 py-1 text-xs ${shift.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>{shift.isActive ? "Active" : "Inactive"}</span></div>
                       <p className="mt-3 flex items-center gap-2 text-lg font-semibold text-slate-800"><Clock3 size={18} /> {shift.startTime} – {shift.endTime}</p>
                       <p className="mt-1 text-sm text-slate-500">Grace period: {shift.gracePeriodMinutes} minutes</p>
+                      <p className="mt-1 text-sm text-slate-500">Weekly off: {(shift.weeklyOffDays || []).length ? shift.weeklyOffDays.map((day) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day]).join(", ") : "Not configured"}</p>
                       <p className="mt-1 text-sm text-slate-500">{shift.description || "No description"}</p>
                       <div className="mt-4 flex gap-2">
-                        <button type="button" onClick={() => { setEditId(shift._id); setForm({ name: shift.name, code: shift.code, startTime: shift.startTime, endTime: shift.endTime, gracePeriodMinutes: String(shift.gracePeriodMinutes), description: shift.description || "" }); }} className="rounded-lg border border-slate-300 p-2 text-slate-600" title="Edit"><Pencil size={15} /></button>
+                        <button type="button" onClick={() => { setEditId(shift._id); setForm({ name: shift.name, code: shift.code, startTime: shift.startTime, endTime: shift.endTime, gracePeriodMinutes: String(shift.gracePeriodMinutes), weeklyOffDays: shift.weeklyOffDays || [], description: shift.description || "" }); }} className="rounded-lg border border-slate-300 p-2 text-slate-600" title="Edit"><Pencil size={15} /></button>
                         <button type="button" disabled={saving} onClick={() => toggleShift(shift)} className="rounded-lg border border-slate-300 p-2 text-slate-600 disabled:opacity-50" title="Activate/deactivate"><Power size={15} /></button>
                         <button type="button" disabled={saving} onClick={() => deleteShift(shift)} className="rounded-lg border border-slate-300 p-2 text-red-600 disabled:opacity-50" title="Delete"><Trash2 size={15} /></button>
                       </div>
