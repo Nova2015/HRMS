@@ -31,7 +31,7 @@ export const createDepartment = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "Department name or code already exists"
-                : error.message
+                : "Unable to create department"
         });
     }
 };
@@ -49,7 +49,7 @@ export const getDepartments = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to load departments"
         });
     }
 };
@@ -123,7 +123,7 @@ export const updateDepartment = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "Department name or code already exists"
-                : error.message
+                : "Unable to update department"
         });
     }
 };
@@ -168,7 +168,7 @@ export const deleteDepartment = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to delete department"
         });
     }
 };
