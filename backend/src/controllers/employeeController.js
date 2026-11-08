@@ -74,10 +74,10 @@ export const createEmployee = async (req, res) => {
         const normalizedEmail = String(email).trim().toLowerCase();
         const normalizedCode = String(employeeCode).trim().toUpperCase();
 
-        if (String(initialPassword).length < 12) {
+        if (String(initialPassword).length < 12 || Buffer.byteLength(String(initialPassword), "utf8") > 72) {
             return res.status(400).json({
                 success: false,
-                message: "Initial password must contain at least 12 characters"
+                message: "Initial password must contain at least 12 characters and no more than 72 UTF-8 bytes"
             });
         }
 
@@ -322,6 +322,14 @@ export const updateEmployee = async (req, res) => {
             });
         }
 
+        const linkedUser = await User.findOne({ employee: employee._id });
+        if (!linkedUser) {
+            return res.status(409).json({
+                success: false,
+                message: "Employee login account is missing; contact system administrator"
+            });
+        }
+
         const allowedFields = [
             "firstName",
             "lastName",
@@ -467,11 +475,17 @@ export const updateEmployee = async (req, res) => {
         }
 
         if (Object.keys(userUpdate).length > 0) {
-            await User.findOneAndUpdate(
+            const syncedUser = await User.findOneAndUpdate(
                 { employee: employee._id },
                 { $set: userUpdate },
-                { runValidators: true }
+                { new: true, runValidators: true }
             );
+            if (!syncedUser) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Employee login account could not be synchronized"
+                });
+            }
         }
 
         const updatedEmployee = await populateEmployee(
@@ -521,13 +535,20 @@ export const deactivateEmployee = async (req, res) => {
             });
         }
 
+        const linkedUser = await User.findOneAndUpdate(
+            { employee: employee._id },
+            { $set: { isActive: false } },
+            { new: true }
+        );
+        if (!linkedUser) {
+            return res.status(409).json({
+                success: false,
+                message: "Employee login account is missing; cannot safely deactivate employee"
+            });
+        }
+
         employee.employmentStatus = "inactive";
         await employee.save();
-
-        await User.findOneAndUpdate(
-            { employee: employee._id },
-            { $set: { isActive: false } }
-        );
 
         return res.status(200).json({
             success: true,
@@ -565,13 +586,20 @@ export const activateEmployee = async (req, res) => {
             });
         }
 
+        const linkedUser = await User.findOneAndUpdate(
+            { employee: employee._id },
+            { $set: { isActive: true } },
+            { new: true }
+        );
+        if (!linkedUser) {
+            return res.status(409).json({
+                success: false,
+                message: "Employee login account is missing; cannot safely activate employee"
+            });
+        }
+
         employee.employmentStatus = "active";
         await employee.save();
-
-        await User.findOneAndUpdate(
-            { employee: employee._id },
-            { $set: { isActive: true } }
-        );
 
         return res.status(200).json({
             success: true,
