@@ -47,7 +47,6 @@ export const createEmployee = async (req, res) => {
             phone,
             department,
             designation,
-            shift,
             joiningDate,
             shift = null,
             role = "employee",
@@ -155,6 +154,7 @@ export const createEmployee = async (req, res) => {
             phone: phone || "",
             department,
             designation,
+            shift,
             joiningDate,
             employmentStatus: "active"
         });
@@ -309,6 +309,7 @@ export const updateEmployee = async (req, res) => {
             "phone",
             "department",
             "designation",
+            "shift",
             "joiningDate",
             "employmentStatus"
         ];
