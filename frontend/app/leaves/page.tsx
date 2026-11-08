@@ -196,7 +196,7 @@ function LeaveManagement() {
         {error && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
         {message && <div role="status" className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">{message}</div>}
 
-        {!isReviewer && (
+        {(
           <section className="mb-6 rounded-xl bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center gap-3">
               <div className="rounded-lg bg-blue-100 p-3"><CalendarDays size={23} className="text-blue-600" /></div>
