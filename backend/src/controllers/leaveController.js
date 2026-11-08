@@ -168,7 +168,7 @@ export const getLeaveRequests = async (req, res) => {
             const teamIds = await Employee.find({
                 reportingManager: req.user.employeeId
             }).distinct("_id");
-            filter.employee = { $in: teamIds };
+            filter.employee = { $in: [...teamIds, req.user.employeeId] };
             if (employeeId) {
                 if (!mongoose.isValidObjectId(employeeId) ||
                     !teamIds.some((id) => id.toString() === employeeId)) {
