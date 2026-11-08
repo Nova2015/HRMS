@@ -164,7 +164,7 @@ function ShiftManagement() {
   const assignShift = async (employee: Employee) => {
     setSaving(true); setError(""); setMessage("");
     try {
-      const result = await apiRequest(`/employees/${employee._id}`, {
+      await apiRequest(`/employees/${employee._id}`, {
         method: "PUT",
         body: JSON.stringify({ shift: assignments[employee._id] || null }),
       });
