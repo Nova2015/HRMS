@@ -108,10 +108,11 @@ export const getMe = async (req, res) => {
         const user = await User.findById(req.user.userId)
             .populate({
                 path: "employee",
-                select: "employeeCode firstName lastName email phone department designation employmentStatus",
+                select: "employeeCode firstName lastName email phone department designation shift employmentStatus",
                 populate: [
                     { path: "department", select: "name code" },
-                    { path: "designation", select: "name" }
+                    { path: "designation", select: "name" },
+                    { path: "shift", select: "name weeklyOffDays startTime endTime" }
                 ]
             });
 
