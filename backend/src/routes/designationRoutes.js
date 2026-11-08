@@ -2,7 +2,8 @@
 
 import {
     createDesignation,
-    getDesignations
+    getDesignations,
+    updateDesignation
 } from "../controllers/designationController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -15,5 +16,6 @@ router.use(authorizeRoles("admin", "hr"));
 
 router.post("/", createDesignation);
 router.get("/", getDesignations);
+router.put("/:id", updateDesignation);
 
 export default router;
