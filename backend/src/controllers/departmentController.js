@@ -1,5 +1,7 @@
 ﻿import mongoose from "mongoose";
 import Department from "../models/Department.js";
+import Employee from "../models/Employee.js";
+import Designation from "../models/Designation.js";
 
 // CREATE
 export const createDepartment = async (req, res) => {
@@ -104,6 +106,18 @@ export const deleteDepartment = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Invalid department ID"
+            });
+        }
+
+        const [employeeCount, designationCount] = await Promise.all([
+            Employee.countDocuments({ department: id }),
+            Designation.countDocuments({ department: id })
+        ]);
+
+        if (employeeCount > 0 || designationCount > 0) {
+            return res.status(409).json({
+                success: false,
+                message: "Department is in use. Deactivate it instead of deleting it."
             });
         }
 
