@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import User from "../models/User.js";
+import Employee from "../models/Employee.js";
 
 export const protect = async (req, res, next) => {
     try {
@@ -55,10 +56,18 @@ export const protect = async (req, res, next) => {
             });
         }
 
+        const employee = await Employee.findById(user.employee).select("_id employmentStatus");
+        if (!employee || employee.employmentStatus !== "active") {
+            return res.status(403).json({
+                success: false,
+                message: "Employee account is not active"
+            });
+        }
+
         req.user = {
             userId: user._id.toString(),
             role: user.role,
-            employeeId: user.employee.toString()
+            employeeId: employee._id.toString()
         };
 
         return next();
