@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -71,6 +71,7 @@ function AttendanceWorkspace() {
   const [ownWeeklyOffDays, setOwnWeeklyOffDays] = useState<number[]>([]);
   const [month, setMonth] = useState(() => new Date());
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const previousDateRef = useRef(currentDate);
   const [selectedDay, setSelectedDay] = useState(todayKey());
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -170,6 +171,22 @@ function AttendanceWorkspace() {
       document.removeEventListener("visibilitychange", syncCurrentDate);
     };
   }, []);
+
+  useEffect(() => {
+    const previousDate = previousDateRef.current;
+    const previousKey = localDateKey(previousDate);
+    const nextKey = localDateKey(currentDate);
+    if (previousKey !== nextKey) {
+      setSelectedDay((selected) => selected === previousKey ? nextKey : selected);
+      setMonth((visibleMonth) =>
+        monthKey(visibleMonth) === monthKey(previousDate)
+          ? new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+          : visibleMonth
+      );
+      if (roleReady) loadWorkspace();
+    }
+    previousDateRef.current = currentDate;
+  }, [currentDate, loadWorkspace, roleReady]);
 
   const performAttendanceAction = async (action: "check-in" | "check-out") => {
     setSaving(true); setError(""); setNotice("");
