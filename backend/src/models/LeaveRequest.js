@@ -16,12 +16,12 @@ const leaveRequestSchema = new mongoose.Schema(
         startDate: {
             type: String,
             required: true,
-            match: /^\\d{4}-\\d{2}-\\d{2}$/
+            match: /^\d{4}-\d{2}-\d{2}$/
         },
         endDate: {
             type: String,
             required: true,
-            match: /^\\d{4}-\\d{2}-\\d{2}$/
+            match: /^\d{4}-\d{2}-\d{2}$/
         },
         totalDays: {
             type: Number,
