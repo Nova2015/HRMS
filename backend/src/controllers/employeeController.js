@@ -5,7 +5,8 @@ import bcrypt from "bcryptjs";
 import Employee from "../models/Employee.js";
 import User from "../models/User.js";
 import Department from "../models/Department.js";
-import Designation from "../models/Designation.js";\nimport Shift from "../models/Shift.js";
+import Designation from "../models/Designation.js";
+import Shift from "../models/Shift.js";
 
 const ALLOWED_ROLES = ["employee", "manager", "hr"];
 const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
@@ -13,7 +14,8 @@ const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
 const populateEmployee = (query) => {
     return query
         .populate("department", "name code")
-        .populate("designation", "name")\n        .populate("shift", "name code startTime endTime gracePeriodMinutes");
+        .populate("designation", "name")
+        .populate("shift", "name code startTime endTime gracePeriodMinutes");
 };
 
 const attachAccount = (employee, user) => {
@@ -45,7 +47,9 @@ export const createEmployee = async (req, res) => {
             phone,
             department,
             designation,
+            shift,
             joiningDate,
+            shift = null,
             role = "employee",
             initialPassword
         } = req.body;
@@ -136,6 +140,10 @@ export const createEmployee = async (req, res) => {
                 success: false,
                 message: "Designation does not belong to selected department"
             });
+        }
+
+        if (shift && (!mongoose.isValidObjectId(shift) || !(await Shift.exists({ _id: shift, isActive: true })))) {
+            return res.status(400).json({ success: false, message: "Selected shift is invalid or inactive" });
         }
 
         // Create employee record
@@ -344,7 +352,12 @@ export const updateEmployee = async (req, res) => {
             updates.lastName = String(updates.lastName).trim();
         }
 
-        if (updates.shift !== undefined && updates.shift !== null &&\n            (!mongoose.isValidObjectId(updates.shift) || !(await Shift.exists({ _id: updates.shift, isActive: true })))) {\n            return res.status(400).json({ success: false, message: "Selected shift is invalid or inactive" });\n        }\n\n        const departmentId = updates.department || employee.department.toString();
+        if (updates.shift !== undefined && updates.shift !== null &&
+            (!mongoose.isValidObjectId(updates.shift) || !(await Shift.exists({ _id: updates.shift, isActive: true })))) {
+            return res.status(400).json({ success: false, message: "Selected shift is invalid or inactive" });
+        }
+
+        const departmentId = updates.department || employee.department.toString();
         const designationId = updates.designation || employee.designation.toString();
 
         if (
