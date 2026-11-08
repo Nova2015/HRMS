@@ -7,6 +7,7 @@ const shiftSchema = new mongoose.Schema(
         startTime: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
         endTime: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
         gracePeriodMinutes: { type: Number, min: 0, max: 180, default: 15 },
+        weeklyOffDays: { type: [Number], enum: [0, 1, 2, 3, 4, 5, 6], default: [] },
         isActive: { type: Boolean, default: true, index: true },
         description: { type: String, trim: true, maxlength: 500, default: "" }
     },
