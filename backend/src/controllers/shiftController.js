@@ -77,7 +77,7 @@ export const createShift = async (req, res) => {
     } catch (error) {
         return res.status(error.code === 11000 ? 409 : 400).json({
             success: false,
-            message: error.code === 11000 ? "Shift code already exists" : error.message
+            message: error.code === 11000 ? "Shift code already exists" : "Unable to create shift"
         });
     }
 };
@@ -105,7 +105,7 @@ export const updateShift = async (req, res) => {
     } catch (error) {
         return res.status(error.code === 11000 ? 409 : 400).json({
             success: false,
-            message: error.code === 11000 ? "Shift code already exists" : error.message
+            message: error.code === 11000 ? "Shift code already exists" : "Unable to update shift"
         });
     }
 };
