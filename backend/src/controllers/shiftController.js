@@ -11,7 +11,7 @@ const validTime = (value) => typeof value === "string" && /^([01]\d|2[0-3]):[0-5
 
 const validate = (body, creating = false) => {
     const updates = {};
-    for (const field of ["name", "code", "startTime", "endTime", "gracePeriodMinutes", "description", "isActive"]) {
+    for (const field of ["name", "code", "startTime", "endTime", "gracePeriodMinutes", "weeklyOffDays", "description", "isActive"]) {
         if (body[field] !== undefined) updates[field] = body[field];
     }
 
@@ -30,6 +30,12 @@ const validate = (body, creating = false) => {
         if (updates[field] !== undefined && !validTime(updates[field])) {
             return { error: field + " must use 24-hour HH:MM format" };
         }
+    }
+    if (updates.weeklyOffDays !== undefined) {
+        if (!Array.isArray(updates.weeklyOffDays) || updates.weeklyOffDays.some((day) => !Number.isInteger(day) || day < 0 || day > 6)) {
+            return { error: "weeklyOffDays must be an array of weekday numbers from 0 (Sunday) to 6 (Saturday)" };
+        }
+        updates.weeklyOffDays = [...new Set(updates.weeklyOffDays)];
     }
     if (updates.gracePeriodMinutes !== undefined &&
         (!Number.isInteger(updates.gracePeriodMinutes) || updates.gracePeriodMinutes < 0 || updates.gracePeriodMinutes > 180)) {
