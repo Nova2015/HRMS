@@ -1,12 +1,22 @@
 import mongoose from "mongoose";
 import Attendance from "../models/Attendance.js";
 import Employee from "../models/Employee.js";
+import Shift from "../models/Shift.js";
 
 const TIME_ZONE = "Asia/Kolkata";
 
-const OFFICE_START_MINUTES = 9 * 60;
-const LATE_AFTER_MINUTES = 9 * 60 + 15;
-const OFFICE_END_MINUTES = 18 * 60;
+const DEFAULT_LATE_AFTER_MINUTES = 9 * 60 + 15;
+const DEFAULT_OFFICE_END_MINUTES = 18 * 60;
+
+const timeToMinutes = (value) => {
+    const [hours, minutes] = value.split(":").map(Number);
+    return hours * 60 + minutes;
+};
+
+const getShiftForEmployee = async (employee) => {
+    if (!employee?.shift) return null;
+    return Shift.findById(employee.shift).select("startTime endTime gracePeriodMinutes");
+};
 
 const HALF_DAY_MINUTES = 4 * 60;
 
@@ -116,7 +126,7 @@ export const checkIn = async (req, res) => {
             dateKey,
             checkIn: now,
             status: "present",
-            isLate: localMinutes > LATE_AFTER_MINUTES,
+            isLate: adjustedCheckInMinutes > lateThreshold,
             source: "self"
         });
 
