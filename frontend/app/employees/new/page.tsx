@@ -23,11 +23,21 @@ type Designation = {
   isActive?: boolean;
 };
 
+type ManagerOption = {
+  _id: string;
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  employmentStatus: string;
+  account: { role: string; isActive: boolean } | null;
+};
+
 function AddEmployeeForm() {
   const router = useRouter();
 
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
+  const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -42,6 +52,7 @@ function AddEmployeeForm() {
     phone: "",
     department: "",
     designation: "",
+    reportingManager: "",
     joiningDate: new Date().toISOString().slice(0, 10),
     role: "employee",
     initialPassword: "",
@@ -62,17 +73,20 @@ function AddEmployeeForm() {
           Authorization: `Bearer ${token}`,
         };
 
-        const [departmentResponse, designationResponse] = await Promise.all([
+        const [departmentResponse, designationResponse, employeeResponse] = await Promise.all([
           fetch(`${API_URL}/departments`, { headers, cache: "no-store" }),
           fetch(`${API_URL}/designations`, { headers, cache: "no-store" }),
+          fetch(`${API_URL}/employees`, { headers, cache: "no-store" }),
         ]);
 
         const departmentResult = await departmentResponse.json();
         const designationResult = await designationResponse.json();
+        const employeeResult = await employeeResponse.json();
 
         if (
           departmentResponse.status === 401 ||
-          designationResponse.status === 401
+          designationResponse.status === 401 ||
+          employeeResponse.status === 401
         ) {
           sessionStorage.removeItem("hrms_token");
           sessionStorage.removeItem("hrms_user");
@@ -92,6 +106,10 @@ function AddEmployeeForm() {
           );
         }
 
+        if (!employeeResponse.ok || !employeeResult.success) {
+          throw new Error(employeeResult.message || "Unable to load manager list");
+        }
+
         setDepartments(
           (departmentResult.data || []).filter(
             (item: Department) => item.isActive !== false
@@ -103,6 +121,11 @@ function AddEmployeeForm() {
             (item: Designation) => item.isActive !== false
           )
         );
+        setManagers((employeeResult.data || []).filter((item: ManagerOption) =>
+          item.employmentStatus === "active" &&
+          item.account?.role === "manager" &&
+          item.account.isActive
+        ));
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Unable to load form options"
@@ -178,6 +201,7 @@ function AddEmployeeForm() {
           designation: form.designation,
           joiningDate: form.joiningDate,
           role: form.role,
+          reportingManager: form.role === "employee" ? (form.reportingManager || null) : null,
           initialPassword: form.initialPassword,
         }),
       });
@@ -388,6 +412,25 @@ function AddEmployeeForm() {
                   <option value="hr">HR</option>
                 </select>
               </div>
+
+              {form.role === "employee" && (
+                <div>
+                  <label className={labelClass}>Reporting Manager</label>
+                  <select
+                    className={inputClass}
+                    value={form.reportingManager}
+                    onChange={(e) => updateField("reportingManager", e.target.value)}
+                  >
+                    <option value="">No manager assigned</option>
+                    {managers.map((manager) => (
+                      <option key={manager._id} value={manager._id}>
+                        {manager.firstName} {manager.lastName} ({manager.employeeCode})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">The assigned manager can view and review this employee&apos;s leave requests.</p>
+                </div>
+              )}
 
               <div>
                 <label className={labelClass}>Initial Password *</label>
