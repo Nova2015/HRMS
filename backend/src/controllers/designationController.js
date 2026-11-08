@@ -23,10 +23,10 @@ export const createDesignation = async (req, res) => {
 
         const departmentExists = await Department.findById(department);
 
-        if (!departmentExists) {
+        if (!departmentExists || !departmentExists.isActive) {
             return res.status(404).json({
                 success: false,
-                message: "Department not found"
+                message: "An active department is required"
             });
         }
 
