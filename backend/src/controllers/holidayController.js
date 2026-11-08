@@ -147,7 +147,7 @@ export const updateHoliday = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "A holiday with this name and date already exists"
-                : error.message
+                : "Unable to update holiday"
         });
     }
 };
