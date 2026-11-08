@@ -144,7 +144,9 @@ export default function Home() {
               <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-blue-100">
                 <Sparkles size={14} /> Human Resource Management
               </span>
-              <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">{isAdmin ? "Your company operations,<br className='hidden sm:block' /> in one organized workspace." : isManager ? "Your team and personal HR tasks,<br className='hidden sm:block' /> in one focused workspace." : "Your workday essentials,<br className='hidden sm:block' /> in one simple workspace."}</h2>
+              <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+                {isAdmin ? <>Your company operations,<br className="hidden sm:block" /> in one organized workspace.</> : isManager ? <>Your team and personal HR tasks,<br className="hidden sm:block" /> in one focused workspace.</> : <>Your workday essentials,<br className="hidden sm:block" /> in one simple workspace.</>}
+              </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">{isAdmin ? "Manage employees, attendance, leave, shifts, holidays and payroll." : isManager ? "Review assigned team leave requests and manage your own attendance and payroll." : "Check attendance, apply for leave and view your own payroll records."}</p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link href={isAdmin ? "/employees" : "/leaves"} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-blue-50">{isAdmin ? "View employees" : isManager ? "Review team leaves" : "Apply for leave"} <ArrowUpRight size={16} /></Link>
@@ -152,7 +154,7 @@ export default function Home() {
               </div>
             </div>
             <div className="relative z-10 mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/15 pt-5 sm:absolute sm:bottom-8 sm:right-9 sm:mt-0 sm:w-[390px] sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
-              <div><p className="text-xs text-slate-400">Core modules</p><p className="mt-1 text-2xl font-bold">07</p></div>
+              <div><p className="text-xs text-slate-400">Available modules</p><p className="mt-1 text-2xl font-bold">{visibleModules.length.toString().padStart(2, "0")}</p></div>
               <div><p className="text-xs text-slate-400">Workspace</p><p className="mt-1 text-sm font-semibold">Centralized</p></div>
               <div><p className="text-xs text-slate-400">Access</p><p className="mt-1 text-sm font-semibold">Role-based</p></div>
             </div>
@@ -161,7 +163,7 @@ export default function Home() {
           <section className="mb-7">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Workspace</p><h2 className="mt-1 text-xl font-bold text-slate-900">HR modules</h2><p className="mt-1 text-sm text-slate-500">Choose a module to view or manage its records.</p></div>
-              <span className="text-xs font-medium text-slate-400">7 modules available</span>
+              <span className="text-xs font-medium text-slate-400">{visibleModules.length} modules available</span>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleModules.map((item) => {
