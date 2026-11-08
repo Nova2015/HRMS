@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   CalendarDays, CalendarPlus, RefreshCw, Send, Check, X, ArrowLeft,
-  ChevronLeft, ChevronRight, Users, Clock3, CheckCircle2, XCircle
+  Users, Clock3, CheckCircle2, XCircle
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
@@ -30,8 +30,6 @@ type LeaveRequest = {
   };
 };
 
-const pad = (value: number) => String(value).padStart(2, "0");
-const dateKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 const statusStyles: Record<LeaveStatus, string> = {
   pending: "border-amber-300 bg-amber-100 text-amber-800",
   approved: "border-emerald-300 bg-emerald-100 text-emerald-800",
@@ -50,7 +48,6 @@ function LeaveManagement() {
   const [message, setMessage] = useState("");
   const [filter, setFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [form, setForm] = useState({
     leaveType: "casual",
     startDate: "",
@@ -202,32 +199,6 @@ function LeaveManagement() {
       setSaving(false);
     }
   };
-
-  const monthLabel = calendarMonth.toLocaleDateString("en-IN", {
-    month: "long",
-    year: "numeric",
-  });
-  const calendarDays = useMemo(() => {
-    const first = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
-    const offset = first.getDay();
-    const count = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate();
-    const cells: Array<{ key: string; day: number; inMonth: boolean }> = [];
-    for (let i = 0; i < offset; i += 1) {
-      const date = new Date(first);
-      date.setDate(date.getDate() - (offset - i));
-      cells.push({ key: dateKey(date), day: date.getDate(), inMonth: false });
-    }
-    for (let day = 1; day <= count; day += 1) {
-      const date = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
-      cells.push({ key: dateKey(date), day, inMonth: true });
-    }
-    while (cells.length % 7 !== 0) {
-      const last = new Date(`${cells[cells.length - 1].key}T00:00:00`);
-      last.setDate(last.getDate() + 1);
-      cells.push({ key: dateKey(last), day: last.getDate(), inMonth: false });
-    }
-    return cells;
-  }, [calendarMonth]);
 
   const summary = useMemo(() => ({
     total: items.length,
