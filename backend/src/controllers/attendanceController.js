@@ -483,6 +483,19 @@ export const saveManualAttendance = async (req, res) => {
             ? getLocalMinutes(checkOutDate)
             : null;
 
+        const shift = await getShiftForEmployee(employee);
+        const shiftStartMinutes = shift ? timeToMinutes(shift.startTime) : DEFAULT_LATE_AFTER_MINUTES - 15;
+        const shiftEndMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
+        const overnight = Boolean(shift && shiftEndMinutes <= shiftStartMinutes);
+        const adjustedManualCheckIn = localCheckInMinutes !== null && overnight && localCheckInMinutes < shiftEndMinutes
+            ? localCheckInMinutes + 1440
+            : localCheckInMinutes;
+        const adjustedManualCheckOut = localCheckOutMinutes !== null && overnight && localCheckOutMinutes < shiftStartMinutes
+            ? localCheckOutMinutes + 1440
+            : localCheckOutMinutes;
+        const lateThreshold = shift ? shiftStartMinutes + shift.gracePeriodMinutes : LATE_AFTER_MINUTES;
+        const expectedEnd = overnight ? shiftEndMinutes + 1440 : shiftEndMinutes;
+
         const update = {
             employee: employeeId,
             dateKey,
@@ -490,11 +503,11 @@ export const saveManualAttendance = async (req, res) => {
             checkOut: checkOutDate,
             workMinutes,
             status,
-            isLate: localCheckInMinutes !== null
-                ? localCheckInMinutes > LATE_AFTER_MINUTES
+            isLate: adjustedManualCheckIn !== null
+                ? adjustedManualCheckIn > lateThreshold
                 : false,
-            isEarlyLeaving: localCheckOutMinutes !== null
-                ? localCheckOutMinutes < OFFICE_END_MINUTES
+            isEarlyLeaving: adjustedManualCheckOut !== null
+                ? adjustedManualCheckOut < expectedEnd
                 : false,
             notes: String(notes || "").trim(),
             source: "manual",
