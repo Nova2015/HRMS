@@ -1,10 +1,12 @@
 
+import Link from "next/link";
 import {
   Users,
   Clock,
   CalendarDays,
   Wallet,
   TrendingUp,
+  ArrowRight,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -26,7 +28,7 @@ const stats = [
   },
   {
     title: "Monthly Payroll",
-    value: "â‚¹28.5L",
+    value: "₹28.5L",
     icon: Wallet,
   },
 ];
@@ -71,25 +73,47 @@ export default function Home() {
         </section>
 
         <section className="mt-8 grid gap-5 lg:grid-cols-2">
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">
-              Employee Overview
-            </h2>
+          <Link
+            href="/employees"
+            className="block rounded-xl bg-white p-6 shadow-sm transition hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">
+                Employee Overview
+              </h2>
+
+              <ArrowRight className="h-5 w-5 text-blue-600" />
+            </div>
 
             <p className="mt-3 text-slate-500">
               Employee analytics will appear here.
             </p>
-          </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">
-              Attendance Overview
-            </h2>
+            <p className="mt-4 text-sm font-medium text-blue-600">
+              Manage Employees
+            </p>
+          </Link>
+
+          <Link
+            href="/attendance"
+            className="block rounded-xl bg-white p-6 shadow-sm transition hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">
+                Attendance Overview
+              </h2>
+
+              <ArrowRight className="h-5 w-5 text-blue-600" />
+            </div>
 
             <p className="mt-3 text-slate-500">
               Attendance analytics will appear here.
             </p>
-          </div>
+
+            <p className="mt-4 text-sm font-medium text-blue-600">
+              Manage Attendance
+            </p>
+          </Link>
         </section>
       </main>
     </AuthGuard>
