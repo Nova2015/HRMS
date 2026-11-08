@@ -102,13 +102,15 @@ function ShiftManagement() {
   }, [apiRequest, canManage]);
 
   useEffect(() => {
+    let nextRole = "employee";
     try {
       const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
-      setRole(user.role || "employee");
-    } catch { setRole("employee"); }
+      nextRole = user.role || "employee";
+    } catch { nextRole = "employee"; }
+    void Promise.resolve().then(() => setRole(nextRole));
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { void Promise.resolve().then(loadData); }, [loadData]);
 
   const submitShift = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
