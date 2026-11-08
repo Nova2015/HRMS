@@ -368,7 +368,7 @@ function AttendanceWorkspace() {
           </aside>
         </div>
 
-        {!canSeeTeam && (
+        {!isAdmin && (
           <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4"><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Daily attendance</p><h2 className="mt-1 text-lg font-bold text-slate-900">Today&apos;s check-in / check-out</h2><p className="mt-1 text-sm text-slate-500">Record your attendance for today.</p></div>
             <div className="grid gap-3 sm:grid-cols-3">
