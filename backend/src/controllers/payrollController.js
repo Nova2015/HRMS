@@ -60,7 +60,9 @@ export const listPayroll = async (req, res) => {
     try {
         const { period } = req.query;
         if (!isPeriod(period)) return res.status(400).json({ success: false, message: "Period must be YYYY-MM" });
-        const data = await Payroll.find({ period })
+        const filter = { period };
+        if (!["admin", "hr"].includes(req.user.role)) filter.employee = req.user.employeeId;
+        const data = await Payroll.find(filter)
             .populate("employee", "employeeCode firstName lastName department")
             .sort({ createdAt: -1 });
         res.json({ success: true, count: data.length, data });
