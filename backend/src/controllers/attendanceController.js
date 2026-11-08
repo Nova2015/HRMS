@@ -7,6 +7,8 @@ const TIME_ZONE = "Asia/Kolkata";
 
 const DEFAULT_LATE_AFTER_MINUTES = 9 * 60 + 15;
 const DEFAULT_OFFICE_END_MINUTES = 18 * 60;
+const LATE_AFTER_MINUTES = DEFAULT_LATE_AFTER_MINUTES;
+const OFFICE_END_MINUTES = DEFAULT_OFFICE_END_MINUTES;
 
 const timeToMinutes = (value) => {
     const [hours, minutes] = value.split(":").map(Number);
@@ -119,7 +121,17 @@ export const checkIn = async (req, res) => {
             });
         }
 
+        const shift = await getShiftForEmployee(employee);
         const localMinutes = getLocalMinutes(now);
+        const startMinutes = shift ? timeToMinutes(shift.startTime) : DEFAULT_LATE_AFTER_MINUTES - 15;
+        const endMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
+        const overnight = Boolean(shift && endMinutes <= startMinutes);
+        const adjustedCheckInMinutes = overnight && localMinutes < endMinutes
+            ? localMinutes + 1440
+            : localMinutes;
+        const lateThreshold = shift
+            ? startMinutes + shift.gracePeriodMinutes
+            : DEFAULT_LATE_AFTER_MINUTES;
 
         const attendance = await Attendance.create({
             employee: employeeId,
@@ -199,11 +211,21 @@ export const checkOut = async (req, res) => {
             now
         );
 
+        const employee = await Employee.findById(employeeId).select("shift");
+        const shift = await getShiftForEmployee(employee);
+        const localMinutes = getLocalMinutes(now);
+        const shiftStartMinutes = shift ? timeToMinutes(shift.startTime) : null;
+        const shiftEndMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
+        const overnight = Boolean(shift && shiftEndMinutes <= shiftStartMinutes);
+        const adjustedCheckOutMinutes = overnight && localMinutes < shiftStartMinutes
+            ? localMinutes + 1440
+            : localMinutes;
+        const expectedEndMinutes = overnight ? shiftEndMinutes + 1440 : shiftEndMinutes;
+
         attendance.checkOut = now;
         attendance.workMinutes = workMinutes;
         attendance.status = getAttendanceStatus(workMinutes);
-        attendance.isEarlyLeaving =
-            getLocalMinutes(now) < OFFICE_END_MINUTES;
+        attendance.isEarlyLeaving = adjustedCheckOutMinutes < expectedEndMinutes;
 
         await attendance.save();
 
