@@ -82,7 +82,7 @@ export default function Home() {
             <p className="mt-3 text-slate-500">View and manage company holidays.</p>
             <p className="mt-4 text-sm font-medium text-blue-600">Manage Holidays</p>
           </Link>
-          <Link href="/organization" className="block rounded-xl bg-white p-6 shadow-sm transition hover:shadow-md">
+          <Link href="/payroll" className="block rounded-xl bg-white p-6 shadow-sm transition hover:shadow-md">\n            <div className="flex items-center justify-between">\n              <h2 className="text-xl font-semibold">Payroll Management</h2>\n              <ArrowRight className="h-5 w-5 text-blue-600" />\n            </div>\n            <p className="mt-3 text-slate-500">Configure salaries, process monthly payroll and generate payslips.</p>\n            <p className="mt-4 text-sm font-medium text-blue-600">Manage Payroll</p>\n          </Link>\n          <Link href="/organization" className="block rounded-xl bg-white p-6 shadow-sm transition hover:shadow-md">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Organization Structure</h2>
               <ArrowRight className="h-5 w-5 text-blue-600" />
