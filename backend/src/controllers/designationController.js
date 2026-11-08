@@ -47,7 +47,7 @@ export const createDesignation = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "This designation already exists in this department"
-                : error.message
+                : "Unable to create designation"
         });
     }
 };
@@ -68,7 +68,7 @@ export const getDesignations = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to load designations"
         });
     }
 };
@@ -130,7 +130,7 @@ export const updateDesignation = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "This designation already exists in this department"
-                : error.message
+                : "Unable to update designation"
         });
     }
 };
