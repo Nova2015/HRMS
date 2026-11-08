@@ -51,7 +51,6 @@ function LeaveManagement() {
   const [filter, setFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
-  const [selectedDate, setSelectedDate] = useState("");
   const [form, setForm] = useState({
     leaveType: "casual",
     startDate: "",
@@ -147,13 +146,7 @@ function LeaveManagement() {
     }
   };
 
-  const openApplyForm = (date = "") => {
-    setSelectedDate(date);
-    setForm((previous) => ({
-      ...previous,
-      startDate: date || previous.startDate,
-      endDate: date || previous.endDate,
-    }));
+  const openApplyForm = () => {
     setShowForm(true);
     window.setTimeout(() => {
       document.getElementById("leave-application-form")?.scrollIntoView({
@@ -317,10 +310,6 @@ function LeaveManagement() {
                 </select>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Selected Calendar Date</label>
-                <input readOnly value={selectedDate || "Choose a date on the calendar"} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600" />
-              </div>
-              <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">Start Date *</label>
                 <input required type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value, endDate: form.endDate && form.endDate < e.target.value ? e.target.value : form.endDate })} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
               </div>
@@ -343,50 +332,13 @@ function LeaveManagement() {
           </section>
         )}
 
-        <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5 sm:px-6">
+        <section className="mb-6 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+          <div className="flex items-start gap-3">
+            <CalendarDays className="mt-0.5 text-blue-700" size={20} />
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Leave Calendar</h2>
-              <p className="mt-1 text-sm text-slate-500">Select any date to start a leave application.</p>
+              <p className="font-semibold text-blue-950">Attendance Calendar is available in the Attendance module.</p>
+              <p className="mt-1 text-sm text-blue-800">Leave applications and approvals remain on this page. Use the date fields in the form to request leave.</p>
             </div>
-            <div className="flex items-center gap-2">
-              <button type="button" aria-label="Previous month" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))} className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100"><ChevronLeft size={18} /></button>
-              <span className="min-w-36 text-center text-sm font-bold text-slate-800">{monthLabel}</span>
-              <button type="button" aria-label="Next month" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))} className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100"><ChevronRight size={18} /></button>
-            </div>
-          </div>
-          <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className="py-3">{day}</div>)}
-          </div>
-          <div className="grid grid-cols-7">
-            {calendarDays.map((day) => {
-              const dayItems = items.filter((item) => item.startDate <= day.key && item.endDate >= day.key);
-              const isToday = day.key === dateKey(new Date());
-              const isSelected = selectedDate === day.key;
-              return (
-                <button
-                  type="button"
-                  key={day.key}
-                  onClick={() => openApplyForm(day.key)}
-                  className={`group min-h-24 border-b border-r border-slate-100 p-1.5 text-left transition duration-200 hover:bg-blue-50 sm:min-h-28 sm:p-2.5 ${day.inMonth ? "bg-white" : "bg-slate-50/70"} ${isSelected ? "ring-2 ring-inset ring-blue-500 bg-blue-50" : ""}`}
-                >
-                  <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition ${isToday ? "bg-blue-600 text-white" : day.inMonth ? "text-slate-700 group-hover:bg-blue-100" : "text-slate-400"}`}>{day.day}</span>
-                  <div className="mt-1 space-y-1">
-                    {dayItems.slice(0, 2).map((item) => (
-                      <div key={item._id} title={`${item.status}: ${item.reason}`} className={`truncate rounded-md border px-1.5 py-1 text-[9px] font-semibold leading-tight sm:text-[10px] ${statusStyles[item.status]}`}>
-                        {canReview ? `${item.employee?.firstName || "Employee"} · ${item.status}` : item.status}
-                      </div>
-                    ))}
-                    {dayItems.length > 2 && <p className="px-1 text-[9px] font-medium text-slate-500">+{dayItems.length - 2} more</p>}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-slate-100 px-5 py-4 text-xs text-slate-600">
-            {(["pending", "approved", "rejected", "cancelled"] as LeaveStatus[]).map((status) => (
-              <span key={status} className="inline-flex items-center gap-2 capitalize"><span className={`h-2.5 w-2.5 rounded-full ${status === "pending" ? "bg-amber-400" : status === "approved" ? "bg-emerald-500" : status === "rejected" ? "bg-rose-500" : "bg-slate-400"}`} />{status}</span>
-            ))}
           </div>
         </section>
 
