@@ -13,6 +13,7 @@ import AuthGuard from "../components/AuthGuard";
 const API_URL = "http://localhost:5000/api";
 
 type Role = "admin" | "hr" | "manager" | "employee";
+type ApiResponse = { data?: unknown; message?: string };
 type AttendanceStatus = "present" | "half-day" | "absent";
 type AttendanceRecord = {
   _id: string;
@@ -124,7 +125,7 @@ function AttendanceWorkspace() {
       const attendancePath = canSeeTeam
         ? `/attendance?${range}${employeeFilter ? `&employeeId=${encodeURIComponent(employeeFilter)}` : ""}`
         : `/attendance/me?${range}`;
-      const requests: Promise<any>[] = [
+      const requests: Promise<ApiResponse>[] = [
         apiRequest("/attendance/today"),
         apiRequest(attendancePath),
         apiRequest(`/holidays?${range}`),
@@ -132,11 +133,12 @@ function AttendanceWorkspace() {
       ];
       if (canSeeTeam) requests.push(apiRequest("/attendance/team"));
       const results = await Promise.all(requests);
-      setToday(results[0].data || null);
-      setRecords(results[1].data || []);
-      setHolidays(results[2].data || []);
-      setOwnWeeklyOffDays(results[3].data?.employee?.shift?.weeklyOffDays || []);
-      if (canSeeTeam) setEmployees(results[4].data || []);
+      setToday((results[0].data as AttendanceRecord | null | undefined) || null);
+      setRecords((results[1].data as AttendanceRecord[] | undefined) || []);
+      setHolidays((results[2].data as Holiday[] | undefined) || []);
+      const authData = results[3].data as { employee?: { shift?: { weeklyOffDays?: number[] } | null } } | undefined;
+      setOwnWeeklyOffDays(authData?.employee?.shift?.weeklyOffDays || []);
+      if (canSeeTeam) setEmployees((results[4].data as Employee[] | undefined) || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load attendance workspace");
     } finally {
@@ -145,18 +147,21 @@ function AttendanceWorkspace() {
   }, [apiRequest, canSeeTeam, employeeFilter, monthStart, monthEnd]);
 
   useEffect(() => {
+    let nextRole: Role = "employee";
     try {
       const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
-      setRole((["admin", "hr", "manager", "employee"].includes(user.role) ? user.role : "employee") as Role);
+      nextRole = (["admin", "hr", "manager", "employee"].includes(user.role) ? user.role : "employee") as Role;
     } catch {
-      setRole("employee");
-    } finally {
-      setRoleReady(true);
+      nextRole = "employee";
     }
+    void Promise.resolve().then(() => {
+      setRole(nextRole);
+      setRoleReady(true);
+    });
   }, []);
 
   useEffect(() => {
-    if (roleReady) loadWorkspace();
+    if (roleReady) void Promise.resolve().then(loadWorkspace);
   }, [loadWorkspace, roleReady]);
 
   // Keep the Today marker in sync when the page remains open across midnight.
