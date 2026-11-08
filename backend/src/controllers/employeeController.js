@@ -15,7 +15,8 @@ const populateEmployee = (query) => {
     return query
         .populate("department", "name code")
         .populate("designation", "name")
-        .populate("shift", "name code startTime endTime gracePeriodMinutes");
+        .populate("shift", "name code startTime endTime gracePeriodMinutes")
+        .populate("reportingManager", "employeeCode firstName lastName");
 };
 
 const attachAccount = (employee, user) => {
@@ -49,6 +50,7 @@ export const createEmployee = async (req, res) => {
             designation,
             joiningDate,
             shift = null,
+            reportingManager = null,
             role = "employee",
             initialPassword
         } = req.body;
@@ -145,6 +147,23 @@ export const createEmployee = async (req, res) => {
             return res.status(400).json({ success: false, message: "Selected shift is invalid or inactive" });
         }
 
+        if (reportingManager) {
+            if (!mongoose.isValidObjectId(reportingManager)) {
+                return res.status(400).json({ success: false, message: "Invalid reporting manager" });
+            }
+            const managerUser = await User.findOne({
+                employee: reportingManager,
+                role: "manager",
+                isActive: true
+            });
+            const managerEmployee = managerUser
+                ? await Employee.findOne({ _id: reportingManager, employmentStatus: "active" })
+                : null;
+            if (!managerEmployee) {
+                return res.status(400).json({ success: false, message: "Select an active employee with Manager role" });
+            }
+        }
+
         // Create employee record
         createdEmployee = await Employee.create({
             employeeCode: normalizedCode,
@@ -155,6 +174,7 @@ export const createEmployee = async (req, res) => {
             department,
             designation,
             shift,
+            reportingManager: reportingManager || null,
             joiningDate,
             employmentStatus: "active"
         });
@@ -310,6 +330,7 @@ export const updateEmployee = async (req, res) => {
             "department",
             "designation",
             "shift",
+            "reportingManager",
             "joiningDate",
             "employmentStatus"
         ];
@@ -356,6 +377,31 @@ export const updateEmployee = async (req, res) => {
         if (updates.shift !== undefined && updates.shift !== null &&
             (!mongoose.isValidObjectId(updates.shift) || !(await Shift.exists({ _id: updates.shift, isActive: true })))) {
             return res.status(400).json({ success: false, message: "Selected shift is invalid or inactive" });
+        }
+
+        if (updates.reportingManager !== undefined) {
+            if (updates.reportingManager === null || updates.reportingManager === "") {
+                updates.reportingManager = null;
+            } else {
+                if (!mongoose.isValidObjectId(updates.reportingManager) ||
+                    updates.reportingManager.toString() === employee._id.toString()) {
+                    return res.status(400).json({ success: false, message: "Invalid reporting manager" });
+                }
+                const managerUser = await User.findOne({
+                    employee: updates.reportingManager,
+                    role: "manager",
+                    isActive: true
+                });
+                const managerEmployee = managerUser
+                    ? await Employee.findOne({
+                        _id: updates.reportingManager,
+                        employmentStatus: "active"
+                    })
+                    : null;
+                if (!managerEmployee) {
+                    return res.status(400).json({ success: false, message: "Select an active employee with Manager role" });
+                }
+            }
         }
 
         const departmentId = updates.department || employee.department.toString();
