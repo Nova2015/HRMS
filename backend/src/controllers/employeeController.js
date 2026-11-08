@@ -216,7 +216,7 @@ export const createEmployee = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "Employee code or email already exists"
-                : error.message
+                : "Unable to create employee"
         });
     }
 };
@@ -256,7 +256,7 @@ export const getEmployees = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to load employees"
         });
     }
 };
@@ -296,7 +296,7 @@ export const getEmployeeById = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to load employee"
         });
     }
 };
@@ -495,7 +495,7 @@ export const updateEmployee = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "Employee email already exists"
-                : error.message
+                : "Unable to update employee"
         });
     }
 };
@@ -539,7 +539,7 @@ export const deactivateEmployee = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to deactivate employee"
         });
     }
 };
@@ -583,7 +583,7 @@ export const activateEmployee = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to activate employee"
         });
     }
 };
