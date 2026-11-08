@@ -14,7 +14,8 @@ import employeeRoutes from "./routes/employeeRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
-import holidayRoutes from "./routes/holidayRoutes.js";\nimport shiftRoutes from "./routes/shiftRoutes.js";
+import holidayRoutes from "./routes/holidayRoutes.js";
+import shiftRoutes from "./routes/shiftRoutes.js";
 
 const app = express();
 
@@ -44,7 +45,8 @@ app.use("/api/employees", employeeRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/leaves", leaveRoutes);
-app.use("/api/holidays", holidayRoutes);\napp.use("/api/shifts", shiftRoutes);
+app.use("/api/holidays", holidayRoutes);
+app.use("/api/shifts", shiftRoutes);
 
 app.use((req, res) => {
     res.status(404).json({
