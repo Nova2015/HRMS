@@ -301,7 +301,7 @@ function LeaveManagement() {
             </div>
           )}
         </section>
-        <p className="mt-4 text-xs text-slate-500">Leave requests are reviewed by Admin or HR. Leave days currently use calendar-day counting; weekly offs and holidays are not deducted.</p>
+        <p className="mt-4 text-xs text-slate-500">Leave requests are reviewed by Admin or HR. Working days exclude the employee's assigned shift weekly offs and active public/company holidays. Optional holidays are not deducted.</p>
       </div>
     </main>
   );
