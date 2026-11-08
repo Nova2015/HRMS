@@ -66,13 +66,44 @@ export const updateDepartment = async (req, res) => {
             });
         }
 
+        const allowedFields = ["name", "code", "description", "isActive"];
+        const updates = {};
+
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) {
+                updates[field] = req.body[field];
+            }
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No valid department fields provided"
+            });
+        }
+
+        if (updates.name !== undefined) {
+            updates.name = String(updates.name).trim();
+            if (!updates.name) {
+                return res.status(400).json({ success: false, message: "Department name is required" });
+            }
+        }
+
+        if (updates.code !== undefined) {
+            updates.code = String(updates.code).trim().toUpperCase();
+            if (!updates.code) {
+                return res.status(400).json({ success: false, message: "Department code is required" });
+            }
+        }
+
+        if (updates.description !== undefined) {
+            updates.description = String(updates.description).trim();
+        }
+
         const department = await Department.findByIdAndUpdate(
             id,
-            req.body,
-            {
-                new: true,
-                runValidators: true
-            }
+            { $set: updates },
+            { new: true, runValidators: true }
         );
 
         if (!department) {
