@@ -37,6 +37,7 @@ type Employee = {
   employeeCode: string;
   firstName: string;
   lastName: string;
+  shift?: { weeklyOffDays: number[] } | null;
 };
 type Holiday = {
   _id: string;
@@ -67,6 +68,7 @@ function AttendanceWorkspace() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [ownWeeklyOffDays, setOwnWeeklyOffDays] = useState<number[]>([]);
   const [month, setMonth] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(todayKey());
   const [employeeFilter, setEmployeeFilter] = useState("");
@@ -124,13 +126,15 @@ function AttendanceWorkspace() {
         apiRequest("/attendance/today"),
         apiRequest(attendancePath),
         apiRequest(`/holidays?${range}`),
+        apiRequest("/auth/me"),
       ];
       if (canSeeTeam) requests.push(apiRequest("/attendance/team"));
       const results = await Promise.all(requests);
       setToday(results[0].data || null);
       setRecords(results[1].data || []);
       setHolidays(results[2].data || []);
-      if (canSeeTeam) setEmployees(results[3].data || []);
+      setOwnWeeklyOffDays(results[3].data?.employee?.shift?.weeklyOffDays || []);
+      if (canSeeTeam) setEmployees(results[4].data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load attendance workspace");
     } finally {
@@ -208,6 +212,17 @@ function AttendanceWorkspace() {
     }
     return cells;
   }, [month]);
+
+  const isWeeklyOffDate = (dateKey: string) => {
+    const weekday = new Date(`${dateKey}T00:00:00`).getDay();
+    if (!canSeeTeam) return ownWeeklyOffDays.includes(weekday);
+    if (employeeFilter) {
+      return employees.find((employee) => employee._id === employeeFilter)?.shift?.weeklyOffDays?.includes(weekday) || false;
+    }
+    return isManager && employees.length > 0 &&
+      employees.every((employee) => employee.shift?.weeklyOffDays?.includes(weekday));
+  };
+  const selectedWeeklyOff = isWeeklyOffDate(selectedDay);
 
   const selectedRecords = records.filter((record) => record.dateKey === selectedDay);
   const selectedHoliday = holidays.filter((holiday) => holiday.dateKey === selectedDay);
@@ -316,6 +331,7 @@ function AttendanceWorkspace() {
                     <div className="flex items-center justify-between"><span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${isToday ? "bg-indigo-600 text-white" : cell.inMonth ? "text-slate-700 group-hover:bg-indigo-100" : "text-slate-400"}`}>{cell.day}</span>{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}</div>
                     <div className="mt-1.5 space-y-1">
                       {dayHoliday.slice(0, 1).map((holiday) => <div key={holiday._id} className="truncate rounded-md bg-sky-100 px-1.5 py-1 text-[9px] font-semibold text-sky-800 sm:text-[10px]">{holiday.name}</div>)}
+                      {isWeeklyOffDate(cell.key) && dayRecords.length === 0 && <div className="truncate rounded-md bg-slate-200 px-1.5 py-1 text-[9px] font-semibold text-slate-700 sm:text-[10px]">Weekly Off</div>}
                       {statuses.slice(0, 2).map((status) => <div key={status} className={`truncate rounded-md px-1.5 py-1 text-[9px] font-semibold capitalize sm:text-[10px] ${status === "present" ? "bg-emerald-100 text-emerald-800" : status === "half-day" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`}>{status === "half-day" ? "Half day" : status}</div>)}
                       {dayRecords.some((record) => record.isLate) && <div className="truncate rounded-md bg-orange-100 px-1.5 py-1 text-[9px] font-semibold text-orange-800">Late</div>}
                     </div>
@@ -348,7 +364,7 @@ function AttendanceWorkspace() {
                 {record.notes && <p className="mt-3 text-xs text-slate-500">Note: {record.notes}</p>}
                 {record.source === "manual" && <p className="mt-2 text-xs font-medium text-violet-700">Manually entered / corrected</p>}
               </div>)}
-            </div> : <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center"><CalendarDays className="mx-auto mb-2 text-slate-300" size={28} /><p className="text-sm font-semibold text-slate-700">No attendance record</p><p className="mt-1 text-xs text-slate-500">{selectedHoliday.length ? "Holiday listed above." : "No record has been entered for this date."}</p></div>}
+            </div> : <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center"><CalendarDays className="mx-auto mb-2 text-slate-300" size={28} /><p className="text-sm font-semibold text-slate-700">No attendance record</p><p className="mt-1 text-xs text-slate-500">{selectedHoliday.length ? "Holiday listed above." : selectedWeeklyOff ? "Scheduled weekly off based on the assigned shift." : "No record has been entered for this date."}</p></div>}
           </aside>
         </div>
 
