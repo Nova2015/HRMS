@@ -89,9 +89,10 @@ export default function Home() {
     if (stored) {
       try {
         const user = JSON.parse(stored);
-        setRole(user.role || "employee");
+        const nextRole = user.role || "employee";
+        void Promise.resolve().then(() => setRole(nextRole));
       } catch {
-        setRole("employee");
+        void Promise.resolve().then(() => setRole("employee"));
       }
     }
   }, []);
