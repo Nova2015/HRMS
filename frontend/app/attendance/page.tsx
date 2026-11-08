@@ -1,30 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useState, FormEvent } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Clock,
-  LogIn,
-  LogOut,
-  RefreshCw,
-  CalendarDays,
-  ClipboardCheck,
-  Save,
-  ArrowLeft,
+  ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3, Download,
+  LogIn, LogOut, RefreshCw, Save, Search, Users, CheckCircle2,
+  AlertCircle, Timer, CalendarCheck2, X
 } from "lucide-react";
-
 import AuthGuard from "../components/AuthGuard";
 
 const API_URL = "http://localhost:5000/api";
 
+type Role = "admin" | "hr" | "manager" | "employee";
+type AttendanceStatus = "present" | "half-day" | "absent";
 type AttendanceRecord = {
   _id: string;
   dateKey: string;
   checkIn: string | null;
   checkOut: string | null;
   workMinutes: number;
-  status: "present" | "half-day" | "absent";
+  status: AttendanceStatus;
   isLate: boolean;
   isEarlyLeaving: boolean;
   notes?: string;
@@ -34,781 +30,346 @@ type AttendanceRecord = {
     employeeCode: string;
     firstName: string;
     lastName: string;
-    email?: string;
   };
 };
-
 type Employee = {
   _id: string;
   employeeCode: string;
   firstName: string;
   lastName: string;
 };
-
-const getLocalDate = () => {
-  const now = new Date();
-
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+type Holiday = {
+  _id: string;
+  name: string;
+  dateKey: string;
+  type: "public" | "optional" | "company";
 };
 
-const formatTime = (value: string | null) => {
-  if (!value) return "-";
-
-  return new Date(value).toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+const pad = (value: number) => String(value).padStart(2, "0");
+const localDateKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+const todayKey = () => localDateKey(new Date());
+const monthKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
+const formatTime = (value: string | null) => value
+  ? new Date(value).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
+  : "—";
+const formatHours = (minutes: number) => `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+const statusClass: Record<AttendanceStatus, string> = {
+  present: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  "half-day": "border-amber-200 bg-amber-50 text-amber-700",
+  absent: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
-const formatMinutes = (minutes: number) => {
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  return `${hours}h ${remainingMinutes}m`;
-};
-
-const statusStyle = (status: string) => {
-  switch (status) {
-    case "present":
-      return "bg-green-100 text-green-700";
-
-    case "half-day":
-      return "bg-orange-100 text-orange-700";
-
-    case "absent":
-      return "bg-red-100 text-red-700";
-
-    default:
-      return "bg-slate-100 text-slate-700";
+function getInitialRole(): Role {
+  if (typeof window === "undefined") return "employee";
+  try {
+    const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
+    return (["admin", "hr", "manager", "employee"].includes(user.role) ? user.role : "employee") as Role;
+  } catch {
+    return "employee";
   }
-};
+}
 
-function AttendanceContent() {
+function AttendanceWorkspace() {
   const router = useRouter();
-
-  const [role, setRole] = useState("employee");
+  const [role] = useState<Role>(getInitialRole);
   const [today, setToday] = useState<AttendanceRecord | null>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-
-  const [selectedDate, setSelectedDate] = useState(getLocalDate().slice(0, 7));
-
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [month, setMonth] = useState(() => new Date());
+  const [selectedDay, setSelectedDay] = useState(todayKey());
+  const [employeeFilter, setEmployeeFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-
+  const [notice, setNotice] = useState("");
+  const [showCorrection, setShowCorrection] = useState(false);
   const [manualForm, setManualForm] = useState({
-    employeeId: "",
-    dateKey: getLocalDate(),
-    status: "present",
-    checkIn: "",
-    checkOut: "",
-    notes: "",
+    employeeId: "", dateKey: todayKey(), status: "present",
+    checkIn: "", checkOut: "", notes: "",
   });
 
   const isAdmin = role === "admin" || role === "hr";
+  const isManager = role === "manager";
+  const canSeeTeam = isAdmin || isManager;
+  const monthStart = `${monthKey(month)}-01`;
+  const monthEnd = localDateKey(new Date(month.getFullYear(), month.getMonth() + 1, 0));
 
-  const getToken = () => {
+  const apiRequest = useCallback(async (path: string, options: RequestInit = {}) => {
     const token = sessionStorage.getItem("hrms_token");
-
     if (!token) {
       router.replace("/login");
-      return null;
+      throw new Error("Please login again.");
     }
-
-    return token;
-  };
-
-  const apiRequest = async (
-    endpoint: string,
-    options: RequestInit = {}
-  ) => {
-    const token = getToken();
-
-    if (!token) {
-      throw new Error("Session expired. Please login again.");
-    }
-
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
         Authorization: `Bearer ${token}`,
-        ...(options.body
-          ? { "Content-Type": "application/json" }
-          : {}),
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
         ...options.headers,
       },
       cache: "no-store",
     });
-
     const result = await response.json();
-
     if (response.status === 401) {
       sessionStorage.removeItem("hrms_token");
       sessionStorage.removeItem("hrms_user");
       router.replace("/login");
-
       throw new Error("Session expired. Please login again.");
     }
-
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || "Request failed");
-    }
-
+    if (!response.ok || !result.success) throw new Error(result.message || "Request failed");
     return result;
-  };
+  }, [router]);
 
-  const loadToday = useCallback(async () => {
-    const result = await apiRequest("/attendance/today");
-    setToday(result.data || null);
-  }, []);
-
-
-  const loadRecords = useCallback(async () => {
-      if (isAdmin) {
-        const [year, month] = selectedDate.split("-");
-        const lastDay = new Date(
-          Number(year),
-          Number(month),
-          0
-        ).getDate();
-
-        const from = `${year}-${month}-01`;
-        const to = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
-
-        const result = await apiRequest(
-          `/attendance?from=${from}&to=${to}`
-        );
-
-        setRecords(result.data || []);
-      } else {
-        const result = await apiRequest("/attendance/me");
-
-        setRecords(result.data || []);
-      }
-    }, [isAdmin, selectedDate]);
-
-
-  const loadEmployees = useCallback(async () => {
-    if (!isAdmin) return;
-
-    const result = await apiRequest("/employees");
-
-    setEmployees(
-      (result.data || []).filter(
-        (employee: {
-          _id: string;
-          employeeCode: string;
-          firstName: string;
-          lastName: string;
-          employmentStatus: string;
-        }) => employee.employmentStatus === "active"
-      )
-    );
-  }, [isAdmin]);
-
-  const loadPage = useCallback(async () => {
+  const loadWorkspace = useCallback(async () => {
     setLoading(true);
     setError("");
-
     try {
-      await Promise.all([
-        loadToday(),
-        loadRecords(),
-        loadEmployees(),
-      ]);
+      const range = `from=${monthStart}&to=${monthEnd}`;
+      const attendancePath = canSeeTeam
+        ? `/attendance?${range}${employeeFilter ? `&employeeId=${encodeURIComponent(employeeFilter)}` : ""}`
+        : `/attendance/me?${range}`;
+      const requests: Promise<any>[] = [
+        apiRequest("/attendance/today"),
+        apiRequest(attendancePath),
+        apiRequest(`/holidays?${range}`),
+      ];
+      if (canSeeTeam) requests.push(apiRequest("/attendance/team"));
+      const results = await Promise.all(requests);
+      setToday(results[0].data || null);
+      setRecords(results[1].data || []);
+      setHolidays(results[2].data || []);
+      if (canSeeTeam) setEmployees(results[3].data || []);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unable to load attendance"
-      );
+      setError(err instanceof Error ? err.message : "Unable to load attendance workspace");
     } finally {
       setLoading(false);
     }
-  }, [loadToday, loadRecords, loadEmployees]);
+  }, [apiRequest, canSeeTeam, employeeFilter, monthStart, monthEnd]);
 
-  useEffect(() => {
-    const storedUser = sessionStorage.getItem("hrms_user");
+  useEffect(() => { loadWorkspace(); }, [loadWorkspace]);
 
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        setRole(user.role || "employee");
-      } catch {
-        setRole("employee");
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    loadPage();
-  }, [loadPage]);
-
-  const handleAttendanceAction = async (
-    action: "check-in" | "check-out"
-  ) => {
-    setSaving(true);
-    setError("");
-    setMessage("");
-
+  const performAttendanceAction = async (action: "check-in" | "check-out") => {
+    setSaving(true); setError(""); setNotice("");
     try {
-      const result = await apiRequest(
-        `/attendance/${action}`,
-        {
-          method: "POST",
-        }
-      );
-
-      setMessage(result.message || "Attendance updated successfully.");
-
-      await Promise.all([
-        loadToday(),
-        loadRecords(),
-      ]);
-
+      const result = await apiRequest(`/attendance/${action}`, { method: "POST" });
+      setNotice(result.message || "Attendance updated.");
+      await loadWorkspace();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Attendance action failed"
-      );
-    } finally {
-      setSaving(false);
-    }
+      setError(err instanceof Error ? err.message : "Attendance action failed");
+    } finally { setSaving(false); }
   };
 
-  const handleManualSubmit = async (
-    event: FormEvent<HTMLFormElement>
-  ) => {
+  const submitCorrection = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    setSaving(true);
-    setError("");
-    setMessage("");
-
+    if (!manualForm.employeeId) {
+      setError("Select an employee first.");
+      return;
+    }
+    setSaving(true); setError(""); setNotice("");
     try {
-      if (!manualForm.employeeId) {
-        throw new Error("Please select an employee.");
-      }
-
-      const checkIn = manualForm.checkIn
-        ? new Date(manualForm.checkIn).toISOString()
-        : null;
-
-      const checkOut = manualForm.checkOut
-        ? new Date(manualForm.checkOut).toISOString()
-        : null;
-
+      const checkIn = manualForm.checkIn ? new Date(manualForm.checkIn).toISOString() : null;
+      const checkOut = manualForm.checkOut ? new Date(manualForm.checkOut).toISOString() : null;
       const result = await apiRequest("/attendance/manual", {
         method: "POST",
-        body: JSON.stringify({
-          employeeId: manualForm.employeeId,
-          dateKey: manualForm.dateKey,
-          status: manualForm.status,
-          checkIn,
-          checkOut,
-          notes: manualForm.notes,
-        }),
+        body: JSON.stringify({ ...manualForm, checkIn, checkOut }),
       });
-
-      setMessage(result.message || "Attendance saved successfully.");
-
-      setSelectedDate(manualForm.dateKey.slice(0, 7));
-
-      await loadToday();
-      await loadRecords();
-
+      setNotice(result.message || "Attendance correction saved.");
+      setShowCorrection(false);
+      setSelectedDay(manualForm.dateKey);
+      setMonth(new Date(`${manualForm.dateKey}T00:00:00`));
+      await loadWorkspace();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unable to save attendance"
-      );
-    } finally {
-      setSaving(false);
+      setError(err instanceof Error ? err.message : "Unable to save attendance correction");
+    } finally { setSaving(false); }
+  };
+
+  const calendarCells = useMemo(() => {
+    const first = new Date(month.getFullYear(), month.getMonth(), 1);
+    const offset = first.getDay();
+    const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    const cells: Array<{ key: string; day: number; inMonth: boolean }> = [];
+    for (let i = 0; i < offset; i++) {
+      const d = new Date(first); d.setDate(d.getDate() - offset + i);
+      cells.push({ key: localDateKey(d), day: d.getDate(), inMonth: false });
     }
-  };
+    for (let day = 1; day <= count; day++) {
+      const d = new Date(month.getFullYear(), month.getMonth(), day);
+      cells.push({ key: localDateKey(d), day, inMonth: true });
+    }
+    while (cells.length % 7) {
+      const d = new Date(`${cells[cells.length - 1].key}T00:00:00`);
+      d.setDate(d.getDate() + 1);
+      cells.push({ key: localDateKey(d), day: d.getDate(), inMonth: false });
+    }
+    return cells;
+  }, [month]);
 
-  const updateManualField = (
-    field: string,
-    value: string
-  ) => {
-    setManualForm((previous) => ({
-      ...previous,
-      [field]: value,
-      ...(field === "status" && value === "absent"
-        ? { checkIn: "", checkOut: "" }
-        : {}),
-    }));
-  };
+  const selectedRecords = records.filter((record) => record.dateKey === selectedDay);
+  const selectedHoliday = holidays.filter((holiday) => holiday.dateKey === selectedDay);
+  const summary = useMemo(() => ({
+    present: records.filter((record) => record.status === "present").length,
+    halfDay: records.filter((record) => record.status === "half-day").length,
+    absent: records.filter((record) => record.status === "absent").length,
+    late: records.filter((record) => record.isLate).length,
+    hours: records.reduce((total, record) => total + (record.workMinutes || 0), 0),
+  }), [records]);
 
-  const completedToday = Boolean(today?.checkOut);
+  const title = isAdmin ? "Attendance Management" : isManager ? "Team Attendance" : "My Attendance";
+  const subtitle = isAdmin
+    ? "Company-wide attendance calendar, employee register and corrections."
+    : isManager
+      ? "Attendance calendar for your assigned team and your own records."
+      : "Your monthly attendance calendar, working hours and daily records.";
+
+  const selectedLabel = new Date(`${selectedDay}T00:00:00`).toLocaleDateString("en-IN", {
+    weekday: "long", day: "2-digit", month: "long", year: "numeric",
+  });
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6">
-      <div className="mx-auto max-w-7xl">
-
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+    <main className="min-h-screen bg-[#f4f7fc] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1440px]">
+        <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <Link
-              href="/"
-              className="mb-3 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-blue-600"
-            >
-              <ArrowLeft size={16} />
-              Back to Dashboard
-            </Link>
-
-            <h1 className="text-3xl font-bold text-slate-900">
-              Attendance Management
-            </h1>
-
-            <p className="mt-2 text-slate-500">
-              Check-in, check-out and attendance records.
-            </p>
+            <Link href="/" className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-700"><ArrowLeft size={16} /> Dashboard</Link>
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-500 p-3 text-white shadow-lg shadow-blue-600/20"><CalendarDays size={25} /></div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{title}</h1>
+                <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+              </div>
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={loadPage}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            <RefreshCw size={17} />
-            Refresh
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {isAdmin && <button type="button" onClick={() => setShowCorrection((value) => !value)} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-violet-700 hover:shadow-md"><Save size={16} /> Manual Correction</button>}
+            <button type="button" onClick={loadWorkspace} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50"><RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Refresh</button>
+          </div>
         </header>
 
-        {error && (
-          <div className="mb-5 rounded-lg bg-red-50 p-4 text-sm text-red-700">
-            {error}
+        {error && <div role="alert" className="mb-5 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><AlertCircle size={18} className="mt-0.5 shrink-0" />{error}</div>}
+        {notice && <div role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{notice}</div>}
+
+        <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-600 p-5 text-white shadow-lg shadow-blue-900/10 transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+            <div className="flex items-center justify-between text-blue-100"><span className="text-sm font-medium">Present</span><CheckCircle2 size={20} /></div>
+            <p className="mt-3 text-3xl font-bold tabular-nums">{summary.present}</p><p className="mt-1 text-xs text-blue-100">Recorded days this month</p>
           </div>
-        )}
-
-        {message && (
-          <div className="mb-5 rounded-lg bg-green-50 p-4 text-sm text-green-700">
-            {message}
-          </div>
-        )}
-
-        {/* TODAY'S ATTENDANCE */}
-        <section className="mb-6 rounded-xl bg-white p-6 shadow-sm">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="rounded-lg bg-blue-100 p-3">
-              <Clock size={24} className="text-blue-600" />
-            </div>
-
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Today's Attendance
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                {new Date().toLocaleDateString("en-IN", {
-                  weekday: "long",
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </p>
-            </div>
-          </div>
-
-          {loading ? (
-            <p className="py-6 text-center text-slate-500">
-              Loading attendance...
-            </p>
-          ) : (
-            <>
-              <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <p className="text-sm text-slate-500">Check-In</p>
-                  <p className="mt-2 text-xl font-bold text-slate-900">
-                    {formatTime(today?.checkIn || null)}
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <p className="text-sm text-slate-500">Check-Out</p>
-                  <p className="mt-2 text-xl font-bold text-slate-900">
-                    {formatTime(today?.checkOut || null)}
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <p className="text-sm text-slate-500">Working Hours</p>
-                  <p className="mt-2 text-xl font-bold text-slate-900">
-                    {formatMinutes(today?.workMinutes || 0)}
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <p className="text-sm text-slate-500">Status</p>
-                  <p className="mt-2 text-xl font-bold capitalize text-slate-900">
-                    {today?.status || "Not Checked In"}
-                  </p>
-                </div>
-
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-
-                <button
-                  type="button"
-                  onClick={() => handleAttendanceAction("check-in")}
-                  disabled={saving || Boolean(today?.checkIn)}
-                  className="flex items-center gap-2 rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <LogIn size={18} />
-                  {today?.checkIn ? "Checked In" : "Check In"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleAttendanceAction("check-out")}
-                  disabled={
-                    saving ||
-                    !today?.checkIn ||
-                    completedToday
-                  }
-                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <LogOut size={18} />
-                  {completedToday ? "Checked Out" : "Check Out"}
-                </button>
-
-              </div>
-
-              {today?.isLate && (
-                <p className="mt-4 text-sm font-semibold text-orange-700">
-                  Late arrival recorded.
-                </p>
-              )}
-
-              {today?.isEarlyLeaving && (
-                <p className="mt-2 text-sm font-semibold text-orange-700">
-                  Early leaving recorded.
-                </p>
-              )}
-            </>
-          )}
+          <div className="rounded-2xl border border-amber-100 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"><div className="flex items-center justify-between text-amber-700"><span className="text-sm font-medium">Half Day</span><Timer size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.halfDay}</p><p className="mt-1 text-xs text-slate-500">Short working days</p></div>
+          <div className="rounded-2xl border border-rose-100 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"><div className="flex items-center justify-between text-rose-700"><span className="text-sm font-medium">Absent</span><AlertCircle size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.absent}</p><p className="mt-1 text-xs text-slate-500">Explicitly marked absent</p></div>
+          <div className="rounded-2xl border border-orange-100 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"><div className="flex items-center justify-between text-orange-700"><span className="text-sm font-medium">Late Arrivals</span><Clock3 size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.late}</p><p className="mt-1 text-xs text-slate-500">Late check-ins this month</p></div>
+          <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"><div className="flex items-center justify-between text-emerald-700"><span className="text-sm font-medium">Working Time</span><Clock3 size={20} /></div><p className="mt-3 text-2xl font-bold text-slate-900">{formatHours(summary.hours)}</p><p className="mt-1 text-xs text-slate-500">Total recorded hours</p></div>
         </section>
 
-        {/* ADMIN / HR MANUAL ATTENDANCE */}
         {isAdmin && (
-          <section className="mb-6 rounded-xl bg-white p-6 shadow-sm">
-
-            <div className="mb-5 flex items-center gap-3">
-              <div className="rounded-lg bg-purple-100 p-3">
-                <Save size={23} className="text-purple-600" />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  Manual Attendance Entry / Correction
-                </h2>
-
-                <p className="text-sm text-slate-500">
-                  Admin and HR only.
-                </p>
-              </div>
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800"><Users size={18} className="text-indigo-600" /> Attendance scope</div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(220px,360px)_1fr]">
+              <select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100">
+                <option value="">All employees</option>{employees.map((employee) => <option key={employee._id} value={employee._id}>{employee.employeeCode} · {employee.firstName} {employee.lastName}</option>)}
+              </select>
+              <p className="self-center text-xs text-slate-500">Choose an employee to focus the calendar and register. Admin/HR can view the entire company.</p>
             </div>
+          </section>
+        )}
 
-            <form
-              onSubmit={handleManualSubmit}
-              className="grid gap-5 md:grid-cols-2"
-            >
+        {isManager && <div className="mb-6 flex items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800"><Users size={17} /> Showing your assigned reporting team and your own attendance only.</div>}
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Employee *
-                </label>
-
-                <select
-                  required
-                  value={manualForm.employeeId}
-                  onChange={(e) =>
-                    updateManualField("employeeId", e.target.value)
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
-                >
-                  <option value="">Select Employee</option>
-
-                  {employees.map((employee) => (
-                    <option key={employee._id} value={employee._id}>
-                      {employee.employeeCode} - {employee.firstName} {employee.lastName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Attendance Date *
-                </label>
-
-                <input
-                  required
-                  type="date"
-                  value={manualForm.dateKey}
-                  onChange={(e) =>
-                    updateManualField("dateKey", e.target.value)
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Attendance Status *
-                </label>
-
-                <select
-                  required
-                  value={manualForm.status}
-                  onChange={(e) =>
-                    updateManualField("status", e.target.value)
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
-                >
-                  <option value="present">Present</option>
-                  <option value="half-day">Half-Day</option>
-                  <option value="absent">Absent</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Check-In Time
-                </label>
-
-                <input
-                  type="datetime-local"
-                  value={manualForm.checkIn}
-                  disabled={manualForm.status === "absent"}
-                  onChange={(e) =>
-                    updateManualField("checkIn", e.target.value)
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm disabled:bg-slate-100"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Check-Out Time
-                </label>
-
-                <input
-                  type="datetime-local"
-                  value={manualForm.checkOut}
-                  disabled={manualForm.status === "absent"}
-                  onChange={(e) =>
-                    updateManualField("checkOut", e.target.value)
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm disabled:bg-slate-100"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Notes
-                </label>
-
-                <input
-                  type="text"
-                  maxLength={500}
-                  value={manualForm.notes}
-                  onChange={(e) =>
-                    updateManualField("notes", e.target.value)
-                  }
-                  placeholder="Reason for manual correction"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={saving || employees.length === 0}
-                  className="flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-3 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
-                >
-                  <Save size={17} />
-                  {saving ? "Saving..." : "Save Attendance"}
-                </button>
-              </div>
-
+        {isAdmin && showCorrection && (
+          <section className="mb-6 rounded-2xl border border-violet-100 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-bold text-slate-900">Manual Attendance Entry / Correction</h2><p className="mt-1 text-sm text-slate-500">Create or correct a single employee attendance record.</p></div><button type="button" onClick={() => setShowCorrection(false)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"><X size={18} /></button></div>
+            <form onSubmit={submitCorrection} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <label className="text-sm font-medium text-slate-700">Employee *<select required value={manualForm.employeeId} onChange={(e) => setManualForm({ ...manualForm, employeeId: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"><option value="">Select employee</option>{employees.map((employee) => <option key={employee._id} value={employee._id}>{employee.employeeCode} · {employee.firstName} {employee.lastName}</option>)}</select></label>
+              <label className="text-sm font-medium text-slate-700">Date *<input required type="date" value={manualForm.dateKey} onChange={(e) => setManualForm({ ...manualForm, dateKey: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+              <label className="text-sm font-medium text-slate-700">Status *<select value={manualForm.status} onChange={(e) => setManualForm({ ...manualForm, status: e.target.value, ...(e.target.value === "absent" ? { checkIn: "", checkOut: "" } : {}) })} className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"><option value="present">Present</option><option value="half-day">Half Day</option><option value="absent">Absent</option></select></label>
+              <label className="text-sm font-medium text-slate-700">Check-in<input type="datetime-local" disabled={manualForm.status === "absent"} value={manualForm.checkIn} onChange={(e) => setManualForm({ ...manualForm, checkIn: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal disabled:bg-slate-50" /></label>
+              <label className="text-sm font-medium text-slate-700">Check-out<input type="datetime-local" disabled={manualForm.status === "absent"} value={manualForm.checkOut} onChange={(e) => setManualForm({ ...manualForm, checkOut: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal disabled:bg-slate-50" /></label>
+              <label className="text-sm font-medium text-slate-700">Notes<input maxLength={500} value={manualForm.notes} onChange={(e) => setManualForm({ ...manualForm, notes: e.target.value })} placeholder="Correction reason" className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+              <div className="sm:col-span-2 lg:col-span-3"><button disabled={saving || !employees.length} className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50">{saving ? "Saving..." : "Save Attendance"}</button></div>
             </form>
           </section>
         )}
 
-        {/* ATTENDANCE REGISTER / HISTORY */}
-        <section className="rounded-xl bg-white p-6 shadow-sm">
-
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-blue-100 p-3">
-                <ClipboardCheck size={23} className="text-blue-600" />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  {isAdmin ? "Attendance Register" : "My Attendance History"}
-                </h2>
-
-                <p className="text-sm text-slate-500">
-                  {isAdmin
-                    ? "Employee attendance records"
-                    : "Your recorded attendance"}
-                </p>
-              </div>
-            </div>
-
-            {isAdmin && (
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(310px,0.8fr)]">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6">
+              <div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Monthly view</p><h2 className="mt-1 text-xl font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h2><p className="mt-1 text-sm text-slate-500">Select a date to inspect attendance details.</p></div>
               <div className="flex items-center gap-2">
-                <CalendarDays size={18} className="text-slate-500" />
-
-                <input
-                  type="month"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
+                <button type="button" aria-label="Previous month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() - 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronLeft size={18} /></button>
+                <button type="button" onClick={() => { setMonth(new Date()); setSelectedDay(todayKey()); }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Today</button>
+                <button type="button" aria-label="Next month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() + 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronRight size={18} /></button>
               </div>
-            )}
-
-          </div>
-
-          {loading ? (
-            <p className="py-10 text-center text-slate-500">
-              Loading records...
-            </p>
-          ) : records.length === 0 ? (
-            <p className="py-10 text-center text-slate-500">
-              No attendance records found.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[850px] text-left text-sm">
-
-                <thead className="border-b bg-slate-50 text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">Date</th>
-
-                    {isAdmin && (
-                      <th className="px-4 py-3 font-semibold">
-                        Employee
-                      </th>
-                    )}
-
-                    <th className="px-4 py-3 font-semibold">Check-In</th>
-                    <th className="px-4 py-3 font-semibold">Check-Out</th>
-                    <th className="px-4 py-3 font-semibold">Working Hours</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
-                    <th className="px-4 py-3 font-semibold">Remarks</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100">
-
-                  {records.map((record) => (
-                    <tr key={record._id} className="hover:bg-slate-50">
-
-                      <td className="px-4 py-4 font-medium text-slate-800">
-                        {record.dateKey}
-                      </td>
-
-                      {isAdmin && (
-                        <td className="px-4 py-4">
-                          <p className="font-semibold text-slate-900">
-                            {record.employee?.firstName} {record.employee?.lastName}
-                          </p>
-
-                          <p className="text-xs text-slate-500">
-                            {record.employee?.employeeCode}
-                          </p>
-                        </td>
-                      )}
-
-                      <td className="px-4 py-4 text-slate-700">
-                        {formatTime(record.checkIn)}
-                      </td>
-
-                      <td className="px-4 py-4 text-slate-700">
-                        {formatTime(record.checkOut)}
-                      </td>
-
-                      <td className="px-4 py-4 text-slate-700">
-                        {formatMinutes(record.workMinutes || 0)}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusStyle(record.status)}`}
-                        >
-                          {record.status}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <div className="space-y-1">
-                          {record.isLate && (
-                            <p className="text-xs font-semibold text-orange-700">
-                              Late
-                            </p>
-                          )}
-
-                          {record.isEarlyLeaving && (
-                            <p className="text-xs font-semibold text-orange-700">
-                              Early Leaving
-                            </p>
-                          )}
-
-                          {record.source === "manual" && (
-                            <p className="text-xs font-semibold text-purple-700">
-                              Manual Entry
-                            </p>
-                          )}
-
-                          {record.notes && (
-                            <p className="max-w-xs text-xs text-slate-500">
-                              {record.notes}
-                            </p>
-                          )}
-
-                          {!record.isLate &&
-                            !record.isEarlyLeaving &&
-                            record.source !== "manual" &&
-                            !record.notes && "-"}
-                        </div>
-                      </td>
-
-                    </tr>
-                  ))}
-
-                </tbody>
-              </table>
             </div>
-          )}
+            <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className="py-3">{day}</div>)}</div>
+            <div className="grid grid-cols-7">
+              {calendarCells.map((cell) => {
+                const dayRecords = records.filter((record) => record.dateKey === cell.key);
+                const dayHoliday = holidays.filter((holiday) => holiday.dateKey === cell.key);
+                const statuses = [...new Set(dayRecords.map((record) => record.status))];
+                const isToday = cell.key === todayKey();
+                const isSelected = cell.key === selectedDay;
+                return (
+                  <button type="button" key={cell.key} onClick={() => setSelectedDay(cell.key)} className={`group relative min-h-[94px] border-b border-r border-slate-100 p-1.5 text-left transition duration-200 hover:bg-indigo-50 sm:min-h-[116px] sm:p-2.5 ${cell.inMonth ? "bg-white" : "bg-slate-50/60"} ${isSelected ? "z-10 bg-indigo-50 ring-2 ring-inset ring-indigo-500" : ""}`}>
+                    <div className="flex items-center justify-between"><span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${isToday ? "bg-indigo-600 text-white" : cell.inMonth ? "text-slate-700 group-hover:bg-indigo-100" : "text-slate-400"}`}>{cell.day}</span>{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}</div>
+                    <div className="mt-1.5 space-y-1">
+                      {dayHoliday.slice(0, 1).map((holiday) => <div key={holiday._id} className="truncate rounded-md bg-sky-100 px-1.5 py-1 text-[9px] font-semibold text-sky-800 sm:text-[10px]">{holiday.name}</div>)}
+                      {statuses.slice(0, 2).map((status) => <div key={status} className={`truncate rounded-md px-1.5 py-1 text-[9px] font-semibold capitalize sm:text-[10px] ${status === "present" ? "bg-emerald-100 text-emerald-800" : status === "half-day" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`}>{status === "half-day" ? "Half day" : status}</div>)}
+                      {dayRecords.some((record) => record.isLate) && <div className="truncate rounded-md bg-orange-100 px-1.5 py-1 text-[9px] font-semibold text-orange-800">Late</div>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 px-5 py-4 text-xs text-slate-600">
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Present</span>
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />Half Day</span>
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />Absent</span>
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-orange-500" />Late</span>
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-sky-500" />Holiday</span>
+            </div>
+          </section>
 
-        </section>
+          <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Day details</p><h2 className="mt-1 text-lg font-bold text-slate-900">{selectedLabel}</h2></div><span className="rounded-xl bg-indigo-50 p-2.5 text-indigo-600"><CalendarCheck2 size={20} /></span></div>
+            {selectedHoliday.map((holiday) => <div key={holiday._id} className="mb-3 rounded-xl border border-sky-100 bg-sky-50 p-3"><p className="font-semibold text-sky-900">{holiday.name}</p><p className="mt-1 text-xs capitalize text-sky-700">{holiday.type} holiday</p></div>)}
+            {selectedRecords.length ? <div className="space-y-3">
+              {selectedRecords.map((record) => <div key={record._id} className="rounded-xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:shadow-sm">
+                {canSeeTeam && <div className="mb-3"><p className="font-semibold text-slate-900">{record.employee?.firstName} {record.employee?.lastName}</p><p className="text-xs text-slate-500">{record.employee?.employeeCode}</p></div>}
+                <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${statusClass[record.status]}`}>{record.status}</span>{record.isLate && <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">Late</span>}</div>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-lg bg-slate-50 p-3"><p className="text-[11px] text-slate-500">Check-in</p><p className="mt-1 font-semibold text-slate-900">{formatTime(record.checkIn)}</p></div>
+                  <div className="rounded-lg bg-slate-50 p-3"><p className="text-[11px] text-slate-500">Check-out</p><p className="mt-1 font-semibold text-slate-900">{formatTime(record.checkOut)}</p></div>
+                  <div className="rounded-lg bg-slate-50 p-3"><p className="text-[11px] text-slate-500">Working time</p><p className="mt-1 font-semibold text-slate-900">{formatHours(record.workMinutes || 0)}</p></div>
+                  <div className="rounded-lg bg-slate-50 p-3"><p className="text-[11px] text-slate-500">Early leaving</p><p className="mt-1 font-semibold text-slate-900">{record.isEarlyLeaving ? "Yes" : "No"}</p></div>
+                </div>
+                {record.notes && <p className="mt-3 text-xs text-slate-500">Note: {record.notes}</p>}
+                {record.source === "manual" && <p className="mt-2 text-xs font-medium text-violet-700">Manually entered / corrected</p>}
+              </div>)}
+            </div> : <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center"><CalendarDays className="mx-auto mb-2 text-slate-300" size={28} /><p className="text-sm font-semibold text-slate-700">No attendance record</p><p className="mt-1 text-xs text-slate-500">{selectedHoliday.length ? "Holiday listed above." : "No record has been entered for this date."}</p></div>}
+          </aside>
+        </div>
 
-        <p className="mt-5 text-xs text-slate-500">
-          Attendance timezone: Asia/Kolkata. Late arrival is recorded after
-          09:15 AM. Early leaving is recorded before 06:00 PM.
-        </p>
+        {!canSeeTeam && (
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-4"><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Daily attendance</p><h2 className="mt-1 text-lg font-bold text-slate-900">Today&apos;s check-in / check-out</h2><p className="mt-1 text-sm text-slate-500">Record your attendance for today.</p></div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Check-in</p><p className="mt-1 text-lg font-bold text-slate-900">{formatTime(today?.checkIn || null)}</p></div>
+              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Check-out</p><p className="mt-1 text-lg font-bold text-slate-900">{formatTime(today?.checkOut || null)}</p></div>
+              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Today&apos;s work</p><p className="mt-1 text-lg font-bold text-slate-900">{formatHours(today?.workMinutes || 0)}</p></div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button type="button" onClick={() => performAttendanceAction("check-in")} disabled={saving || Boolean(today?.checkIn)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"><LogIn size={17} />{today?.checkIn ? "Checked In" : "Check In"}</button>
+              <button type="button" onClick={() => performAttendanceAction("check-out")} disabled={saving || !today?.checkIn || Boolean(today?.checkOut)} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"><LogOut size={17} />{today?.checkOut ? "Checked Out" : "Check Out"}</button>
+            </div>
+            {(today?.isLate || today?.isEarlyLeaving) && <p className="mt-3 text-xs font-medium text-orange-700">{today.isLate ? "Late arrival recorded. " : ""}{today.isEarlyLeaving ? "Early leaving recorded." : ""}</p>}
+          </section>
+        )}
 
+        <p className="mt-5 text-xs text-slate-400">Attendance timezone: Asia/Kolkata. Days without a saved attendance record are shown as “No attendance record”; they are not automatically counted as absent.</p>
       </div>
     </main>
   );
 }
 
 export default function AttendancePage() {
-  return (
-    <AuthGuard>
-      <AttendanceContent />
-    </AuthGuard>
-  );
+  return <AuthGuard><AttendanceWorkspace /></AuthGuard>;
 }
