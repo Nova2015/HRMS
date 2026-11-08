@@ -20,6 +20,16 @@ type Shift = {
   isActive: boolean;
 };
 
+type ShiftForm = {
+  name: string;
+  code: string;
+  startTime: string;
+  endTime: string;
+  gracePeriodMinutes: string;
+  weeklyOffDays: number[];
+  description: string;
+};
+
 type Employee = {
   _id: string;
   employeeCode: string;
@@ -40,7 +50,7 @@ function ShiftManagement() {
   const [message, setMessage] = useState("");
   const [editId, setEditId] = useState("");
   const [assignments, setAssignments] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ShiftForm>({
     name: "", code: "", startTime: "09:00", endTime: "18:00",
     gracePeriodMinutes: "15", weeklyOffDays: [], description: "",
   });
@@ -203,7 +213,7 @@ function ShiftManagement() {
                 <input maxLength={500} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description (optional)" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                 <div className="flex gap-2 lg:col-span-3">
                   <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"><Plus size={16} /> {saving ? "Saving..." : editId ? "Update Shift" : "Create Shift"}</button>
-                  {editId && <button type="button" onClick={() => { setEditId(""); setForm({ name: "", code: "", startTime: "09:00", endTime: "18:00", gracePeriodMinutes: "15", description: "" }); }} className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm">Cancel</button>}
+                  {editId && <button type="button" onClick={() => { setEditId(""); setForm({ name: "", code: "", startTime: "09:00", endTime: "18:00", gracePeriodMinutes: "15", weeklyOffDays: [], description: "" }); }} className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm">Cancel</button>}
                 </div>
               </form>
             </section>
