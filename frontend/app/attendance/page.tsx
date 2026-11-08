@@ -188,7 +188,7 @@ function AttendanceWorkspace() {
           ? new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
           : visibleMonth
       );
-      if (roleReady) loadWorkspace();
+      if (roleReady) void Promise.resolve().then(loadWorkspace);
     }
     previousDateRef.current = currentDate;
   }, [currentDate, loadWorkspace, roleReady]);
