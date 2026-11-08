@@ -170,14 +170,14 @@ export default function Home() {
                 const roleDescription = item.title === "Leave Management"
                   ? (isAdmin ? "Company-wide leave requests, approvals and calendar." : isManager ? "Review leave requests from your assigned team." : "Apply for leave and track your own requests.")
                   : item.title === "Attendance"
-                    ? (isAdmin ? item.description : "View your personal attendance and check-in records.")
+                    ? (isAdmin ? "Company-wide attendance register and monthly calendar." : isManager ? "View your assigned team's attendance calendar and daily records." : "View your personal attendance calendar and daily records.")
                     : item.title === "Payroll" && !isAdmin
                       ? "View your own monthly payroll and payslips."
                       : item.description;
                 const roleAction = item.title === "Leave Management"
                   ? (isAdmin ? "Manage company leaves" : isManager ? "Review team leaves" : "Apply for leave")
                   : item.title === "Attendance" && !isAdmin
-                    ? "View my attendance"
+                    ? (isManager ? "View team attendance calendar" : "View my attendance calendar")
                     : item.title === "Payroll" && !isAdmin
                       ? "View my payslips"
                       : item.action;
