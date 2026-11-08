@@ -152,22 +152,33 @@ export const createLeaveRequest = async (req, res) => {
 export const getLeaveRequests = async (req, res) => {
     try {
         const filter = {};
-        if (!canReview(req.user.role)) {
-            filter.employee = req.user.employeeId;
-        } else {
-            const { status, employeeId } = req.query;
-            if (status && ["pending", "approved", "rejected", "cancelled"].includes(status)) {
-                filter.status = status;
-            }
+        const { status, employeeId } = req.query;
+        if (status && ["pending", "approved", "rejected", "cancelled"].includes(status)) {
+            filter.status = status;
+        }
+
+        if (canReview(req.user.role)) {
             if (employeeId) {
                 if (!mongoose.isValidObjectId(employeeId)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: "Invalid employee ID"
-                    });
+                    return res.status(400).json({ success: false, message: "Invalid employee ID" });
                 }
                 filter.employee = employeeId;
             }
+        } else if (req.user.role === "manager") {
+            const teamIds = await Employee.find({
+                reportingManager: req.user.employeeId
+            }).distinct("_id");
+            filter.employee = { $in: teamIds };
+            if (employeeId) {
+                if (!mongoose.isValidObjectId(employeeId) ||
+                    !teamIds.some((id) => id.toString() === employeeId)) {
+                    return res.status(403).json({ success: false, message: "You can only view leave requests from your assigned team" });
+                }
+                filter.employee = employeeId;
+            }
+        } else {
+            filter.employee = req.user.employeeId;
+            delete filter.status;
         }
 
         const data = await populateLeave(
@@ -216,8 +227,16 @@ export const reviewLeaveRequest = async (req, res) => {
             });
         }
 
+        const reviewFilter = { _id: id, status: "pending" };
+        if (req.user.role === "manager") {
+            const teamIds = await Employee.find({
+                reportingManager: req.user.employeeId
+            }).distinct("_id");
+            reviewFilter.employee = { $in: teamIds };
+        }
+
         const leave = await LeaveRequest.findOneAndUpdate(
-            { _id: id, status: "pending" },
+            reviewFilter,
             {
                 $set: {
                     status: decision,
@@ -230,7 +249,14 @@ export const reviewLeaveRequest = async (req, res) => {
         );
 
         if (!leave) {
-            const exists = await LeaveRequest.exists({ _id: id });
+            const existsFilter = { _id: id };
+            if (req.user.role === "manager") {
+                const teamIds = await Employee.find({
+                    reportingManager: req.user.employeeId
+                }).distinct("_id");
+                existsFilter.employee = { $in: teamIds };
+            }
+            const exists = await LeaveRequest.exists(existsFilter);
             return res.status(exists ? 409 : 404).json({
                 success: false,
                 message: exists
