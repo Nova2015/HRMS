@@ -23,6 +23,7 @@ type LeaveRequest = {
   reviewComment?: string;
   createdAt: string;
   employee?: {
+    _id: string;
     employeeCode: string;
     firstName: string;
     lastName: string;
@@ -42,6 +43,7 @@ function LeaveManagement() {
   const router = useRouter();
   const [items, setItems] = useState<LeaveRequest[]>([]);
   const [role, setRole] = useState("employee");
+  const [employeeId, setEmployeeId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -113,6 +115,7 @@ function LeaveManagement() {
       try {
         const user = JSON.parse(stored);
         setRole(user.role || "employee");
+        setEmployeeId(user.employeeId || "");
       } catch {
         setRole("employee");
       }
@@ -418,7 +421,7 @@ function LeaveManagement() {
                       <td className="px-4 py-4 capitalize">{item.leaveType}</td><td className="px-4 py-4">{item.startDate}</td><td className="px-4 py-4">{item.endDate}</td><td className="px-4 py-4">{item.totalDays}</td><td className="max-w-xs whitespace-normal px-4 py-4">{item.reason}</td>
                       <td className="px-4 py-4"><span className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusStyles[item.status]}`}>{item.status}</span>{item.reviewComment && <p className="mt-2 text-xs text-slate-500">{item.reviewComment}</p>}</td>
                       <td className="px-4 py-4">
-                        {canReview && item.status === "pending" ? <div className="flex gap-2">
+                        {canReview && item.status === "pending" && !(isManager && item.employee?._id === employeeId) ? <div className="flex gap-2">
                           <button type="button" disabled={saving} onClick={() => reviewLeave(item._id, "approved")} title="Approve" className="rounded-lg bg-emerald-600 p-2 text-white transition hover:bg-emerald-700 disabled:opacity-50"><Check size={16} /></button>
                           <button type="button" disabled={saving} onClick={() => reviewLeave(item._id, "rejected")} title="Reject" className="rounded-lg bg-rose-600 p-2 text-white transition hover:bg-rose-700 disabled:opacity-50"><X size={16} /></button>
                         </div> : !canReview && item.status === "pending" ? <button type="button" disabled={saving} onClick={() => cancelLeave(item._id)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">Cancel</button> : <span className="text-xs text-slate-400">—</span>}
