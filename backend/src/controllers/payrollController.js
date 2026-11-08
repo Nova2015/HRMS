@@ -105,6 +105,7 @@ export const processPayroll = async (req, res) => {
             const deductions = structure.deductions.map((line) => ({ name: line.name, amount: money(line.amount * ratio) }));
             const grossEarnings = money(basic + earnings.reduce((sum, line) => sum + line.amount, 0));
             const totalDeductions = money(deductions.reduce((sum, line) => sum + line.amount, 0));
+            if (totalDeductions > grossEarnings) return res.status(400).json({ success: false, message: `Deductions exceed gross earnings for employee ${employeeId}` });
             records.push({ employee: employeeId, salaryStructure: structure._id, period, workingDays: days, paidDays, basic, earnings, deductions, grossEarnings, totalDeductions, netPay: money(grossEarnings - totalDeductions), processedBy: req.user.userId });
         }
         const created = await Payroll.insertMany(records, { ordered: true });
