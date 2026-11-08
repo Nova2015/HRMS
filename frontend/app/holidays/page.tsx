@@ -78,15 +78,17 @@ function HolidayCalendar() {
   }, [apiRequest, canManage, year]);
 
   useEffect(() => {
+    let nextRole = "employee";
     try {
       const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
-      setRole(user.role || "employee");
+      nextRole = user.role || "employee";
     } catch {
-      setRole("employee");
+      nextRole = "employee";
     }
+    void Promise.resolve().then(() => setRole(nextRole));
   }, []);
 
-  useEffect(() => { loadHolidays(); }, [loadHolidays]);
+  useEffect(() => { void Promise.resolve().then(loadHolidays); }, [loadHolidays]);
 
   const submitHoliday = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
