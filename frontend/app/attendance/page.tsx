@@ -70,6 +70,7 @@ function AttendanceWorkspace() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [ownWeeklyOffDays, setOwnWeeklyOffDays] = useState<number[]>([]);
   const [month, setMonth] = useState(() => new Date());
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(todayKey());
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -157,6 +158,19 @@ function AttendanceWorkspace() {
     if (roleReady) loadWorkspace();
   }, [loadWorkspace, roleReady]);
 
+  // Keep the Today marker in sync when the page remains open across midnight.
+  useEffect(() => {
+    const syncCurrentDate = () => setCurrentDate(new Date());
+    const timer = window.setInterval(syncCurrentDate, 30_000);
+    window.addEventListener("focus", syncCurrentDate);
+    document.addEventListener("visibilitychange", syncCurrentDate);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", syncCurrentDate);
+      document.removeEventListener("visibilitychange", syncCurrentDate);
+    };
+  }, []);
+
   const performAttendanceAction = async (action: "check-in" | "check-out") => {
     setSaving(true); setError(""); setNotice("");
     try {
@@ -223,6 +237,8 @@ function AttendanceWorkspace() {
       employees.every((employee) => employee.shift?.weeklyOffDays?.includes(weekday));
   };
   const selectedWeeklyOff = isWeeklyOffDate(selectedDay);
+  const selectedIsSunday = new Date(`${selectedDay}T00:00:00`).getDay() === 0;
+  const currentDateKey = localDateKey(currentDate);
 
   const selectedRecords = records.filter((record) => record.dateKey === selectedDay);
   const selectedHoliday = holidays.filter((holiday) => holiday.dateKey === selectedDay);
@@ -318,20 +334,23 @@ function AttendanceWorkspace() {
                 <button type="button" aria-label="Next month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() + 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronRight size={18} /></button>
               </div>
             </div>
-            <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className="py-3">{day}</div>)}</div>
+            <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className={`py-3 ${day === "Sun" ? "text-rose-600" : ""}`}>{day}</div>)}</div>
             <div className="grid grid-cols-7">
               {calendarCells.map((cell) => {
                 const dayRecords = records.filter((record) => record.dateKey === cell.key);
                 const dayHoliday = holidays.filter((holiday) => holiday.dateKey === cell.key);
                 const statuses = [...new Set(dayRecords.map((record) => record.status))];
-                const isToday = cell.key === todayKey();
+                const isToday = cell.key === currentDateKey;
+                const isSunday = new Date(`${cell.key}T00:00:00`).getDay() === 0;
+                const isWeeklyOff = isWeeklyOffDate(cell.key);
+                const isHoliday = dayHoliday.length > 0;
                 const isSelected = cell.key === selectedDay;
                 return (
-                  <button type="button" key={cell.key} onClick={() => setSelectedDay(cell.key)} className={`group relative min-h-[94px] border-b border-r border-slate-100 p-1.5 text-left transition duration-200 hover:bg-indigo-50 sm:min-h-[116px] sm:p-2.5 ${cell.inMonth ? "bg-white" : "bg-slate-50/60"} ${isSelected ? "z-10 bg-indigo-50 ring-2 ring-inset ring-indigo-500" : ""}`}>
-                    <div className="flex items-center justify-between"><span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${isToday ? "bg-indigo-600 text-white" : cell.inMonth ? "text-slate-700 group-hover:bg-indigo-100" : "text-slate-400"}`}>{cell.day}</span>{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}</div>
+                  <button type="button" key={cell.key} onClick={() => setSelectedDay(cell.key)} className={`group relative min-h-[94px] border-b border-r border-slate-100 p-1.5 text-left transition duration-200 hover:bg-indigo-50 sm:min-h-[116px] sm:p-2.5 ${isSunday || isHoliday ? "bg-rose-50/70" : cell.inMonth ? "bg-white" : "bg-slate-50/60"} ${isSelected ? "z-10 bg-indigo-50 ring-2 ring-inset ring-indigo-500" : ""}`}>
+                    <div className="flex items-center justify-between"><span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${isToday ? (isSunday || isHoliday ? "bg-rose-600 text-white" : "bg-indigo-600 text-white") : isSunday || isHoliday ? "bg-rose-100 text-rose-700" : cell.inMonth ? "text-slate-700 group-hover:bg-indigo-100" : "text-slate-400"}`}>{cell.day}</span>{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}</div>
                     <div className="mt-1.5 space-y-1">
-                      {dayHoliday.slice(0, 1).map((holiday) => <div key={holiday._id} className="truncate rounded-md bg-sky-100 px-1.5 py-1 text-[9px] font-semibold text-sky-800 sm:text-[10px]">{holiday.name}</div>)}
-                      {isWeeklyOffDate(cell.key) && dayRecords.length === 0 && <div className="truncate rounded-md bg-slate-200 px-1.5 py-1 text-[9px] font-semibold text-slate-700 sm:text-[10px]">Weekly Off</div>}
+                      {dayHoliday.slice(0, 1).map((holiday) => <div key={holiday._id} className="truncate rounded-md bg-rose-100 px-1.5 py-1 text-[9px] font-semibold text-rose-800 sm:text-[10px]">{holiday.name}</div>)}
+                      {isWeeklyOff && <div className="truncate rounded-md bg-slate-200 px-1.5 py-1 text-[9px] font-semibold text-slate-700 sm:text-[10px]">Weekly Off</div>}
                       {statuses.slice(0, 2).map((status) => <div key={status} className={`truncate rounded-md px-1.5 py-1 text-[9px] font-semibold capitalize sm:text-[10px] ${status === "present" ? "bg-emerald-100 text-emerald-800" : status === "half-day" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`}>{status === "half-day" ? "Half day" : status}</div>)}
                       {dayRecords.some((record) => record.isLate) && <div className="truncate rounded-md bg-orange-100 px-1.5 py-1 text-[9px] font-semibold text-orange-800">Late</div>}
                     </div>
@@ -344,13 +363,15 @@ function AttendanceWorkspace() {
               <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />Half Day</span>
               <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />Absent</span>
               <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-orange-500" />Late</span>
-              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-sky-500" />Holiday</span>
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />Sunday / Holiday</span>
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-slate-400" />Weekly Off</span>
             </div>
           </section>
 
           <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Day details</p><h2 className="mt-1 text-lg font-bold text-slate-900">{selectedLabel}</h2></div><span className="rounded-xl bg-indigo-50 p-2.5 text-indigo-600"><CalendarCheck2 size={20} /></span></div>
-            {selectedHoliday.map((holiday) => <div key={holiday._id} className="mb-3 rounded-xl border border-sky-100 bg-sky-50 p-3"><p className="font-semibold text-sky-900">{holiday.name}</p><p className="mt-1 text-xs capitalize text-sky-700">{holiday.type} holiday</p></div>)}
+            {selectedHoliday.map((holiday) => <div key={holiday._id} className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3"><p className="font-semibold text-rose-900">{holiday.name}</p><p className="mt-1 text-xs capitalize text-rose-700">{holiday.type} holiday</p></div>)}
+            {(selectedIsSunday || selectedWeeklyOff) && <div className="mb-3 rounded-xl border border-rose-100 bg-rose-50 p-3"><p className="font-semibold text-rose-900">{selectedIsSunday ? "Sunday" : "Weekly Off"}{selectedIsSunday && selectedWeeklyOff ? " · Scheduled Weekly Off" : ""}</p><p className="mt-1 text-xs text-rose-700">{selectedIsSunday ? "Sunday is highlighted as a weekly rest day." : "Based on the weekly-off days configured in your assigned shift."}</p></div>}
             {selectedRecords.length ? <div className="space-y-3">
               {selectedRecords.map((record) => <div key={record._id} className="rounded-xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:shadow-sm">
                 {canSeeTeam && <div className="mb-3"><p className="font-semibold text-slate-900">{record.employee?.firstName} {record.employee?.lastName}</p><p className="text-xs text-slate-500">{record.employee?.employeeCode}</p></div>}
