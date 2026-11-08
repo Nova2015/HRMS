@@ -123,6 +123,13 @@ export const getMe = async (req, res) => {
             });
         }
 
+        if (!user.employee) {
+            return res.status(403).json({
+                success: false,
+                message: "User account is not linked to an employee"
+            });
+        }
+
         return res.status(200).json({
             success: true,
             data: {
@@ -134,9 +141,10 @@ export const getMe = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Get logged-in user error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to load user profile"
         });
     }
 };
@@ -191,9 +199,10 @@ export const changePassword = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Change password error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to change password"
         });
     }
 };
