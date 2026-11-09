@@ -46,6 +46,16 @@ type Holiday = {
   dateKey: string;
   type: "public" | "optional" | "company";
 };
+type LeaveRequest = {
+  _id: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  reason: string;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  employee?: { firstName: string; lastName: string; employeeCode: string };
+};
 
 const pad = (value: number) => String(value).padStart(2, "0");
 const localDateKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -69,6 +79,10 @@ function AttendanceWorkspace() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [leaveSaving, setLeaveSaving] = useState(false);
+  const [leaveForm, setLeaveForm] = useState({ leaveType: "earned", startDate: todayKey(), endDate: todayKey(), reason: "" });
   const [ownWeeklyOffDays, setOwnWeeklyOffDays] = useState<number[]>([]);
   const [month, setMonth] = useState(() => new Date());
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -132,15 +146,17 @@ function AttendanceWorkspace() {
         apiRequest(attendancePath),
         apiRequest(`/holidays?${range}`),
         apiRequest("/auth/me"),
+        apiRequest("/leaves"),
       ];
       if (canSeeTeam) requests.push(apiRequest("/attendance/team"));
       const results = await Promise.all(requests);
       setToday((results[0].data as AttendanceRecord | null | undefined) || null);
       setRecords((results[1].data as AttendanceRecord[] | undefined) || []);
       setHolidays((results[2].data as Holiday[] | undefined) || []);
+      setLeaves((results[4].data as LeaveRequest[] | undefined) || []);
       const authData = results[3].data as { employee?: { shift?: { weeklyOffDays?: number[] } | null } } | undefined;
       setOwnWeeklyOffDays(authData?.employee?.shift?.weeklyOffDays || []);
-      if (canSeeTeam) setEmployees((results[4].data as Employee[] | undefined) || []);
+      if (canSeeTeam) setEmployees((results[5].data as Employee[] | undefined) || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load attendance workspace");
     } finally {
@@ -241,6 +257,27 @@ function AttendanceWorkspace() {
     } finally { setSaving(false); }
   };
 
+  const submitLeaveRequest = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLeaveSaving(true); setError(""); setNotice("");
+    try {
+      const result = await apiRequest("/leaves", { method: "POST", body: JSON.stringify(leaveForm) });
+      setNotice(result.message || "Leave request submitted successfully.");
+      setShowLeaveModal(false);
+      setLeaveForm({ leaveType: "earned", startDate: selectedDay, endDate: selectedDay, reason: "" });
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to submit leave request.");
+    } finally { setLeaveSaving(false); }
+  };
+
+  const openLeaveForDate = (date: string) => {
+    setSelectedDay(date);
+    setLeaveForm({ leaveType: "earned", startDate: date, endDate: date, reason: "" });
+    setShowLeaveModal(true);
+    setError(""); setNotice("");
+  };
+
   const submitCorrection = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!manualForm.employeeId) {
@@ -300,6 +337,7 @@ function AttendanceWorkspace() {
   const currentDateKey = localDateKey(currentDate);
 
   const selectedRecords = records.filter((record) => record.dateKey === selectedDay);
+  const selectedLeaves = leaves.filter((leave) => leave.status === "pending" || leave.status === "approved").filter((leave) => leave.startDate <= selectedDay && leave.endDate >= selectedDay);
   const selectedHoliday = holidays.filter((holiday) => holiday.dateKey === selectedDay);
   const summary = useMemo(() => ({
     present: records.filter((record) => record.status === "present").length,
@@ -339,6 +377,7 @@ function AttendanceWorkspace() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Local time</p>
               <p className="text-sm font-bold tabular-nums text-slate-800">{clockTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}</p>
             </div>
+            {!today?.checkIn ? <button type="button" onClick={() => performAttendanceAction("check-in")} disabled={saving || loading} className="hrms-interactive inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm disabled:opacity-50"><LogIn size={16} />{saving ? "Processing..." : "Punch In"}</button> : !today.checkOut ? <button type="button" onClick={() => performAttendanceAction("check-out")} disabled={saving || loading} className="hrms-interactive inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm disabled:opacity-50"><LogOut size={16} />{saving ? "Processing..." : "Punch Out"}</button> : <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700">Shift completed</span>}
             <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} title={soundEnabled ? "Mute success sounds" : "Enable success sounds"} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-50">
               {soundEnabled ? <Volume2 size={16} className="text-indigo-600" /> : <VolumeX size={16} />}
               <span>{soundEnabled ? "Sound on" : "Sound off"}</span>
@@ -407,10 +446,7 @@ function AttendanceWorkspace() {
                 <p className="text-sm font-medium text-slate-500">{currentDate.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</p>
                 <div className="mt-1 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">{clockTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</div>
                 <p className="mt-2 text-sm text-slate-500">Your attendance actions and today&apos;s recorded hours.</p>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <button type="button" onClick={() => performAttendanceAction("check-in")} disabled={saving || Boolean(today?.checkIn)} className="hrms-interactive inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"><LogIn size={18} />{saving ? "Processing..." : today?.checkIn ? "Checked In" : "Check In"}</button>
-                  <button type="button" onClick={() => performAttendanceAction("check-out")} disabled={saving || !today?.checkIn || Boolean(today?.checkOut)} className="hrms-interactive inline-flex items-center gap-2 rounded-2xl border border-indigo-200 bg-white px-6 py-3.5 text-sm font-bold text-indigo-700 shadow-sm hover:-translate-y-0.5 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"><LogOut size={18} />{today?.checkOut ? "Checked Out" : "Check Out"}</button>
-                </div>
+                <div className="mt-5 text-xs font-semibold text-indigo-600">Use the Punch In / Punch Out controls above to record today&apos;s attendance.</div>
                 {(today?.isLate || today?.isEarlyLeaving) && <p className="mt-3 text-xs font-semibold text-orange-700">{today.isLate ? "Late arrival recorded. " : ""}{today.isEarlyLeaving ? "Early leaving recorded." : ""}</p>}
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -462,7 +498,7 @@ function AttendanceWorkspace() {
         )}
 
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(310px,0.8fr)]">
-          <section className="hrms-card overflow-hidden rounded-2xl">
+          <section className="overflow-hidden rounded-[28px] border border-white/90 bg-white/80 shadow-[0_18px_55px_rgba(31,41,55,0.08)] backdrop-blur-2xl">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6">
               <div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Attendance Calendar</p><h2 className="mt-1 text-xl font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h2><p className="mt-1 text-sm text-slate-500">Select a date to inspect attendance details.</p></div>
               <div className="flex items-center gap-2">
@@ -471,8 +507,8 @@ function AttendanceWorkspace() {
                 <button type="button" aria-label="Next month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() + 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronRight size={18} /></button>
               </div>
             </div>
-            <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className={`py-3 ${day === "Sun" ? "text-rose-600" : ""}`}>{day}</div>)}</div>
-            <div className="grid grid-cols-7">
+            <div className="grid grid-cols-7 gap-1.5 border-b border-slate-100 bg-white/70 px-2 pb-3 text-center text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400 sm:gap-2 sm:text-[11px]">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className={`py-3 ${day === "Sun" ? "text-rose-600" : ""}`}>{day}</div>)}</div>
+            <div className="mt-2 grid grid-cols-7 gap-1.5 p-2 sm:gap-2 sm:p-3">
               {calendarCells.map((cell) => {
                 const dayRecords = records.filter((record) => record.dateKey === cell.key);
                 const dayHoliday = holidays.filter((holiday) => holiday.dateKey === cell.key);
@@ -483,7 +519,7 @@ function AttendanceWorkspace() {
                 const isHoliday = dayHoliday.length > 0;
                 const isSelected = cell.key === selectedDay;
                 return (
-                  <button type="button" key={cell.key} onClick={() => setSelectedDay(cell.key)} className={`group relative min-h-[94px] border-b border-r border-slate-100 p-1.5 text-left transition duration-200 hover:bg-indigo-50 sm:min-h-[116px] sm:p-2.5 ${isSunday || isHoliday ? "bg-rose-50/70" : cell.inMonth ? "bg-white" : "bg-slate-50/60"} ${isSelected ? "z-10 bg-indigo-50 ring-2 ring-inset ring-indigo-500" : ""}`}>
+                  <button type="button" key={cell.key} onClick={() => openLeaveForDate(cell.key)} aria-label={`Apply for leave or view attendance on ${cell.key}`} className={`group relative flex min-h-[78px] flex-col items-start rounded-2xl border p-1.5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-md sm:min-h-[112px] sm:p-2.5 ${!cell.inMonth ? "border-transparent bg-slate-50/50 text-slate-300" : isSunday || isHoliday ? "border-rose-100 bg-rose-50/60 text-slate-700" : "border-slate-100/90 bg-white/70 text-slate-700 hover:border-indigo-200"} ${isSelected ? "border-indigo-300 bg-indigo-50/90 shadow-[0_5px_18px_rgba(99,102,241,0.12)] ring-1 ring-indigo-200" : ""}`}>
                     <div className="flex items-center justify-between"><span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${isToday ? (isSunday || isHoliday ? "bg-rose-600 text-white" : "bg-indigo-600 text-white") : isSunday || isHoliday ? "bg-rose-100 text-rose-700" : cell.inMonth ? "text-slate-700 group-hover:bg-indigo-100" : "text-slate-400"}`}>{cell.day}</span>{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}</div>
                     <div className="mt-1.5 space-y-1">
                       {dayHoliday.slice(0, 1).map((holiday) => <div key={holiday._id} className="truncate rounded-md bg-rose-100 px-1.5 py-1 text-[9px] font-semibold text-rose-800 sm:text-[10px]">{holiday.name}</div>)}
@@ -505,9 +541,10 @@ function AttendanceWorkspace() {
             </div>
           </section>
 
-          <aside className="hrms-card rounded-2xl p-5 sm:p-6">
+          <aside className="rounded-[28px] border border-white/90 bg-white/80 p-5 shadow-[0_18px_55px_rgba(31,41,55,0.08)] backdrop-blur-2xl sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Day details</p><h2 className="mt-1 text-lg font-bold text-slate-900">{selectedLabel}</h2></div><span className="rounded-xl bg-indigo-50 p-2.5 text-indigo-600"><CalendarCheck2 size={20} /></span></div>
             {selectedHoliday.map((holiday) => <div key={holiday._id} className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3"><p className="font-semibold text-rose-900">{holiday.name}</p><p className="mt-1 text-xs capitalize text-rose-700">{holiday.type} holiday</p></div>)}
+            {selectedLeaves.map((leave) => <div key={leave._id} className="mb-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3"><p className="font-semibold capitalize text-emerald-900">{leave.leaveType} leave · {leave.status}</p>{canSeeTeam && leave.employee && <p className="mt-1 text-xs text-emerald-700">{leave.employee.firstName} {leave.employee.lastName} · {leave.employee.employeeCode}</p>}</div>)}
             {(selectedIsSunday || selectedWeeklyOff) && <div className="mb-3 rounded-xl border border-rose-100 bg-rose-50 p-3"><p className="font-semibold text-rose-900">{selectedIsSunday ? "Sunday" : "Weekly Off"}{selectedIsSunday && selectedWeeklyOff ? " · Scheduled Weekly Off" : ""}</p><p className="mt-1 text-xs text-rose-700">{selectedIsSunday ? "Sunday is highlighted as a weekly rest day." : "Based on the weekly-off days configured in your assigned shift."}</p></div>}
             {selectedRecords.length ? <div className="space-y-3">
               {selectedRecords.map((record) => <div key={record._id} className="rounded-xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:shadow-sm">
@@ -526,6 +563,19 @@ function AttendanceWorkspace() {
           </aside>
         </div>
 
+        {showLeaveModal && <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/35 px-4 py-8 backdrop-blur-md" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowLeaveModal(false); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="attendance-leave-title" className="my-auto w-full max-w-xl rounded-[28px] border border-white/80 bg-white/95 p-5 shadow-[0_28px_90px_rgba(15,23,42,0.22)] sm:p-7">
+            <div className="mb-6 flex items-start justify-between gap-4"><div><p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-indigo-500">Leave request</p><h2 id="attendance-leave-title" className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950">Apply for leave</h2><p className="mt-1 text-sm text-slate-500">Your request will follow the existing HR approval process.</p></div><button type="button" onClick={() => setShowLeaveModal(false)} aria-label="Close leave application" className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"><X size={18} /></button></div>
+            <form onSubmit={submitLeaveRequest} className="space-y-4">
+              <div className="rounded-2xl bg-indigo-50/80 p-4"><p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-500">Selected date</p><p className="mt-1 font-bold text-indigo-950">{new Date(`${leaveForm.startDate}T00:00:00`).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p></div>
+              <label className="block text-sm font-bold text-slate-700">Leave type<select required value={leaveForm.leaveType} onChange={(e) => setLeaveForm({ ...leaveForm, leaveType: e.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"><option value="earned">Annual Leave</option><option value="sick">Sick Leave</option><option value="casual">Casual Leave</option><option value="unpaid">Unpaid Leave</option></select></label>
+              <div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-bold text-slate-700">Start date<input required type="date" value={leaveForm.startDate} onChange={(e) => setLeaveForm({ ...leaveForm, startDate: e.target.value, endDate: leaveForm.endDate < e.target.value ? e.target.value : leaveForm.endDate })} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" /></label><label className="block text-sm font-bold text-slate-700">End date<input required type="date" min={leaveForm.startDate} value={leaveForm.endDate} onChange={(e) => setLeaveForm({ ...leaveForm, endDate: e.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" /></label></div>
+              <label className="block text-sm font-bold text-slate-700">Reason<textarea required minLength={5} maxLength={1000} rows={4} value={leaveForm.reason} onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })} placeholder="Please share a brief reason for your leave..." className="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" /></label>
+              {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+              <div className="flex flex-col-reverse justify-end gap-2 border-t border-slate-100 pt-5 sm:flex-row"><button type="button" onClick={() => setShowLeaveModal(false)} className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50">Cancel</button><button type="submit" disabled={leaveSaving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"><Save size={16} />{leaveSaving ? "Submitting..." : "Submit request"}</button></div>
+            </form>
+          </section>
+        </div>}
         <p className="mt-5 text-xs text-slate-400">Attendance timezone: Asia/Kolkata. Days without a saved attendance record are shown as “No attendance record”; they are not automatically counted as absent.</p>
       </div>
     </main>
