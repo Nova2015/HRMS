@@ -35,6 +35,7 @@ const documentLabels: Record<string, string> = {
   resignation_letter: "Resignation Letter",
   payslip: "Payslip",
   appointment_letter: "Appointment Letter",
+  salary_revision_letter: "Salary Revision Letter",
   leave_letter: "Leave Approval Letter",
   leave_rejection_notice: "Leave Rejection Notice",
   relieving_letter: "Relieving Letter",
