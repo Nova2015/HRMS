@@ -127,6 +127,17 @@ export const createExpenseClaim = async (req, res) => {
             return res.status(403).json({ success: false, message: "An active employee account is required" });
         }
         const limit = await ExpenseLimit.findOne({ category, isActive: true });
+        const claimMonthStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+        const usedInCategory = await ExpenseClaim.aggregate([
+            { $match: {
+                employee: new mongoose.Types.ObjectId(req.user.employeeId),
+                category,
+                expenseDate: { $gte: claimMonthStart, $lt: new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1)) },
+                status: { $ne: "rejected" }
+            } },
+            { $group: { _id: null, used: { $sum: "$amount" } } }
+        ]);
+        const projectedMonthlySpend = money((usedInCategory[0]?.used || 0) + value);
         const claim = await ExpenseClaim.create({
             employee: employee._id,
             category,
@@ -139,7 +150,7 @@ export const createExpenseClaim = async (req, res) => {
             receiptMimeType: file.mimetype,
             receiptSize: file.size,
             policyLimitAtSubmission: limit?.monthlyLimit ?? null,
-            overLimitAtSubmission: Boolean(limit && value > limit.monthlyLimit)
+            overLimitAtSubmission: Boolean(limit && projectedMonthlySpend > limit.monthlyLimit)
         });
         const data = await populateClaim(ExpenseClaim.findById(claim._id));
         return res.status(201).json({ success: true, message: "Expense claim submitted for approval", data });
