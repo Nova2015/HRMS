@@ -228,23 +228,41 @@ router.get("/gmail/messages", protect, authorizeRoles("admin", "hr"), async (req
         const list = await gmailApiFetch(listUrl, accessToken);
         const ids = (list.messages || []).map((message) => message.id).filter(Boolean);
         const employees = await Employee.find({ employmentStatus: { $ne: "terminated" } })
-            .select("employeeCode")
+            .select("employeeCode firstName lastName")
             .lean();
-        const employeeCodes = employees.map((employee) => employee.employeeCode).filter(Boolean);
+
+        const normalizeMatchText = (value) => String(value || "")
+            .normalize("NFKC")
+            .toLocaleLowerCase()
+            .replace(/[^\p{L}\p{N}]+/gu, " ")
+            .trim()
+            .replace(/\s+/g, " ");
 
         const messages = [];
         for (let offset = 0; offset < ids.length; offset += 5) {
             const batch = await Promise.all(ids.slice(offset, offset + 5).map(async (messageId) => {
-                const detailUrl = new URL(`${GMAIL_API_URL}/messages/${encodeURIComponent(messageId)}`);
+                const detailUrl = new URL(GMAIL_API_URL + "/messages/" + encodeURIComponent(messageId));
                 detailUrl.searchParams.set("format", "full");
                 const message = await gmailApiFetch(detailUrl, accessToken);
                 const headers = message.payload?.headers || [];
                 const header = (name) => headers.find((item) => item.name?.toLowerCase() === name)?.value || "";
                 const bodyText = collectPlainText(message.payload).join("\n").trim();
-                const searchableText = `${header("subject")}\n${message.snippet || ""}\n${bodyText}`.toUpperCase();
-                const matchedEmployeeCodes = employeeCodes.filter((code) => {
-                    const pattern = new RegExp(`(^|[^A-Z0-9])${escapeRegex(code.toUpperCase())}([^A-Z0-9]|$)`);
-                    return pattern.test(searchableText);
+                const searchableText = header("subject") + "\n" + (message.snippet || "") + "\n" + bodyText;
+                const normalizedSearchText = " " + normalizeMatchText(searchableText) + " ";
+                const matchedEmployees = employees.flatMap((employee) => {
+                    const code = String(employee.employeeCode || "").trim().toUpperCase();
+                    const codePattern = code
+                        ? new RegExp("(^|[^A-Z0-9])" + escapeRegex(code) + "([^A-Z0-9]|$)")
+                        : null;
+                    const codeMatched = Boolean(codePattern?.test(searchableText.toUpperCase()));
+                    const fullName = normalizeMatchText((employee.firstName || "") + " " + (employee.lastName || ""));
+                    const nameMatched = fullName.length > 2 && normalizedSearchText.includes(" " + fullName + " ");
+                    if (!codeMatched && !nameMatched) return [];
+                    return [{
+                        employeeCode: code,
+                        employeeName: ((employee.firstName || "") + " " + (employee.lastName || "")).trim(),
+                        matchType: codeMatched && nameMatched ? "employee_code_and_name" : codeMatched ? "employee_code" : "full_name"
+                    }];
                 });
                 return {
                     messageId: message.id,
@@ -253,7 +271,10 @@ router.get("/gmail/messages", protect, authorizeRoles("admin", "hr"), async (req
                     subject: header("subject"),
                     date: header("date"),
                     snippet: message.snippet || "",
-                    matchedEmployeeCodes,
+                    matchedEmployeeCodes: matchedEmployees
+                        .filter((employee) => employee.matchType !== "full_name")
+                        .map((employee) => employee.employeeCode),
+                    matchedEmployees,
                     textPreview: bodyText.slice(0, 4000)
                 };
             }));
