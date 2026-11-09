@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileText, Download, Upload, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowLeft, FileText, Download, Upload, RefreshCw, ShieldCheck, Send, Check, X } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
 const API_URL = "http://localhost:5000/api";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 type EmployeeInfo = {
+  _id: string;
   employeeCode: string;
   firstName: string;
   lastName: string;
@@ -22,24 +23,55 @@ type EmployeeDocument = {
   mimeType: string;
   size: number;
   createdAt: string;
+  documentType: string;
+  direction: "employee_to_hr" | "hr_to_employee";
+  status: "pending" | "approved" | "rejected" | "issued";
+  reviewComment?: string;
   employee?: EmployeeInfo;
+};
+
+const documentLabels: Record<string, string> = {
+  other: "Supporting Document",
+  resignation_letter: "Resignation Letter",
+  payslip: "Payslip",
+  appointment_letter: "Appointment Letter",
+  leave_letter: "Leave Letter",
+  relieving_letter: "Relieving Letter",
 };
 
 function DocumentsContent() {
   const router = useRouter();
-  const [role, setRole] = useState("employee");
+  const [role] = useState(() => {
+    if (typeof window === "undefined") return "employee";
+    try {
+      return JSON.parse(sessionStorage.getItem("hrms_user") || "{}").role || "employee";
+    } catch {
+      return "employee";
+    }
+  });
   const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
+  const [employees, setEmployees] = useState<EmployeeInfo[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [issueFile, setIssueFile] = useState<File | null>(null);
+  const [targetEmployee, setTargetEmployee] = useState("");
+  const [issueType, setIssueType] = useState("payslip");
+  const [reviewComment, setReviewComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [issuing, setIssuing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   const isHR = role === "admin" || role === "hr";
 
-  const loadDocuments = useCallback(async () => {
+  const authHeaders = () => {
     const token = sessionStorage.getItem("hrms_token");
-    if (!token) {
+    return token ? { Authorization: `Bearer ${token}` } : null;
+  };
+
+  const loadDocuments = useCallback(async () => {
+    const headers = authHeaders();
+    if (!headers) {
       router.push("/login");
       return;
     }
@@ -47,8 +79,7 @@ function DocumentsContent() {
     setError("");
     try {
       const response = await fetch(`${API_URL}/documents${isHR ? "" : "/my"}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
+        headers, cache: "no-store",
       });
       const result = await response.json();
       if (response.status === 401) {
@@ -57,9 +88,7 @@ function DocumentsContent() {
         router.push("/login");
         return;
       }
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Unable to load documents");
-      }
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to load documents");
       setDocuments(result.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load documents");
@@ -68,80 +97,109 @@ function DocumentsContent() {
     }
   }, [isHR, router]);
 
-  useEffect(() => {
-    void Promise.resolve().then(() => {
-      try {
-        const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
-        setRole(user.role || "employee");
-      } catch {
-        setRole("employee");
+  const loadEmployees = useCallback(async () => {
+    if (!isHR) return;
+    const headers = authHeaders();
+    if (!headers) return;
+    try {
+      const response = await fetch(`${API_URL}/employees`, { headers, cache: "no-store" });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        const active = (result.data || []).filter((employee: EmployeeInfo & { employmentStatus?: string }) => employee.employmentStatus === "active");
+        setEmployees(active);
+        if (active.length) setTargetEmployee(active[0]._id);
       }
-    });
-  }, []);
+    } catch {
+      setError("Unable to load employee list for document delivery");
+    }
+  }, [isHR]);
 
   useEffect(() => {
-    void Promise.resolve().then(() => loadDocuments());
-  }, [loadDocuments]);
+    void loadDocuments();
+    void loadEmployees();
+  }, [loadDocuments, loadEmployees]);
+
+  const validateFile = (file: File | null) => {
+    if (!file) return "Please choose a document first.";
+    if (file.size < 1 || file.size > MAX_FILE_SIZE) return "Document must be 10 MB or smaller.";
+    if (!["application/pdf", "image/jpeg", "image/png"].includes(file.type)) return "Only PDF, JPG and PNG files are supported.";
+    return "";
+  };
 
   const uploadDocument = async () => {
-    if (!selectedFile) {
-      setError("Please choose a document first.");
-      return;
-    }
-    if (selectedFile.size < 1 || selectedFile.size > MAX_FILE_SIZE) {
-      setError("Document must be smaller than or equal to 10 MB.");
-      return;
-    }
-    const allowed = ["application/pdf", "image/jpeg", "image/png"];
-    if (!allowed.includes(selectedFile.type)) {
-      setError("Only PDF, JPG and PNG files are supported.");
-      return;
-    }
-
-    const token = sessionStorage.getItem("hrms_token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
-    setUploading(true);
-    setError("");
-    setNotice("");
+    const validation = validateFile(selectedFile);
+    if (validation) { setError(validation); return; }
+    const headers = authHeaders();
+    if (!headers || !selectedFile) { router.push("/login"); return; }
+    setUploading(true); setError(""); setNotice("");
     try {
       const formData = new FormData();
       formData.append("document", selectedFile);
-      const response = await fetch(`${API_URL}/documents/my`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      formData.append("documentType", "resignation_letter");
+      const response = await fetch(`${API_URL}/documents/my`, { method: "POST", headers, body: formData });
       const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Document upload failed");
-      }
-      setNotice("Document sent to HR successfully.");
+      if (!response.ok || !result.success) throw new Error(result.message || "Document upload failed");
+      setNotice("Resignation letter submitted to HR successfully.");
       setSelectedFile(null);
       const input = document.getElementById("employee-document-file") as HTMLInputElement | null;
       if (input) input.value = "";
       await loadDocuments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Document upload failed");
-    } finally {
-      setUploading(false);
+    } finally { setUploading(false); }
+  };
+
+  const issueDocument = async () => {
+    const validation = validateFile(issueFile);
+    if (validation) { setError(validation); return; }
+    if (!targetEmployee) { setError("Select an employee."); return; }
+    const headers = authHeaders();
+    if (!headers || !issueFile) { router.push("/login"); return; }
+    setIssuing(true); setError(""); setNotice("");
+    try {
+      const formData = new FormData();
+      formData.append("document", issueFile);
+      formData.append("employeeId", targetEmployee);
+      formData.append("documentType", issueType);
+      const response = await fetch(`${API_URL}/documents/issue`, { method: "POST", headers, body: formData });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to send document");
+      setNotice("Document sent to employee successfully.");
+      setIssueFile(null);
+      const input = document.getElementById("hr-document-file") as HTMLInputElement | null;
+      if (input) input.value = "";
+      await loadDocuments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to send document");
+    } finally { setIssuing(false); }
+  };
+
+  const reviewResignation = async (item: EmployeeDocument, decision: "approved" | "rejected") => {
+    const headers = authHeaders();
+    if (!headers) { router.push("/login"); return; }
+    setError(""); setNotice("");
+    try {
+      const response = await fetch(`${API_URL}/documents/${encodeURIComponent(item._id)}/review`, {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, reviewComment }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to review resignation");
+      setNotice(`Resignation ${decision} successfully.`);
+      setReviewComment("");
+      await loadDocuments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to review resignation");
     }
   };
 
   const downloadDocument = async (item: EmployeeDocument) => {
-    const token = sessionStorage.getItem("hrms_token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
+    const headers = authHeaders();
+    if (!headers) { router.push("/login"); return; }
     setError("");
     try {
-      const response = await fetch(`${API_URL}/documents/${encodeURIComponent(item._id)}/download`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(`${API_URL}/documents/${encodeURIComponent(item._id)}/download`, { headers });
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
         throw new Error(result.message || "Unable to download document");
@@ -149,29 +207,27 @@ function DocumentsContent() {
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = item.originalName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
+      anchor.href = url; anchor.download = item.originalName;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to download document");
     }
   };
 
-  const formatSize = (bytes: number) =>
-    bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  const formatSize = (bytes: number) => bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  const statusClass = (status: string) => status === "approved" || status === "issued"
+    ? "bg-emerald-50 text-emerald-700" : status === "rejected" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700";
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-7 sm:px-6">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <Link href="/" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-700"><ArrowLeft size={16} /> Dashboard</Link>
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-blue-700">{isHR ? "HR document inbox" : "Employee self-service"}</p>
-            <h1 className="mt-1 text-3xl font-bold text-slate-900">{isHR ? "Employee Documents" : "Send Documents to HR"}</h1>
-            <p className="mt-2 text-sm text-slate-500">{isHR ? "Documents submitted by employees." : "Upload your documents securely for HR review."}</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-blue-700">{isHR ? "HR document center" : "Employee self-service"}</p>
+            <h1 className="mt-1 text-3xl font-bold text-slate-900">{isHR ? "Employee Documents" : "My HR Documents"}</h1>
+            <p className="mt-2 text-sm text-slate-500">{isHR ? "Send official documents and review employee resignation letters." : "Download documents issued by HR and submit your resignation letter if required."}</p>
           </div>
           <button type="button" onClick={loadDocuments} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"><RefreshCw size={16} /> Refresh</button>
         </header>
@@ -179,42 +235,76 @@ function DocumentsContent() {
         {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
         {notice && <div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{notice}</div>}
 
-        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Upload size={19} className="text-blue-600" /> {isHR ? "Submit your own document" : "Send a document to HR"}</h2>
-          <p className="mt-1 text-sm text-slate-500">Supported formats: PDF, JPG, PNG. Maximum file size: 10 MB.</p>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <input id="employee-document-file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} className="block w-full rounded-xl border border-slate-200 p-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700" />
-            <button type="button" onClick={uploadDocument} disabled={!selectedFile || uploading} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{uploading ? "Sending..." : "Send to HR"} <Upload size={16} /></button>
-          </div>
-          {selectedFile && <p className="mt-2 text-xs text-slate-500">Selected: {selectedFile.name} · {formatSize(selectedFile.size)}</p>}
-        </section>
+        {isHR ? (
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Send size={19} className="text-blue-600" /> Send Official Document to Employee</h2>
+            <p className="mt-1 text-sm text-slate-500">Upload a PDF, JPG or PNG up to 10 MB. The selected employee alone can access the document.</p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm font-semibold text-slate-700">Employee
+                <select value={targetEmployee} onChange={(event) => setTargetEmployee(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white p-3 font-normal">
+                  <option value="">Select employee</option>
+                  {employees.map((employee) => <option key={employee._id} value={employee._id}>{employee.firstName} {employee.lastName} · {employee.employeeCode}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-slate-700">Document Type
+                <select value={issueType} onChange={(event) => setIssueType(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white p-3 font-normal">
+                  <option value="payslip">Payslip</option><option value="appointment_letter">Appointment Letter</option><option value="leave_letter">Leave Letter</option><option value="relieving_letter">Relieving Letter</option><option value="other">Other Official Document</option>
+                </select>
+              </label>
+            </div>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input id="hr-document-file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setIssueFile(event.target.files?.[0] || null)} className="block w-full rounded-xl border border-slate-200 p-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700" />
+              <button type="button" onClick={issueDocument} disabled={!issueFile || !targetEmployee || issuing} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{issuing ? "Sending..." : "Send to Employee"} <Upload size={16} /></button>
+            </div>
+          </section>
+        ) : (
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Upload size={19} className="text-blue-600" /> Submit Resignation Letter</h2>
+            <p className="mt-1 text-sm text-slate-500">Upload your resignation letter for HR approval. Supported: PDF, JPG, PNG · Maximum 10 MB.</p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input id="employee-document-file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} className="block w-full rounded-xl border border-slate-200 p-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700" />
+              <button type="button" onClick={uploadDocument} disabled={!selectedFile || uploading} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{uploading ? "Submitting..." : "Submit to HR"} <Upload size={16} /></button>
+            </div>
+          </section>
+        )}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div><h2 className="text-lg font-bold text-slate-900">{isHR ? "Received documents" : "My submitted documents"}</h2><p className="mt-1 text-sm text-slate-500">{documents.length} document(s)</p></div>
-          </div>
+          <div className="mb-4"><h2 className="text-lg font-bold text-slate-900">{isHR ? "Document Register & Resignation Approvals" : "My Documents"}</h2><p className="mt-1 text-sm text-slate-500">{documents.length} document(s)</p></div>
           {loading ? <p className="py-8 text-center text-sm text-slate-500">Loading documents...</p> : documents.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500">No documents submitted yet.</div>
+            <div className="rounded-xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500">No documents found.</div>
           ) : (
             <div className="divide-y divide-slate-100">
               {documents.map((item) => (
-                <div key={item._id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="rounded-xl bg-blue-50 p-3 text-blue-700"><FileText size={20} /></div>
-                    <div className="min-w-0">
-                      <p className="break-all text-sm font-semibold text-slate-900">{item.originalName}</p>
-                      {isHR && item.employee && <p className="mt-1 text-xs text-slate-600">{item.employee.firstName} {item.employee.lastName} · {item.employee.employeeCode} · {item.employee.email}</p>}
-                      <p className="mt-1 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString("en-IN")} · {formatSize(item.size)}</p>
+                <div key={item._id} className="flex flex-col gap-3 py-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="rounded-xl bg-blue-50 p-3 text-blue-700"><FileText size={20} /></div>
+                      <div className="min-w-0">
+                        <p className="break-all text-sm font-semibold text-slate-900">{item.originalName}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-600">{documentLabels[item.documentType] || "Document"} · {item.direction === "hr_to_employee" ? "Sent by HR" : "Submitted by Employee"}</p>
+                        {isHR && item.employee && <p className="mt-1 text-xs text-slate-600">{item.employee.firstName} {item.employee.lastName} · {item.employee.employeeCode} · {item.employee.email}</p>}
+                        <p className="mt-1 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString("en-IN")} · {formatSize(item.size)}</p>
+                        {item.reviewComment && <p className="mt-1 text-xs text-slate-600">HR comment: {item.reviewComment}</p>}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(item.status)}`}>{item.status}</span>
+                      <button type="button" onClick={() => void downloadDocument(item)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download size={16} /> Download</button>
                     </div>
                   </div>
-                  <button type="button" onClick={() => void downloadDocument(item)} className="inline-flex items-center justify-center gap-2 self-start rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:self-center"><Download size={16} /> Download</button>
+                  {isHR && item.direction === "employee_to_hr" && item.documentType === "resignation_letter" && item.status === "pending" && (
+                    <div className="ml-12 flex flex-col gap-2 rounded-xl bg-amber-50 p-3 sm:flex-row sm:items-center">
+                      <input value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} maxLength={1000} placeholder="Optional HR review comment" className="min-w-0 flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm" />
+                      <button type="button" onClick={() => void reviewResignation(item, "approved")} className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"><Check size={15} /> Approve</button>
+                      <button type="button" onClick={() => void reviewResignation(item, "rejected")} className="inline-flex items-center justify-center gap-1 rounded-lg bg-red-700 px-3 py-2 text-sm font-semibold text-white"><X size={15} /> Reject</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </section>
-
-        <p className="mt-5 flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 p-4 text-xs leading-5 text-blue-800"><ShieldCheck size={16} className="mt-0.5 shrink-0" /> Documents are stored privately. Employees can access only their own submissions; HR/Admin can view and download company submissions.</p>
+        <p className="mt-5 flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 p-4 text-xs leading-5 text-blue-800"><ShieldCheck size={16} className="mt-0.5 shrink-0" /> Documents remain in private storage. Employees can access only their own documents; HR/Admin can issue and review company documents.</p>
       </div>
     </main>
   );
