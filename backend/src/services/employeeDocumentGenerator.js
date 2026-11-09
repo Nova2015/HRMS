@@ -69,7 +69,7 @@ export const createGeneratedEmployeeDocument = async ({
         const stats = await fs.stat(filePath);
         return await EmployeeDocument.create({
             employee: employee._id,
-            originalName: storedName,
+            originalName: title.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 180) + ".pdf",
             storedName,
             mimeType: "application/pdf",
             size: stats.size,
