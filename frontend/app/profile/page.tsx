@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, RefreshCw, UserCircle, BriefcaseBusiness, Clock3, ShieldCheck } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
@@ -24,6 +25,7 @@ type Profile = {
 type CurrentUser = { email: string; role: string; employee: Profile };
 
 function ProfileContent() {
+  const router = useRouter();
   const [profile, setProfile] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -31,7 +33,7 @@ function ProfileContent() {
   const loadProfile = useCallback(async () => {
     const token = sessionStorage.getItem("hrms_token");
     if (!token) {
-      window.location.assign("/login");
+      router.push("/login");
       return;
     }
 
@@ -46,7 +48,7 @@ function ProfileContent() {
       if (response.status === 401) {
         sessionStorage.removeItem("hrms_token");
         sessionStorage.removeItem("hrms_user");
-        window.location.assign("/login");
+        router.push("/login");
         return;
       }
       if (!response.ok || !result.success || !result.data?.employee) {
@@ -60,7 +62,7 @@ function ProfileContent() {
     }
   }, []);
 
-  useEffect(() => { void loadProfile(); }, [loadProfile]);
+  useEffect(() => { void Promise.resolve().then(() => loadProfile()); }, [loadProfile]);
 
   const date = (value?: string) => value
     ? new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
