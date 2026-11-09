@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createWriteStream } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import PDFDocument from "pdfkit";
 import EmployeeDocument from "../models/EmployeeDocument.js";
 import { DOCUMENT_STORAGE_DIR } from "../middleware/documentUpload.js";
@@ -124,6 +124,64 @@ export const generateLeaveDecisionDocument = async (leave, decision, issuedBy = 
         sections: [
             { heading: "Leave Details", rows: [["Leave Type", leave.leaveType], ["Leave Dates", dateRange], ["Working Days", leave.totalDays], ["Decision", approved ? "Approved" : "Rejected"]] },
             { heading: "HR Review", rows: [["Review Comment", leave.reviewComment || "No additional comment"], ["Decision Date", leave.reviewedAt ? new Date(leave.reviewedAt).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")]] }
+        ]
+    });
+};
+
+
+export const generateSalaryRevisionDocument = async (employee, previousStructure, currentStructure, issuedBy = null) => {
+    if (!employee?._id || !previousStructure || !currentStructure) {
+        throw new Error("Employee and both salary structure versions are required");
+    }
+    const effectiveDate = new Date(currentStructure.effectiveFrom).toISOString().slice(0, 10);
+    const snapshot = {
+        effectiveDate,
+        previous: {
+            monthlyBasic: previousStructure.monthlyBasic,
+            earnings: (previousStructure.earnings || []).map(({ name, amount }) => ({ name, amount })),
+            deductions: (previousStructure.deductions || []).map(({ name, amount }) => ({ name, amount }))
+        },
+        current: {
+            monthlyBasic: currentStructure.monthlyBasic,
+            earnings: (currentStructure.earnings || []).map(({ name, amount }) => ({ name, amount })),
+            deductions: (currentStructure.deductions || []).map(({ name, amount }) => ({ name, amount }))
+        }
+    };
+    const fingerprint = createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
+    const lines = (items) => items.length
+        ? items.map((item) => [item.name, money(item.amount)])
+        : [["Components", "None"]];
+    return createGeneratedEmployeeDocument({
+        employee,
+        documentType: "other",
+        title: "Salary Revision Letter",
+        sourceKey: "salary-revision:" + employee._id + ":" + effectiveDate + ":" + fingerprint,
+        issuedBy,
+        sections: [
+            { heading: "Revision Details", rows: [["Effective From", effectiveDate], ["Currency", "INR"]] },
+            { heading: "Previous Salary Structure", rows: [["Monthly Basic", money(snapshot.previous.monthlyBasic)], ...lines(snapshot.previous.earnings), ...snapshot.previous.deductions.map((item) => ["Deduction - " + item.name, money(item.amount)])] },
+            { heading: "Revised Salary Structure", rows: [["Monthly Basic", money(snapshot.current.monthlyBasic)], ...lines(snapshot.current.earnings), ...snapshot.current.deductions.map((item) => ["Deduction - " + item.name, money(item.amount)])] }
+        ]
+    });
+};
+
+export const generateAppointmentLetterDocument = async (employee, issuedBy = null) => {
+    if (!employee?._id) throw new Error("Employee details are required");
+    const departmentName = employee.department?.name || "As assigned by HR";
+    const designationName = employee.designation?.name || "As assigned by HR";
+    const shiftName = employee.shift?.name || "As assigned by HR";
+    const joiningDate = employee.joiningDate
+        ? new Date(employee.joiningDate).toLocaleDateString("en-IN", { timeZone: "UTC" })
+        : "-";
+    return createGeneratedEmployeeDocument({
+        employee,
+        documentType: "appointment_letter",
+        title: "Appointment Letter",
+        sourceKey: "appointment:" + employee._id,
+        issuedBy,
+        sections: [
+            { heading: "Appointment Details", rows: [["Employee Code", employee.employeeCode], ["Designation", designationName], ["Department", departmentName], ["Date of Joining", joiningDate], ["Work Shift", shiftName], ["Employment Status", employee.employmentStatus || "active"]] },
+            { heading: "Employment Confirmation", rows: [["Appointment", "You are appointed to the above position with effect from the date of joining recorded in HRMS."], ["Terms and Conditions", "Your employment will be governed by the company's applicable policies and terms communicated by HR."]] }
         ]
     });
 };
