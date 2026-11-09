@@ -72,6 +72,7 @@ function AttendanceWorkspace() {
   const [ownWeeklyOffDays, setOwnWeeklyOffDays] = useState<number[]>([]);
   const [month, setMonth] = useState(() => new Date());
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [clockTime, setClockTime] = useState(() => new Date());
   const previousDateRef = useRef(currentDate);
   const [selectedDay, setSelectedDay] = useState(todayKey());
   const [employeeFilter, setEmployeeFilter] = useState("");
@@ -167,8 +168,8 @@ function AttendanceWorkspace() {
 
   // Keep the Today marker in sync when the page remains open across midnight.
   useEffect(() => {
-    const syncCurrentDate = () => setCurrentDate(new Date());
-    const timer = window.setInterval(syncCurrentDate, 30_000);
+    const syncCurrentDate = () => { const now = new Date(); setCurrentDate(now); setClockTime(now); };
+    const timer = window.setInterval(syncCurrentDate, 1_000);
     window.addEventListener("focus", syncCurrentDate);
     document.addEventListener("visibilitychange", syncCurrentDate);
     return () => {
@@ -336,7 +337,7 @@ function AttendanceWorkspace() {
           <div className="flex flex-wrap items-center gap-2">
             <div className="mr-1 rounded-xl border border-white/80 bg-white/75 px-3 py-2 text-right shadow-sm backdrop-blur">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Local time</p>
-              <p className="text-sm font-bold tabular-nums text-slate-800">{currentDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}</p>
+              <p className="text-sm font-bold tabular-nums text-slate-800">{clockTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}</p>
             </div>
             <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} title={soundEnabled ? "Mute success sounds" : "Enable success sounds"} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-50">
               {soundEnabled ? <Volume2 size={16} className="text-indigo-600" /> : <VolumeX size={16} />}
@@ -350,15 +351,40 @@ function AttendanceWorkspace() {
         {error && <div role="alert" className="mb-5 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><AlertCircle size={18} className="mt-0.5 shrink-0" />{error}</div>}
         {notice && <div role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{notice}</div>}
 
+        {!isAdmin && (
+          <section className="hrms-card mb-6 overflow-hidden rounded-[28px] p-5 sm:p-7">
+            <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                  <span className={`h-2 w-2 rounded-full ${today?.checkIn && !today?.checkOut ? "bg-emerald-500 hrms-pulse" : "bg-slate-400"}`} />
+                  {today?.checkOut ? "Shift completed" : today?.checkIn ? "Currently checked in" : "Attendance workspace"}
+                </div>
+                <p className="text-sm font-medium text-slate-500">{currentDate.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</p>
+                <div className="mt-1 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">{clockTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</div>
+                <p className="mt-2 text-sm text-slate-500">Your attendance actions and today&apos;s recorded hours.</p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button type="button" onClick={() => performAttendanceAction("check-in")} disabled={saving || Boolean(today?.checkIn)} className="hrms-interactive inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"><LogIn size={18} />{saving ? "Processing..." : today?.checkIn ? "Checked In" : "Check In"}</button>
+                  <button type="button" onClick={() => performAttendanceAction("check-out")} disabled={saving || !today?.checkIn || Boolean(today?.checkOut)} className="hrms-interactive inline-flex items-center gap-2 rounded-2xl border border-indigo-200 bg-white px-6 py-3.5 text-sm font-bold text-indigo-700 shadow-sm hover:-translate-y-0.5 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"><LogOut size={18} />{today?.checkOut ? "Checked Out" : "Check Out"}</button>
+                </div>
+                {(today?.isLate || today?.isEarlyLeaving) && <p className="mt-3 text-xs font-semibold text-orange-700">{today.isLate ? "Late arrival recorded. " : ""}{today.isEarlyLeaving ? "Early leaving recorded." : ""}</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Check-in</p><p className="mt-2 text-xl font-bold text-slate-900">{formatTime(today?.checkIn || null)}</p><p className="mt-1 text-xs text-slate-400">Today</p></div>
+                <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Check-out</p><p className="mt-2 text-xl font-bold text-slate-900">{formatTime(today?.checkOut || null)}</p><p className="mt-1 text-xs text-slate-400">Today</p></div>
+                <div className="col-span-2 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-blue-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Total working time</p><p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">{formatHours(today?.workMinutes || 0)}</p></div>
+              </div>
+            </div>
+          </section>
+        )}
         <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-600 p-5 text-white shadow-lg shadow-blue-900/10 transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+          <div className="hrms-card rounded-2xl p-5">
             <div className="flex items-center justify-between text-blue-100"><span className="text-sm font-medium">Present</span><CheckCircle2 size={20} /></div>
             <p className="mt-3 text-3xl font-bold tabular-nums">{summary.present}</p><p className="mt-1 text-xs text-blue-100">Recorded days this month</p>
           </div>
-          <div className="rounded-2xl border border-amber-100 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"><div className="flex items-center justify-between text-amber-700"><span className="text-sm font-medium">Half Day</span><Timer size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.halfDay}</p><p className="mt-1 text-xs text-slate-500">Short working days</p></div>
-          <div className="rounded-2xl border border-rose-100 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"><div className="flex items-center justify-between text-rose-700"><span className="text-sm font-medium">Absent</span><AlertCircle size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.absent}</p><p className="mt-1 text-xs text-slate-500">Explicitly marked absent</p></div>
-          <div className="rounded-2xl border border-orange-100 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"><div className="flex items-center justify-between text-orange-700"><span className="text-sm font-medium">Late Arrivals</span><Clock3 size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.late}</p><p className="mt-1 text-xs text-slate-500">Late check-ins this month</p></div>
-          <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md"><div className="flex items-center justify-between text-emerald-700"><span className="text-sm font-medium">Working Time</span><Clock3 size={20} /></div><p className="mt-3 text-2xl font-bold text-slate-900">{formatHours(summary.hours)}</p><p className="mt-1 text-xs text-slate-500">Total recorded hours</p></div>
+          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-amber-700"><span className="text-sm font-medium">Half Day</span><Timer size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.halfDay}</p><p className="mt-1 text-xs text-slate-500">Short working days</p></div>
+          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-rose-700"><span className="text-sm font-medium">Absent</span><AlertCircle size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.absent}</p><p className="mt-1 text-xs text-slate-500">Explicitly marked absent</p></div>
+          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-orange-700"><span className="text-sm font-medium">Late Arrivals</span><Clock3 size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.late}</p><p className="mt-1 text-xs text-slate-500">Late check-ins this month</p></div>
+          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-emerald-700"><span className="text-sm font-medium">Working Time</span><Clock3 size={20} /></div><p className="mt-3 text-2xl font-bold text-slate-900">{formatHours(summary.hours)}</p><p className="mt-1 text-xs text-slate-500">Total recorded hours</p></div>
         </section>
 
         {canSeeTeam && (
@@ -454,22 +480,6 @@ function AttendanceWorkspace() {
             </div> : <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center"><CalendarDays className="mx-auto mb-2 text-slate-300" size={28} /><p className="text-sm font-semibold text-slate-700">No attendance record</p><p className="mt-1 text-xs text-slate-500">{selectedHoliday.length ? "Holiday listed above." : selectedWeeklyOff ? "Scheduled weekly off based on the assigned shift." : "No record has been entered for this date."}</p></div>}
           </aside>
         </div>
-
-        {!isAdmin && (
-          <section className="hrms-card mt-6 rounded-2xl p-5 sm:p-6">
-            <div className="mb-4"><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Daily attendance</p><h2 className="mt-1 text-lg font-bold text-slate-900">Today&apos;s check-in / check-out</h2><p className="mt-1 text-sm text-slate-500">Record your attendance for today.</p></div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Check-in</p><p className="mt-1 text-lg font-bold text-slate-900">{formatTime(today?.checkIn || null)}</p></div>
-              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Check-out</p><p className="mt-1 text-lg font-bold text-slate-900">{formatTime(today?.checkOut || null)}</p></div>
-              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Today&apos;s work</p><p className="mt-1 text-lg font-bold text-slate-900">{formatHours(today?.workMinutes || 0)}</p></div>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button type="button" onClick={() => performAttendanceAction("check-in")} disabled={saving || Boolean(today?.checkIn)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"><LogIn size={17} />{today?.checkIn ? "Checked In" : "Check In"}</button>
-              <button type="button" onClick={() => performAttendanceAction("check-out")} disabled={saving || !today?.checkIn || Boolean(today?.checkOut)} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"><LogOut size={17} />{today?.checkOut ? "Checked Out" : "Check Out"}</button>
-            </div>
-            {(today?.isLate || today?.isEarlyLeaving) && <p className="mt-3 text-xs font-medium text-orange-700">{today.isLate ? "Late arrival recorded. " : ""}{today.isEarlyLeaving ? "Early leaving recorded." : ""}</p>}
-          </section>
-        )}
 
         <p className="mt-5 text-xs text-slate-400">Attendance timezone: Asia/Kolkata. Days without a saved attendance record are shown as “No attendance record”; they are not automatically counted as absent.</p>
       </div>
