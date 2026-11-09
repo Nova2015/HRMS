@@ -72,6 +72,8 @@ function DocumentsContent() {
   };
 
   const loadDocuments = useCallback(async () => {
+    // Defer state updates to the async continuation so effects do not trigger cascading renders.
+    await Promise.resolve();
     const headers = authHeaders();
     if (!headers) {
       router.push("/login");
