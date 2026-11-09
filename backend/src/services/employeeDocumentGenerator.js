@@ -153,7 +153,7 @@ export const generateSalaryRevisionDocument = async (employee, previousStructure
         : [["Components", "None"]];
     return createGeneratedEmployeeDocument({
         employee,
-        documentType: "other",
+        documentType: "salary_revision_letter",
         title: "Salary Revision Letter",
         sourceKey: "salary-revision:" + employee._id + ":" + effectiveDate + ":" + fingerprint,
         issuedBy,
