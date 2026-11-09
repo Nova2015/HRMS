@@ -6,6 +6,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import connectDB from "./config/database.js";
+import { seedRecruitmentMasters } from "./config/seedRecruitmentMasters.js";
 
 // Routes
 import departmentRoutes from "./routes/departmentRoutes.js";
@@ -84,6 +85,7 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
     try {
         await connectDB();
+        await seedRecruitmentMasters();
         const PORT = process.env.PORT || 5000;
         app.listen(PORT, () => {
             console.log("-----------------------------------");
