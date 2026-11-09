@@ -17,6 +17,7 @@ import leaveRoutes from "./routes/leaveRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
 import shiftRoutes from "./routes/shiftRoutes.js";
 import payrollRoutes from "./routes/payrollRoutes.js";
+import employeeDocumentRoutes from "./routes/employeeDocumentRoutes.js";
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use("/api/leaves", leaveRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/payroll", payrollRoutes);
+app.use("/api/documents", employeeDocumentRoutes);
 
 app.use((req, res) => {
     res.status(404).json({
