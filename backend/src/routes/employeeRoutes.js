@@ -7,7 +7,8 @@ import {
     getEmployeeById,
     updateEmployee,
     deactivateEmployee,
-    activateEmployee
+    activateEmployee,
+    resetEmployeePassword
 } from "../controllers/employeeController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -25,6 +26,7 @@ router.post("/", createEmployee);
 router.get("/", getEmployees);
 router.get("/:id", getEmployeeById);
 router.put("/:id", updateEmployee);
+router.patch("/:id/reset-password", authorizeRoles("admin"), resetEmployeePassword);
 router.patch("/:id/deactivate", deactivateEmployee);
 router.patch("/:id/activate", activateEmployee);
 
