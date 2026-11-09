@@ -294,6 +294,13 @@ export const getMyAttendance = async (req, res) => {
             });
         }
 
+        if (from && to && from > to) {
+            return res.status(400).json({
+                success: false,
+                message: "From date cannot be after to date"
+            });
+        }
+
         if (from || to) {
             filter.dateKey = {};
 
@@ -419,6 +426,13 @@ export const getAttendanceRegister = async (req, res) => {
                 });
             }
 
+            if (from && to && from > to) {
+                return res.status(400).json({
+                    success: false,
+                    message: "From date cannot be after to date"
+                });
+            }
+
             if (from || to) {
                 filter.dateKey = {};
 
@@ -502,6 +516,20 @@ export const saveManualAttendance = async (req, res) => {
 
         const checkInDate = checkIn ? new Date(checkIn) : null;
         const checkOutDate = checkOut ? new Date(checkOut) : null;
+
+        if (checkInDate && getDateKey(checkInDate) !== dateKey) {
+            return res.status(400).json({
+                success: false,
+                message: "Check-in timestamp must match the attendance date in Asia/Kolkata"
+            });
+        }
+
+        if (checkOutDate && getDateKey(checkOutDate) !== dateKey) {
+            return res.status(400).json({
+                success: false,
+                message: "Check-out timestamp must match the attendance date in Asia/Kolkata"
+            });
+        }
 
         if (status === "absent" && (checkInDate || checkOutDate)) {
             return res.status(400).json({
