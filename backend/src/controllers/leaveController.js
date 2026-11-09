@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import LeaveRequest from "../models/LeaveRequest.js";
 import Employee from "../models/Employee.js";
 import Holiday from "../models/Holiday.js";
-import { generateLeaveDecisionDocument } from "../services/employeeDocumentGenerator.js";
 
 const ALLOWED_LEAVE_TYPES = ["casual", "sick", "earned", "unpaid"];
 const REVIEW_ROLES = ["admin", "hr"];
@@ -267,22 +266,11 @@ export const reviewLeaveRequest = async (req, res) => {
         }
 
         const data = await populateLeave(LeaveRequest.findById(leave._id));
-        let generatedDocument = null;
-        let documentWarning = "";
-        try {
-            const leaveForDocument = await LeaveRequest.findById(leave._id)
-                .populate("employee", "employeeCode firstName lastName email");
-            generatedDocument = await generateLeaveDecisionDocument(leaveForDocument, decision, req.user.userId);
-        } catch (documentError) {
-            documentWarning = " Leave decision was saved, but automatic letter generation failed; HR can review the document register.";
-            console.error("Automatic leave document generation failed:", documentError.message);
-        }
 
         return res.status(200).json({
             success: true,
-            message: `Leave request ${decision} successfully.${documentWarning}`,
-            data,
-            generatedDocument
+            message: `Leave request ${decision} successfully.`,
+            data
         });
     } catch (error) {
         console.error("Review leave request error:", error);
