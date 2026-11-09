@@ -7,8 +7,8 @@ import AuthGuard from "../components/AuthGuard";
 
 const API_URL = "http://localhost:5000/api";
 
-type Department = { _id: string; name: string; code?: string };
-type Designation = { _id: string; name: string; department?: string };
+type Department = { _id: string; name: string; code?: string; description?: string; isActive?: boolean };
+type Designation = { _id: string; name: string; department?: string; description?: string; isActive?: boolean };
 type Job = {
   _id: string; title: string; description: string; employmentType: string;
   location: string; openings: number; status: "open" | "on_hold" | "closed";
@@ -47,6 +47,9 @@ function RecruitmentWorkspace() {
   const [jobForm, setJobForm] = useState({ title: "", department: "", designation: "", description: "", employmentType: "full_time", location: "", openings: "1" });
   const [candidateForm, setCandidateForm] = useState({ firstName: "", lastName: "", email: "", phone: "", jobOpening: "", experienceYears: "0", currentCompany: "", resumeUrl: "", notes: "" });
   const [hireForm, setHireForm] = useState({ employeeCode: "", joiningDate: "", initialPassword: "" });
+  const [canManageMasters, setCanManageMasters] = useState(false);
+  const [departmentForm, setDepartmentForm] = useState({ id: "", name: "", code: "", description: "" });
+  const [designationForm, setDesignationForm] = useState({ id: "", name: "", department: "", description: "" });
 
   const token = () => sessionStorage.getItem("hrms_token") || "";
   const request = async (path: string, options: RequestInit = {}) => {
@@ -76,6 +79,37 @@ function RecruitmentWorkspace() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    try { const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}"); setCanManageMasters(["admin", "hr"].includes(String(user.role || "").toLowerCase())); }
+    catch { setCanManageMasters(false); }
+  }, []);
+
+  const masterRequest = async (path: string, options: RequestInit = {}) => {
+    const response = await fetch(`${API_URL}${path}`, { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}`, ...(options.headers || {}) }, cache: "no-store" });
+    const result = await response.json();
+    if (response.status === 401) { sessionStorage.removeItem("hrms_token"); sessionStorage.removeItem("hrms_user"); window.location.href = "/login"; throw new Error("Session expired. Please sign in again."); }
+    if (!response.ok || !result.success) throw new Error(result.message || "Master data request failed");
+    return result;
+  };
+
+  const saveDepartment = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setSaving(true); setError(""); setNotice("");
+    try { const editing = Boolean(departmentForm.id); await masterRequest(editing ? `/departments/${departmentForm.id}` : "/departments", { method: editing ? "PUT" : "POST", body: JSON.stringify({ name: departmentForm.name, code: departmentForm.code, description: departmentForm.description }) }); setNotice(editing ? "Department updated." : "Department added."); setDepartmentForm({ id: "", name: "", code: "", description: "" }); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Unable to save department"); } finally { setSaving(false); }
+  };
+
+  const saveDesignation = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setSaving(true); setError(""); setNotice("");
+    try { const editing = Boolean(designationForm.id); await masterRequest(editing ? `/designations/${designationForm.id}` : "/designations", { method: editing ? "PUT" : "POST", body: JSON.stringify({ name: designationForm.name, department: designationForm.department, description: designationForm.description }) }); setNotice(editing ? "Designation updated." : "Designation added."); setDesignationForm({ id: "", name: "", department: "", description: "" }); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Unable to save designation"); } finally { setSaving(false); }
+  };
+
+  const toggleMasterStatus = async (kind: "departments" | "designations", item: Department | Designation) => {
+    setError(""); setNotice("");
+    try { await masterRequest(`/${kind}/${item._id}`, { method: "PUT", body: JSON.stringify({ isActive: item.isActive === false }) }); setNotice(`${kind === "departments" ? "Department" : "Designation"} ${item.isActive === false ? "activated" : "deactivated"}.`); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Unable to update status"); }
+  };
 
   const filteredCandidates = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -167,13 +201,42 @@ function RecruitmentWorkspace() {
           ].map((stat) => { const Icon = stat.icon; return <div key={stat.label} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">{stat.label}</span><span className={`rounded-xl p-2 ${stat.tint}`}><Icon size={18} /></span></div><p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{loading ? "…" : stat.value}</p></div>; })}
         </section>
 
+
+        {canManageMasters && (
+          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4"><h2 className="font-bold text-slate-900">Department & Designation Management</h2><p className="mt-1 text-sm text-slate-500">Admin / HR can add, edit, activate or deactivate master records.</p></div>
+            <div className="grid gap-6 xl:grid-cols-2">
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-slate-800">Departments</h3>
+                <form onSubmit={saveDepartment} className="mb-4 grid gap-2 sm:grid-cols-2">
+                  <input required maxLength={80} placeholder="Department name" className={inputClass} value={departmentForm.name} onChange={(e) => setDepartmentForm({ ...departmentForm, name: e.target.value })} />
+                  <input required maxLength={12} placeholder="Code (e.g. AI)" className={inputClass} value={departmentForm.code} onChange={(e) => setDepartmentForm({ ...departmentForm, code: e.target.value.toUpperCase() })} />
+                  <input placeholder="Description (optional)" className={inputClass} value={departmentForm.description} onChange={(e) => setDepartmentForm({ ...departmentForm, description: e.target.value })} />
+                  <div className="flex gap-2"><button disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{departmentForm.id ? "Update Department" : "Add Department"}</button>{departmentForm.id && <button type="button" onClick={() => setDepartmentForm({ id: "", name: "", code: "", description: "" })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs">Cancel</button>}</div>
+                </form>
+                <div className="space-y-2">{data?.departments.map((d) => <div key={d._id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 p-3"><div><p className="text-sm font-medium text-slate-800">{d.name} <span className="text-xs text-slate-400">({d.code || "—"})</span></p><p className="text-xs text-slate-400">{d.isActive === false ? "Inactive" : "Active"}</p></div><div className="flex gap-2"><button type="button" onClick={() => setDepartmentForm({ id: d._id, name: d.name, code: d.code || "", description: d.description || "" })} className="text-xs font-semibold text-blue-700">Edit</button><button type="button" onClick={() => toggleMasterStatus("departments", d)} className="text-xs font-semibold text-slate-500">{d.isActive === false ? "Activate" : "Deactivate"}</button></div></div>)}</div>
+              </div>
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-slate-800">Designations</h3>
+                <form onSubmit={saveDesignation} className="mb-4 grid gap-2 sm:grid-cols-2">
+                  <select required className={inputClass} value={designationForm.department} onChange={(e) => setDesignationForm({ ...designationForm, department: e.target.value })}><option value="">Select department</option>{data?.departments.filter((d) => d.isActive !== false).map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}</select>
+                  <input required maxLength={100} placeholder="Designation name" className={inputClass} value={designationForm.name} onChange={(e) => setDesignationForm({ ...designationForm, name: e.target.value })} />
+                  <input placeholder="Description (optional)" className={inputClass} value={designationForm.description} onChange={(e) => setDesignationForm({ ...designationForm, description: e.target.value })} />
+                  <div className="flex gap-2"><button disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{designationForm.id ? "Update Designation" : "Add Designation"}</button>{designationForm.id && <button type="button" onClick={() => setDesignationForm({ id: "", name: "", department: "", description: "" })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs">Cancel</button>}</div>
+                </form>
+                <div className="space-y-2">{data?.designations.map((d) => { const department = data.departments.find((item) => item._id === d.department); return <div key={d._id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 p-3"><div><p className="text-sm font-medium text-slate-800">{d.name}</p><p className="text-xs text-slate-400">{department?.name || "Department"} · {d.isActive === false ? "Inactive" : "Active"}</p></div><div className="flex gap-2"><button type="button" onClick={() => setDesignationForm({ id: d._id, name: d.name, department: d.department || "", description: d.description || "" })} className="text-xs font-semibold text-blue-700">Edit</button><button type="button" onClick={() => toggleMasterStatus("designations", d)} className="text-xs font-semibold text-slate-500">{d.isActive === false ? "Activate" : "Deactivate"}</button></div></div>; })}</div>
+              </div>
+            </div>
+          </section>
+        )}
+
         {showJobForm && (
           <form onSubmit={submitJob} className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between"><h2 className="font-bold text-slate-900">Create job opening</h2><button type="button" onClick={() => setShowJobForm(false)}><X size={18} /></button></div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <label><span className={labelClass}>Job title *</span><input required maxLength={120} className={inputClass} value={jobForm.title} onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })} /></label>
-              <label><span className={labelClass}>Department *</span><select required className={inputClass} value={jobForm.department} onChange={(e) => setJobForm({ ...jobForm, department: e.target.value, designation: "" })}><option value="">Select department</option>{data?.departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}</select></label>
-              <label><span className={labelClass}>Designation *</span><select required className={inputClass} value={jobForm.designation} onChange={(e) => setJobForm({ ...jobForm, designation: e.target.value })}><option value="">Select designation</option>{data?.designations.filter((d) => d.department === jobForm.department).map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}</select></label>
+              <label><span className={labelClass}>Department *</span><select required className={inputClass} value={jobForm.department} onChange={(e) => setJobForm({ ...jobForm, department: e.target.value, designation: "" })}><option value="">Select department</option>{data?.departments.filter((d) => d.isActive !== false).map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}</select></label>
+              <label><span className={labelClass}>Designation *</span><select required className={inputClass} value={jobForm.designation} onChange={(e) => setJobForm({ ...jobForm, designation: e.target.value })}><option value="">Select designation</option>{data?.designations.filter((d) => d.isActive !== false && d.department === jobForm.department).map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}</select></label>
               <label><span className={labelClass}>Employment type</span><select className={inputClass} value={jobForm.employmentType} onChange={(e) => setJobForm({ ...jobForm, employmentType: e.target.value })}><option value="full_time">Full time</option><option value="part_time">Part time</option><option value="contract">Contract</option><option value="internship">Internship</option></select></label>
               <label><span className={labelClass}>Location</span><input className={inputClass} value={jobForm.location} onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })} /></label>
               <label><span className={labelClass}>Number of openings *</span><input required type="number" min="1" step="1" className={inputClass} value={jobForm.openings} onChange={(e) => setJobForm({ ...jobForm, openings: e.target.value })} /></label>
