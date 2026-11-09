@@ -18,6 +18,6 @@ router.post("/jobs", createJobOpening);
 router.patch("/jobs/:id/status", updateJobOpeningStatus);
 router.post("/candidates", createCandidate);
 router.patch("/candidates/:id/status", updateCandidateStatus);
-router.post("/candidates/:id/hire", authorizeRoles("admin"), hireCandidate);
+router.post("/candidates/:id/hire", hireCandidate);
 
 export default router;

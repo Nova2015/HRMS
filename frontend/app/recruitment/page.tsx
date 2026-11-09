@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowLeft, BriefcaseBusiness, Users, UserCheck, UserPlus, Search, RefreshCw, Plus, X, CheckCircle2 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
@@ -85,7 +85,7 @@ function RecruitmentWorkspace() {
     );
   }, [data, search]);
 
-  const submitJob = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submitJob = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
     try {
       await request("/jobs", { method: "POST", body: JSON.stringify({ ...jobForm, openings: Number(jobForm.openings) }) });
@@ -96,7 +96,7 @@ function RecruitmentWorkspace() {
     finally { setSaving(false); }
   };
 
-  const submitCandidate = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submitCandidate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
     try {
       await request("/candidates", { method: "POST", body: JSON.stringify({ ...candidateForm, experienceYears: Number(candidateForm.experienceYears) }) });
@@ -115,7 +115,7 @@ function RecruitmentWorkspace() {
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to update status"); }
   };
 
-  const submitHire = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submitHire = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); if (!hireCandidate) return;
     setSaving(true); setError(""); setNotice("");
     try {
