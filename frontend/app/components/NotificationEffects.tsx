@@ -5,26 +5,22 @@ import { useEffect } from "react";
 type SoundWindow = Window & { __hrmsAudioContext?: AudioContext; __hrmsAudioReady?: boolean };
 
 function prepareAudio() {
-  if (typeof window === "undefined") return;
   const audioWindow = window as SoundWindow;
   if (audioWindow.__hrmsAudioReady) return;
-  const AudioContextClass = window.AudioContext;
-  if (!AudioContextClass) return;
+  if (!window.AudioContext) return;
   try {
-    const context = audioWindow.__hrmsAudioContext || new AudioContextClass();
+    const context = audioWindow.__hrmsAudioContext || new window.AudioContext();
     audioWindow.__hrmsAudioContext = context;
     void context.resume();
     audioWindow.__hrmsAudioReady = true;
   } catch {
-    // Browser audio may be unavailable; visual notifications still work.
+    // Keep visual notifications available if browser audio is unsupported.
   }
 }
 
 function playNotificationSound(kind: "success" | "error") {
-  const audioWindow = window as SoundWindow;
-  const context = audioWindow.__hrmsAudioContext;
+  const context = (window as SoundWindow).__hrmsAudioContext;
   if (!context || context.state !== "running") return;
-
   const notes = kind === "error" ? [330, 247] : [660, 880];
   const start = context.currentTime;
   notes.forEach((frequency, index) => {
@@ -34,7 +30,7 @@ function playNotificationSound(kind: "success" | "error") {
     oscillator.type = "sine";
     oscillator.frequency.setValueAtTime(frequency, at);
     gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.exponentialRampToValueAtTime(0.055, at + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.045, at + 0.018);
     gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
     oscillator.connect(gain);
     gain.connect(context.destination);
@@ -46,25 +42,23 @@ function playNotificationSound(kind: "success" | "error") {
 export default function NotificationEffects() {
   useEffect(() => {
     const unlock = () => prepareAudio();
-    window.addEventListener("pointerdown", unlock, { once: true });
-    window.addEventListener("keydown", unlock, { once: true });
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
 
-    const recentlyPlayed = new WeakSet<Element>();
+    const lastMessage = new WeakMap<Element, string>();
     const announce = (element: Element | null) => {
-      if (!element || recentlyPlayed.has(element)) return;
+      if (!element) return;
       const role = element.getAttribute("role");
       if (role !== "status" && role !== "alert") return;
-      const message = element.textContent?.trim();
-      if (!message) return;
-      recentlyPlayed.add(element);
+      const message = element.textContent?.trim() || "";
+      if (!message || lastMessage.get(element) === message) return;
+      lastMessage.set(element, message);
       playNotificationSound(role === "alert" ? "error" : "success");
     };
 
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        const target = mutation.target instanceof Element
-          ? mutation.target
-          : mutation.target.parentElement;
+        const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
         announce(target?.closest('[role="status"], [role="alert"]') || null);
         mutation.addedNodes.forEach((node) => {
           if (!(node instanceof Element)) return;
