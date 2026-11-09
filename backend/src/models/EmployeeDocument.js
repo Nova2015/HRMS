@@ -29,6 +29,44 @@ const employeeDocumentSchema = new mongoose.Schema(
             required: true,
             min: 1,
             max: 10 * 1024 * 1024
+        },
+        documentType: {
+            type: String,
+            enum: ["other", "resignation_letter", "payslip", "appointment_letter", "leave_letter", "relieving_letter"],
+            default: "other",
+            index: true
+        },
+        direction: {
+            type: String,
+            enum: ["employee_to_hr", "hr_to_employee"],
+            default: "employee_to_hr",
+            index: true
+        },
+        status: {
+            type: String,
+            enum: ["pending", "approved", "rejected", "issued"],
+            default: "pending",
+            index: true
+        },
+        issuedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+        },
+        reviewedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+        },
+        reviewedAt: {
+            type: Date,
+            default: null
+        },
+        reviewComment: {
+            type: String,
+            trim: true,
+            maxlength: 1000,
+            default: ""
         }
     },
     { timestamps: true }
