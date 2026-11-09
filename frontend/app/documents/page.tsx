@@ -72,8 +72,6 @@ function DocumentsContent() {
   };
 
   const loadDocuments = useCallback(async () => {
-    // Defer state updates to the async continuation so effects do not trigger cascading renders.
-    await Promise.resolve();
     const headers = authHeaders();
     if (!headers) {
       router.push("/login");
@@ -119,8 +117,11 @@ function DocumentsContent() {
   }, [isHR]);
 
   useEffect(() => {
-    void loadDocuments();
-    void loadEmployees();
+    // Schedule data loading after the effect callback completes.
+    void Promise.resolve().then(() => {
+      void loadDocuments();
+      void loadEmployees();
+    });
   }, [loadDocuments, loadEmployees]);
 
   const validateFile = (file: File | null) => {
