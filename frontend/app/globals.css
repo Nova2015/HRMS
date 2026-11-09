@@ -1,10 +1,14 @@
-
 @import "tailwindcss";
 
 :root {
   color-scheme: light;
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f7fc;
+  --foreground: #172033;
+  --hrms-primary: #4f46e5;
+  --hrms-primary-soft: #eef2ff;
+  --hrms-border: rgba(226, 232, 240, 0.9);
+  --hrms-surface: rgba(255, 255, 255, 0.88);
+  --hrms-shadow: 0 18px 50px rgba(30, 41, 59, 0.07);
 }
 
 @theme inline {
@@ -14,8 +18,85 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: #f3f4f6;
-  color: #171717;
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100%;
+  background:
+    radial-gradient(ellipse at 8% 0%, rgba(224, 231, 255, 0.72), transparent 34rem),
+    radial-gradient(ellipse at 100% 12%, rgba(219, 234, 254, 0.52), transparent 30rem),
+    #f5f7fc;
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.32);
+  outline-offset: 2px;
+}
+
+.hrms-enter {
+  animation: hrms-fade-up 520ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.hrms-card {
+  border: 1px solid var(--hrms-border);
+  background: var(--hrms-surface);
+  box-shadow: var(--hrms-shadow);
+  backdrop-filter: blur(16px);
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.hrms-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(165, 180, 252, 0.72);
+  box-shadow: 0 22px 56px rgba(30, 41, 59, 0.1);
+}
+
+.hrms-interactive {
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+
+.hrms-interactive:active {
+  transform: scale(0.985);
+}
+
+@keyframes hrms-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hrms-soft-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.14); }
+  50% { box-shadow: 0 0 0 7px rgba(99, 102, 241, 0); }
+}
+
+.hrms-pulse {
+  animation: hrms-soft-pulse 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
