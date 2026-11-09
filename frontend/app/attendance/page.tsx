@@ -351,6 +351,51 @@ function AttendanceWorkspace() {
         {error && <div role="alert" className="mb-5 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><AlertCircle size={18} className="mt-0.5 shrink-0" />{error}</div>}
         {notice && <div role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{notice}</div>}
 
+        {isAdmin && (
+          <section className="relative mb-6 overflow-hidden rounded-[30px] border border-indigo-100/80 bg-gradient-to-br from-white via-indigo-50/80 to-sky-50/80 p-6 shadow-[0_20px_60px_rgba(79,70,229,0.10)] sm:p-8">
+            <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-indigo-200/30 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-24 right-1/3 h-56 w-56 rounded-full bg-sky-200/30 blur-3xl" />
+            <div className="relative grid gap-7 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+              <div>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] text-indigo-700 shadow-sm">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 hrms-pulse" />
+                  Admin attendance workspace
+                </div>
+                <p className="text-sm font-semibold text-slate-500">{currentDate.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</p>
+                <h2 className="mt-2 max-w-xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Company attendance, at a glance.</h2>
+                <p className="mt-3 max-w-lg text-sm leading-6 text-slate-600">Monitor recorded attendance, review late arrivals and manage employee records from one workspace.</p>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <div className="rounded-2xl border border-white/90 bg-white/85 px-4 py-3 shadow-sm backdrop-blur">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Live local time</p>
+                    <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-slate-900">{clockTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/90 bg-white/85 px-4 py-3 shadow-sm backdrop-blur">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Selected period</p>
+                    <p className="mt-1 text-base font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/90 bg-white/85 p-4 shadow-sm backdrop-blur">
+                  <div className="flex items-center justify-between text-emerald-700"><span className="text-xs font-semibold">Present</span><CheckCircle2 size={18} /></div>
+                  <p className="mt-3 text-3xl font-bold tabular-nums text-slate-900">{summary.present}</p>
+                  <p className="mt-1 text-xs text-slate-500">Recorded this month</p>
+                </div>
+                <div className="rounded-2xl border border-white/90 bg-white/85 p-4 shadow-sm backdrop-blur">
+                  <div className="flex items-center justify-between text-orange-700"><span className="text-xs font-semibold">Late arrivals</span><Clock3 size={18} /></div>
+                  <p className="mt-3 text-3xl font-bold tabular-nums text-slate-900">{summary.late}</p>
+                  <p className="mt-1 text-xs text-slate-500">This month</p>
+                </div>
+                <div className="col-span-2 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-600 to-blue-600 p-4 text-white shadow-lg shadow-indigo-600/15">
+                  <div className="flex items-center justify-between gap-3">
+                    <div><p className="text-xs font-semibold text-indigo-100">Total recorded working time</p><p className="mt-1 text-3xl font-bold tabular-nums">{formatHours(summary.hours)}</p></div>
+                    <div className="rounded-xl bg-white/15 p-3"><CalendarCheck2 size={25} /></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
         {!isAdmin && (
           <section className="hrms-card mb-6 overflow-hidden rounded-[28px] p-5 sm:p-7">
             <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
