@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3,
-  LogIn, LogOut, RefreshCw, Save, Users, CheckCircle2,
-  AlertCircle, Timer, CalendarCheck2, X, Volume2, VolumeX
+  LogIn, LogOut, Save, Users, CheckCircle2,
+  AlertCircle, Timer, CalendarCheck2, X
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
@@ -94,7 +94,6 @@ function AttendanceWorkspace() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [soundEnabled, setSoundEnabled] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
   const [manualForm, setManualForm] = useState({
     employeeId: "", dateKey: todayKey(), status: "present",
@@ -211,46 +210,11 @@ function AttendanceWorkspace() {
     previousDateRef.current = currentDate;
   }, [currentDate, loadWorkspace, roleReady]);
 
-  useEffect(() => {
-    setSoundEnabled(localStorage.getItem("hrms_attendance_sound") === "on");
-  }, []);
-
-  const playSuccessTone = () => {
-    if (!soundEnabled) return;
-    try {
-      const audio = new window.AudioContext();
-      const oscillator = audio.createOscillator();
-      const gain = audio.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(660, audio.currentTime);
-      oscillator.frequency.setValueAtTime(880, audio.currentTime + 0.11);
-      gain.gain.setValueAtTime(0.0001, audio.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.075, audio.currentTime + 0.025);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.28);
-      oscillator.connect(gain);
-      gain.connect(audio.destination);
-      oscillator.start();
-      oscillator.stop(audio.currentTime + 0.3);
-      oscillator.onended = () => { void audio.close(); };
-    } catch {
-      // Audio is optional; attendance actions must work without sound support.
-    }
-  };
-
-  const toggleSound = () => {
-    setSoundEnabled((enabled) => {
-      const next = !enabled;
-      localStorage.setItem("hrms_attendance_sound", next ? "on" : "off");
-      return next;
-    });
-  };
-
   const performAttendanceAction = async (action: "check-in" | "check-out") => {
     setSaving(true); setError(""); setNotice("");
     try {
       const result = await apiRequest(`/attendance/${action}`, { method: "POST" });
       setNotice(result.message || "Attendance updated.");
-      playSuccessTone();
       await loadWorkspace();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Attendance action failed");
@@ -378,13 +342,7 @@ function AttendanceWorkspace() {
               <p className="text-sm font-bold tabular-nums text-slate-800">{clockTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}</p>
             </div>
             {!today?.checkIn ? <button type="button" onClick={() => performAttendanceAction("check-in")} disabled={saving || loading} className="hrms-interactive inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm disabled:opacity-50"><LogIn size={16} />{saving ? "Processing..." : "Punch In"}</button> : !today.checkOut ? <button type="button" onClick={() => performAttendanceAction("check-out")} disabled={saving || loading} className="hrms-interactive inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm disabled:opacity-50"><LogOut size={16} />{saving ? "Processing..." : "Punch Out"}</button> : <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700">Shift completed</span>}
-            <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} title={soundEnabled ? "Mute success sounds" : "Enable success sounds"} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-50">
-              {soundEnabled ? <Volume2 size={16} className="text-indigo-600" /> : <VolumeX size={16} />}
-              <span>{soundEnabled ? "Sound on" : "Sound off"}</span>
-            </button>
-            {isAdmin && <button type="button" onClick={() => setShowCorrection((value) => !value)} className="hrms-interactive inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 hover:shadow-md"><Save size={16} /> Manual Correction</button>}
-            <button type="button" onClick={loadWorkspace} disabled={loading} className="hrms-interactive inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50"><RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Refresh</button>
-          </div>
+                      </div>
         </header>
 
         {error && <div role="alert" className="mb-5 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><AlertCircle size={18} className="mt-0.5 shrink-0" />{error}</div>}
@@ -412,6 +370,7 @@ function AttendanceWorkspace() {
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Selected period</p>
                     <p className="mt-1 text-base font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</p>
                   </div>
+                  <button type="button" onClick={() => setShowCorrection((value) => !value)} className="hrms-interactive inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white/90 px-4 py-3 text-sm font-semibold text-violet-700 shadow-sm transition hover:bg-violet-50"><Save size={16} /> {showCorrection ? "Close correction" : "Manual correction"}</button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
