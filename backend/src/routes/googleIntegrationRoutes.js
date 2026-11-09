@@ -238,6 +238,24 @@ router.get("/gmail/messages", protect, authorizeRoles("admin", "hr"), async (req
             .trim()
             .replace(/\s+/g, " ");
 
+        // A name alone is not enough: personal alerts and marketing emails often contain an employee's name.
+        // Require explicit HR/employee-record update context for full-name matches.
+        const employeeUpdatePhrases = [
+            "employee details", "personal details update", "update personal details",
+            "update employee details", "employee information update", "employment details",
+            "employee record update", "correction request", "change request for employee",
+            "joining date", "reporting manager", "residential address", "permanent address",
+            "current address", "emergency contact", "nominee details", "update bank account",
+            "bank account update", "change bank account", "pan details update", "uan details update",
+            "pf details update", "document verification", "document submission",
+            "onboarding documents", "joining formalities", "appointment letter",
+            "offer letter", "employee code"
+        ].map(normalizeMatchText);
+        const hasEmployeeUpdateContext = (value) => {
+            const normalized = normalizeMatchText(value);
+            return employeeUpdatePhrases.some((phrase) => normalized.includes(phrase));
+        };
+
         const messages = [];
         for (let offset = 0; offset < ids.length; offset += 5) {
             const batch = await Promise.all(ids.slice(offset, offset + 5).map(async (messageId) => {
@@ -249,6 +267,7 @@ router.get("/gmail/messages", protect, authorizeRoles("admin", "hr"), async (req
                 const bodyText = collectPlainText(message.payload).join("\n").trim();
                 const searchableText = header("subject") + "\n" + (message.snippet || "") + "\n" + bodyText;
                 const normalizedSearchText = " " + normalizeMatchText(searchableText) + " ";
+                const hasUpdateContext = hasEmployeeUpdateContext(searchableText);
                 const matchedEmployees = employees.flatMap((employee) => {
                     const code = String(employee.employeeCode || "").trim().toUpperCase();
                     const codePattern = code
@@ -256,12 +275,14 @@ router.get("/gmail/messages", protect, authorizeRoles("admin", "hr"), async (req
                         : null;
                     const codeMatched = Boolean(codePattern?.test(searchableText.toUpperCase()));
                     const fullName = normalizeMatchText((employee.firstName || "") + " " + (employee.lastName || ""));
-                    const nameMatched = fullName.length > 2 && normalizedSearchText.includes(" " + fullName + " ");
+                    const nameMatched = fullName.length > 2
+                        && normalizedSearchText.includes(" " + fullName + " ")
+                        && hasUpdateContext;
                     if (!codeMatched && !nameMatched) return [];
                     return [{
                         employeeCode: code,
                         employeeName: ((employee.firstName || "") + " " + (employee.lastName || "")).trim(),
-                        matchType: codeMatched && nameMatched ? "employee_code_and_name" : codeMatched ? "employee_code" : "full_name"
+                        matchType: codeMatched && nameMatched ? "employee_code_and_name" : codeMatched ? "employee_code" : "full_name_hr_context"
                     }];
                 });
                 return {
