@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Employee from "../models/Employee.js";
 import SalaryStructure from "../models/SalaryStructure.js";
 import Payroll from "../models/Payroll.js";
-import { generatePayslipDocument } from "../services/employeeDocumentGenerator.js";
+import { generatePayslipDocument, generateSalaryRevisionDocument } from "../services/employeeDocumentGenerator.js";
 
 const isPeriod = (value) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value || "");
 const money = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
@@ -45,17 +45,62 @@ export const saveSalaryStructure = async (req, res) => {
             !earningLines || !deductionLines || !effectiveFrom || Number.isNaN(date.getTime())) {
             return res.status(400).json({ success: false, message: "Provide valid basic salary, component lines and effective date" });
         }
-        const employee = await Employee.findById(employeeId);
-        if (!employee || employee.employmentStatus !== "active") return res.status(404).json({ success: false, message: "Active employee not found" });
+
+        const employee = await Employee.findById(employeeId)
+            .populate("department", "name")
+            .populate("designation", "name")
+            .populate("shift", "name");
+        if (!employee || employee.employmentStatus !== "active") {
+            return res.status(404).json({ success: false, message: "Active employee not found" });
+        }
+
+        const existingStructure = await SalaryStructure.findOne({ employee: employeeId });
+        const previousStructure = existingStructure ? existingStructure.toObject() : null;
         const data = await SalaryStructure.findOneAndUpdate(
             { employee: employeeId },
             { $set: { monthlyBasic: money(basic), earnings: earningLines, deductions: deductionLines, effectiveFrom: date, isActive: true, createdBy: req.user.userId } },
             { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
         ).populate("employee", "employeeCode firstName lastName");
-        res.status(200).json({ success: true, message: "Salary structure saved", data });
+
+        let generatedDocument = null;
+        let documentWarning = "";
+        if (previousStructure) {
+            const previousSnapshot = {
+                monthlyBasic: previousStructure.monthlyBasic,
+                earnings: (previousStructure.earnings || []).map(({ name, amount }) => ({ name, amount })),
+                deductions: (previousStructure.deductions || []).map(({ name, amount }) => ({ name, amount })),
+                effectiveFrom: new Date(previousStructure.effectiveFrom).toISOString()
+            };
+            const currentSnapshot = {
+                monthlyBasic: data.monthlyBasic,
+                earnings: (data.earnings || []).map(({ name, amount }) => ({ name, amount })),
+                deductions: (data.deductions || []).map(({ name, amount }) => ({ name, amount })),
+                effectiveFrom: new Date(data.effectiveFrom).toISOString()
+            };
+            if (JSON.stringify(previousSnapshot) !== JSON.stringify(currentSnapshot)) {
+                try {
+                    generatedDocument = await generateSalaryRevisionDocument(
+                        employee,
+                        previousStructure,
+                        data,
+                        req.user.userId
+                    );
+                } catch (documentError) {
+                    documentWarning = " Salary structure was saved, but automatic revision letter generation failed.";
+                    console.error("Automatic salary revision letter generation failed:", documentError.message);
+                }
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Salary structure saved." + documentWarning,
+            data,
+            generatedDocument
+        });
     } catch (error) {
         console.error("Save salary structure:", error);
-        res.status(error.code === 11000 ? 409 : 400).json({ success: false, message: "Unable to save salary structure" });
+        return res.status(error.code === 11000 ? 409 : 400).json({ success: false, message: error.code === 11000 ? "Salary structure already exists" : "Unable to save salary structure" });
     }
 };
 
