@@ -106,6 +106,18 @@ export const issueDocumentToEmployee = async (req, res) => {
             await removeUploadedFile(file.path);
             return res.status(404).json({ success: false, message: "Active employee not found" });
         }
+        if (documentType === "relieving_letter") {
+            const approvedResignation = await EmployeeDocument.exists({
+                employee: employee._id,
+                direction: "employee_to_hr",
+                documentType: "resignation_letter",
+                status: "approved"
+            });
+            if (!approvedResignation) {
+                await removeUploadedFile(file.path);
+                return res.status(409).json({ success: false, message: "Approve the employee resignation before issuing a relieving letter" });
+            }
+        }
         const document = await EmployeeDocument.create({
             employee: employee._id,
             originalName: safeOriginalName(file.originalname),
