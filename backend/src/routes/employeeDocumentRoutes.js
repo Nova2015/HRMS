@@ -11,7 +11,7 @@ import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import { uploadEmployeeDocument } from "../middleware/documentUpload.js";
 
-const handleDocumentUpload = (controller) => (req, res, next) => {
+const handleDocumentUpload = (req, res, next) => {
     uploadEmployeeDocument(req, res, (error) => {
         if (!error) return next();
         const status = error.code === "LIMIT_FILE_SIZE" ? 413 : error.code ? 500 : 400;
@@ -28,8 +28,8 @@ const handleDocumentUpload = (controller) => (req, res, next) => {
 
 const router = express.Router();
 router.use(protect);
-router.post("/my", handleDocumentUpload(uploadMyDocument), uploadMyDocument);
-router.post("/issue", authorizeRoles("admin", "hr"), handleDocumentUpload(issueDocumentToEmployee), issueDocumentToEmployee);
+router.post("/my", handleDocumentUpload, uploadMyDocument);
+router.post("/issue", authorizeRoles("admin", "hr"), handleDocumentUpload, issueDocumentToEmployee);
 router.get("/my", getMyDocuments);
 router.get("/", authorizeRoles("admin", "hr"), getAllEmployeeDocuments);
 router.patch("/:id/review", authorizeRoles("admin", "hr"), reviewEmployeeDocument);
