@@ -55,6 +55,7 @@ function DocumentsContent() {
   const [employeeDocumentType, setEmployeeDocumentType] = useState("other");
   const [issueFile, setIssueFile] = useState<File | null>(null);
   const [targetEmployee, setTargetEmployee] = useState("");
+  const [documentEmployeeFilter, setDocumentEmployeeFilter] = useState("all");
   const [issueType, setIssueType] = useState("payslip");
   const [reviewComment, setReviewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -216,6 +217,10 @@ function DocumentsContent() {
     }
   };
 
+  const visibleDocuments = isHR && documentEmployeeFilter !== "all"
+    ? documents.filter((item) => item.employee?._id === documentEmployeeFilter)
+    : documents;
+
   const formatSize = (bytes: number) => bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   const statusClass = (status: string) => status === "approved" || status === "issued"
     ? "bg-emerald-50 text-emerald-700" : status === "rejected" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700";
@@ -278,12 +283,20 @@ function DocumentsContent() {
         )}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-4"><h2 className="text-lg font-bold text-slate-900">{isHR ? "Document Register & Resignation Approvals" : "My Documents"}</h2><p className="mt-1 text-sm text-slate-500">{documents.length} document(s)</p></div>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div><h2 className="text-lg font-bold text-slate-900">{isHR ? "Document Register & Resignation Approvals" : "My Documents"}</h2><p className="mt-1 text-sm text-slate-500">{visibleDocuments.length} document(s){isHR ? " for selected employee" : ""}</p></div>
+            {isHR && <label className="w-full text-sm font-semibold text-slate-700 sm:max-w-xs">Filter Documents by Employee
+              <select value={documentEmployeeFilter} onChange={(event) => setDocumentEmployeeFilter(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white p-3 font-normal">
+                <option value="all">All Employees</option>
+                {employees.map((employee) => <option key={employee._id} value={employee._id}>{employee.firstName} {employee.lastName} · {employee.employeeCode}</option>)}
+              </select>
+            </label>}
+          </div>
           {loading ? <p className="py-8 text-center text-sm text-slate-500">Loading documents...</p> : documents.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500">No documents found.</div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {documents.map((item) => (
+              {visibleDocuments.map((item) => (
                 <div key={item._id} className="flex flex-col gap-3 py-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-start gap-3">
