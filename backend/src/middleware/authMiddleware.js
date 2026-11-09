@@ -40,12 +40,19 @@ export const protect = async (req, res, next) => {
             });
         }
 
-        const user = await User.findById(decoded.userId).select("_id employee role isActive");
+        const user = await User.findById(decoded.userId).select("_id employee role isActive tokenVersion");
 
         if (!user || !user.isActive) {
             return res.status(401).json({
                 success: false,
                 message: "Invalid or disabled user account"
+            });
+        }
+
+        if ((decoded.tokenVersion ?? 0) !== (user.tokenVersion ?? 0)) {
+            return res.status(401).json({
+                success: false,
+                message: "Session expired. Please login again."
             });
         }
 
