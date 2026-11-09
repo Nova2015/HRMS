@@ -512,6 +512,7 @@ function AttendanceWorkspace() {
               {calendarCells.map((cell) => {
                 const dayRecords = records.filter((record) => record.dateKey === cell.key);
                 const dayHoliday = holidays.filter((holiday) => holiday.dateKey === cell.key);
+                const dayLeaves = leaves.filter((leave) => (leave.status === "pending" || leave.status === "approved") && leave.startDate <= cell.key && leave.endDate >= cell.key);
                 const statuses = [...new Set(dayRecords.map((record) => record.status))];
                 const isToday = cell.key === currentDateKey;
                 const isSunday = new Date(`${cell.key}T00:00:00`).getDay() === 0;
@@ -522,9 +523,10 @@ function AttendanceWorkspace() {
                   <button type="button" key={cell.key} onClick={() => openLeaveForDate(cell.key)} aria-label={`Apply for leave or view attendance on ${cell.key}`} className={`group relative flex min-h-[78px] flex-col items-start rounded-2xl border p-1.5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-md sm:min-h-[112px] sm:p-2.5 ${!cell.inMonth ? "border-transparent bg-slate-50/50 text-slate-300" : isSunday || isHoliday ? "border-rose-100 bg-rose-50/60 text-slate-700" : "border-slate-100/90 bg-white/70 text-slate-700 hover:border-indigo-200"} ${isSelected ? "border-indigo-300 bg-indigo-50/90 shadow-[0_5px_18px_rgba(99,102,241,0.12)] ring-1 ring-indigo-200" : ""}`}>
                     <div className="flex items-center justify-between"><span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${isToday ? (isSunday || isHoliday ? "bg-rose-600 text-white" : "bg-indigo-600 text-white") : isSunday || isHoliday ? "bg-rose-100 text-rose-700" : cell.inMonth ? "text-slate-700 group-hover:bg-indigo-100" : "text-slate-400"}`}>{cell.day}</span>{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}</div>
                     <div className="mt-1.5 space-y-1">
-                      {dayHoliday.slice(0, 1).map((holiday) => <div key={holiday._id} className="truncate rounded-md bg-rose-100 px-1.5 py-1 text-[9px] font-semibold text-rose-800 sm:text-[10px]">{holiday.name}</div>)}
-                      {isWeeklyOff && <div className="truncate rounded-md bg-slate-200 px-1.5 py-1 text-[9px] font-semibold text-slate-700 sm:text-[10px]">Weekly Off</div>}
-                      {statuses.slice(0, 2).map((status) => <div key={status} className={`truncate rounded-md px-1.5 py-1 text-[9px] font-semibold capitalize sm:text-[10px] ${status === "present" ? "bg-emerald-100 text-emerald-800" : status === "half-day" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`}>{status === "half-day" ? "Half day" : status}</div>)}
+                      {dayHoliday.slice(0, 1).map((holiday) => <div key={holiday._id} className="w-full truncate rounded-md bg-rose-50 px-1 py-1 text-[8px] font-bold text-rose-700 sm:text-[10px]">{holiday.name}</div>)}
+                      {dayLeaves.slice(0, 1).map((leave) => <div key={leave._id} className={`w-full truncate rounded-md px-1 py-1 text-[8px] font-bold sm:text-[10px] ${leave.status === "approved" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{leave.status === "approved" ? "Approved leave" : "Pending leave"}</div>)}
+                      {isWeeklyOff && <div className="w-full truncate rounded-md bg-slate-100 px-1 py-1 text-[8px] font-bold text-slate-600 sm:text-[10px]">Weekly Off</div>}
+                      {statuses.slice(0, 2).map((status) => <div key={status} className={`w-full truncate rounded-md px-1 py-1 text-[8px] font-bold capitalize sm:text-[10px] ${status === "present" ? "bg-emerald-50 text-emerald-700" : status === "half-day" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"}`}>{status === "half-day" ? "Half day" : status}</div>)}
                       {dayRecords.some((record) => record.isLate) && <div className="truncate rounded-md bg-orange-100 px-1.5 py-1 text-[9px] font-semibold text-orange-800">Late</div>}
                     </div>
                   </button>
