@@ -1,0 +1,146 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, Check, FileText, RefreshCw, Search, ShieldCheck, X } from "lucide-react";
+import AuthGuard from "../components/AuthGuard";
+
+const API_URL = "http://localhost:5000/api";
+type ApprovalRequest = {
+  _id: string; employeeCode: string;
+  employee?: { firstName: string; lastName: string } | null;
+  source: "gmail" | "document" | "manual"; sourceReference?: string; sourceSubject?: string;
+  proposedChanges: Record<string, unknown>; oldValues?: Record<string, unknown> | null;
+  status: "pending" | "approved" | "rejected"; requestedBy?: { email?: string } | null;
+  decidedBy?: { email?: string } | null; decidedAt?: string | null; decisionNote?: string; createdAt: string;
+};
+const LABELS: Record<string, string> = {
+  firstName: "First name", lastName: "Last name", phone: "Phone", department: "Department",
+  designation: "Designation", shift: "Shift", reportingManager: "Reporting manager",
+  joiningDate: "Joining date", employmentStatus: "Employment status",
+};
+function showValue(value: unknown) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "object") return JSON.stringify(value);
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date.toLocaleDateString("en-IN");
+  }
+  return String(value);
+}
+
+function ApprovalQueue() {
+  const [requests, setRequests] = useState<ApprovalRequest[]>([]);
+  const [status, setStatus] = useState("pending");
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [notes, setNotes] = useState<Record<string, string>>({});
+
+  const loadRequests = useCallback(async () => {
+    setLoading(true); setError("");
+    const token = sessionStorage.getItem("hrms_token");
+    if (!token) { setError("Session expired. Please log in again."); setLoading(false); return; }
+    try {
+      const response = await fetch(API_URL + "/employee-update-approvals?status=" + status, {
+        headers: { Authorization: "Bearer " + token }, cache: "no-store",
+      });
+      const result = await response.json();
+      if (response.status === 401) {
+        sessionStorage.removeItem("hrms_token"); sessionStorage.removeItem("hrms_user");
+        window.location.href = "/login"; return;
+      }
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to load approval requests");
+      setRequests(Array.isArray(result.data) ? result.data : []);
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to load approval requests"); }
+    finally { setLoading(false); }
+  }, [status]);
+
+  useEffect(() => { void loadRequests(); }, [loadRequests]);
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return requests;
+    return requests.filter((r) =>
+      ((r.employee?.firstName || "") + " " + (r.employee?.lastName || "")).toLowerCase().includes(term) ||
+      r.employeeCode.toLowerCase().includes(term) || r.source.toLowerCase().includes(term) ||
+      (r.sourceSubject || "").toLowerCase().includes(term)
+    );
+  }, [requests, search]);
+
+  const decide = async (request: ApprovalRequest, decision: "approve" | "reject") => {
+    if (decision === "reject" && !notes[request._id]?.trim()) {
+      setError("Enter a rejection reason in the decision note field."); return;
+    }
+    const confirmed = window.confirm(decision === "approve"
+      ? "Approve this proposal and apply the proposed values to the employee record?"
+      : "Reject this employee update proposal?");
+    if (!confirmed) return;
+    setBusyId(request._id); setError(""); setNotice("");
+    try {
+      const token = sessionStorage.getItem("hrms_token");
+      const response = await fetch(API_URL + "/employee-update-approvals/" + request._id + "/decision", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ decision, note: notes[request._id] || "" }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to process decision");
+      setNotice(result.message || "Decision saved.");
+      await loadRequests();
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to process decision"); }
+    finally { setBusyId(""); }
+  };
+
+  const pendingCount = requests.filter((r) => r.status === "pending").length;
+  return (
+    <main className="min-h-screen bg-[#f5f7fb] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1440px]">
+        <header className="mb-7 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <Link href="/" className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><ArrowLeft size={16} /> Back to Dashboard</Link>
+            <p className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-blue-700"><ShieldCheck size={15} /> HR control center</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Employee Update Approvals</h1>
+            <p className="mt-2 text-sm text-slate-500">Review proposed employee record changes from Gmail, documents and manual submissions.</p>
+          </div>
+          <button type="button" onClick={loadRequests} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={16} /> Refresh</button>
+        </header>
+
+        <section className="mb-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Requests shown</p><p className="mt-2 text-3xl font-bold text-slate-900">{loading ? "…" : requests.length}</p></div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Pending approvals</p><p className="mt-2 text-3xl font-bold text-amber-600">{loading ? "…" : pendingCount}</p></div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Approval authority</p><p className="mt-2 text-lg font-bold text-slate-900">HR or Admin</p><p className="mt-1 text-xs text-slate-500">One authorized decision is sufficient.</p></div>
+        </section>
+        {error && <p role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+        {notice && <p role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</p>}
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div><h2 className="text-lg font-bold text-slate-900">Approval queue</h2><p className="mt-1 text-sm text-slate-500">Compare current and proposed values before deciding.</p></div>
+            <div className="flex flex-wrap gap-2">
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All requests</option></select>
+              <div className="relative"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search employee or source" className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm sm:w-64" /></div>
+            </div>
+          </div>
+          {loading ? <div className="py-14 text-center text-sm text-slate-500">Loading approval requests…</div> :
+            filtered.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 px-5 py-14 text-center"><FileText size={30} className="mx-auto text-slate-300" /><h3 className="mt-3 font-semibold text-slate-800">No {status === "all" ? "" : status} requests found</h3><p className="mt-1 text-sm text-slate-500">New employee update proposals will appear here for HR/Admin review.</p></div> :
+            <div className="space-y-4">{filtered.map((r) => {
+              const name = r.employee ? r.employee.firstName + " " + r.employee.lastName : "Employee record";
+              const pending = r.status === "pending";
+              return <article key={r._id} className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold text-slate-900">{name}</h3><p className="mt-1 text-xs text-slate-500">{r.employeeCode} · Submitted {new Date(r.createdAt).toLocaleString("en-IN")}</p><div className="mt-2 flex gap-2"><span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold capitalize text-blue-700">{r.source}</span><span className={"rounded-full px-2.5 py-1 text-xs font-semibold capitalize " + (r.status === "pending" ? "bg-amber-50 text-amber-700" : r.status === "approved" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700")}>{r.status}</span></div></div>{r.sourceReference && <p className="max-w-xs break-all text-xs text-slate-400">Reference: {r.sourceReference}</p>}</div>
+                {r.sourceSubject && <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">Source subject: {r.sourceSubject}</p>}
+                <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Field</th><th className="px-4 py-3">Current value</th><th className="px-4 py-3">Proposed value</th></tr></thead><tbody className="divide-y divide-slate-100">{Object.entries(r.proposedChanges || {}).map(([field, value]) => <tr key={field}><td className="px-4 py-3 font-semibold text-slate-700">{LABELS[field] || field}</td><td className="px-4 py-3 text-slate-500">{r.oldValues && field in r.oldValues ? showValue(r.oldValues[field]) : "Not captured"}</td><td className="px-4 py-3 font-semibold text-blue-700">{showValue(value)}</td></tr>)}</tbody></table></div>
+                {r.requestedBy?.email && <p className="mt-3 text-xs text-slate-500">Submitted by {r.requestedBy.email}</p>}
+                {!pending && <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600"><p>Decision: <strong className="capitalize">{r.status}</strong>{r.decidedBy?.email ? " by " + r.decidedBy.email : ""}{r.decidedAt ? " · " + new Date(r.decidedAt).toLocaleString("en-IN") : ""}</p>{r.decisionNote && <p className="mt-1">Note: {r.decisionNote}</p>}</div>}
+                {pending && <div className="mt-4 border-t border-slate-100 pt-4"><label htmlFor={"note-" + r._id} className="mb-1.5 block text-xs font-semibold text-slate-600">Decision note (required for rejection)</label><textarea id={"note-" + r._id} value={notes[r._id] || ""} onChange={(e) => setNotes((current) => ({ ...current, [r._id]: e.target.value }))} rows={2} maxLength={1000} placeholder="Add context for this decision…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /><div className="mt-3 flex flex-wrap justify-end gap-2"><button type="button" disabled={busyId === r._id} onClick={() => decide(r, "reject")} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"><X size={16} /> Reject</button><button type="button" disabled={busyId === r._id} onClick={() => decide(r, "approve")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"><Check size={16} /> Approve & Apply</button></div></div>}
+              </article>;
+            })}</div>}
+        </section>
+        <p className="mt-4 text-xs text-slate-400">Sensitive identifiers and login credentials are excluded from external update approvals.</p>
+      </div>
+    </main>
+  );
+}
+export default function EmployeeUpdateApprovalsPage() { return <AuthGuard><ApprovalQueue /></AuthGuard>; }
