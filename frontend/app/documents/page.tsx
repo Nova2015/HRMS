@@ -260,10 +260,18 @@ function DocumentsContent() {
           </section>
         ) : (
           <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Upload size={19} className="text-blue-600" /> Submit Resignation Letter</h2>
-            <p className="mt-1 text-sm text-slate-500">Upload your resignation letter for HR approval. Supported: PDF, JPG, PNG · Maximum 10 MB.</p>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Upload size={19} className="text-blue-600" /> Send Document to HR</h2>
+            <p className="mt-1 text-sm text-slate-500">Submit supporting documents or a resignation letter for HR review. Supported: PDF, JPG, PNG · Maximum 10 MB.</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="text-sm font-semibold text-slate-700">Document Type
+                <select value={employeeDocumentType} onChange={(event) => setEmployeeDocumentType(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white p-3 font-normal">
+                  <option value="other">Supporting Document</option>
+                  <option value="resignation_letter">Resignation Letter (HR Approval)</option>
+                </select>
+              </label>
               <input id="employee-document-file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} className="block w-full rounded-xl border border-slate-200 p-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700" />
+            </div>
+            <div className="mt-3 flex justify-end">
               <button type="button" onClick={uploadDocument} disabled={!selectedFile || uploading} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{uploading ? "Sending..." : "Send to HR"} <Upload size={16} /></button>
             </div>
           </section>
