@@ -3,22 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, UserCircle,
+  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2,
   CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
   Settings2, UserPlus, ClipboardList, FileText, Activity, BarChart3, CheckCircle2, UserRound,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
 const modules = [
-  {
-    title: "My Profile",
-    description: "View your personal and employment information.",
-    href: "/profile",
-    action: "View my profile",
-    icon: UserCircle,
-    iconStyle: "bg-sky-50 text-sky-700",
-    accent: "group-hover:border-sky-200",
-  },
   {
     title: "Employee Documents",
     description: "Send documents to HR or review employee submissions.",
@@ -168,7 +159,7 @@ export default function Home() {
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["My Profile", "Employee Documents", "Attendance", "Leave Management", "Payroll", "Holiday Calendar"].includes(item.title));
+    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Holiday Calendar"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
@@ -282,7 +273,7 @@ export default function Home() {
                   <p className="mt-3 text-xs text-slate-400">Counts include present and half-day records for each date.</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center gap-2"><Activity size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Recent attendance activity</h3></div>
+                  <div className="mb-4 flex items-center gap-2"><Activity size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Recent Activity</h3></div>
                   {attendanceLoading ? <p className="py-6 text-sm text-slate-500">Loading recent activity…</p> : attendanceRecords.length === 0 ? <p className="py-6 text-sm text-slate-500">No attendance records found for this month yet.</p> : (
                     <div className="space-y-3">
                       {[...attendanceRecords].sort((a, b) => new Date(b.updatedAt || b.createdAt || b.dateKey).getTime() - new Date(a.updatedAt || a.createdAt || a.dateKey).getTime()).slice(0, 6).map((record) => (
