@@ -32,7 +32,7 @@ const employeeDocumentSchema = new mongoose.Schema(
         },
         documentType: {
             type: String,
-            enum: ["other", "resignation_letter", "payslip", "appointment_letter", "leave_letter", "relieving_letter"],
+            enum: ["other", "resignation_letter", "payslip", "appointment_letter", "leave_letter", "leave_rejection_notice", "relieving_letter"],
             default: "other",
             index: true
         },
@@ -47,6 +47,12 @@ const employeeDocumentSchema = new mongoose.Schema(
             enum: ["pending", "approved", "rejected", "issued"],
             default: "pending",
             index: true
+        },
+        sourceKey: {
+            type: String,
+            unique: true,
+            sparse: true,
+            trim: true
         },
         issuedBy: {
             type: mongoose.Schema.Types.ObjectId,
