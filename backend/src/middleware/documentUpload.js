@@ -38,7 +38,7 @@ const upload = multer({
     fileFilter: (req, file, callback) => {
         const extension = path.extname(file.originalname).toLowerCase();
         const expectedExtension = allowedTypes.get(file.mimetype);
-        if (!expectedExtension || extension !== expectedExtension) {
+        if (!expectedExtension || (extension !== expectedExtension && !(file.mimetype === "image/jpeg" && extension === ".jpeg"))) {
             return callback(new Error("Only PDF, JPG and PNG documents are allowed"));
         }
         callback(null, true);
