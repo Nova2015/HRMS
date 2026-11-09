@@ -196,22 +196,6 @@ function RecruitmentWorkspace() {
         </section>
 
 
-        {canManageMasters && (
-          <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4"><h2 className="font-bold text-slate-900">Department Management</h2><p className="mt-1 text-sm text-slate-500">Admin / HR can add, edit, activate or deactivate departments.</p></div>
-            <div className="max-w-2xl">
-              <h3 className="mb-3 text-sm font-semibold text-slate-800">Departments</h3>
-              <form onSubmit={saveDepartment} className="mb-4 grid gap-2 sm:grid-cols-2">
-                <input required maxLength={80} placeholder="Department name" className={inputClass} value={departmentForm.name} onChange={(e) => setDepartmentForm({ ...departmentForm, name: e.target.value })} />
-                <input required maxLength={12} placeholder="Code (e.g. AI)" className={inputClass} value={departmentForm.code} onChange={(e) => setDepartmentForm({ ...departmentForm, code: e.target.value.toUpperCase() })} />
-                <input placeholder="Description (optional)" className={inputClass} value={departmentForm.description} onChange={(e) => setDepartmentForm({ ...departmentForm, description: e.target.value })} />
-                <div className="flex gap-2"><button disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{departmentForm.id ? "Update Department" : "Add Department"}</button>{departmentForm.id && <button type="button" onClick={() => setDepartmentForm({ id: "", name: "", code: "", description: "" })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs">Cancel</button>}</div>
-              </form>
-              <div className="space-y-2">{data?.departments.map((d) => <div key={d._id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 p-3"><div><p className="text-sm font-medium text-slate-800">{d.name} <span className="text-xs text-slate-400">({d.code || "—"})</span></p><p className="text-xs text-slate-400">{d.isActive === false ? "Inactive" : "Active"}</p></div><div className="flex gap-2"><button type="button" onClick={() => setDepartmentForm({ id: d._id, name: d.name, code: d.code || "", description: d.description || "" })} className="text-xs font-semibold text-blue-700">Edit</button><button type="button" onClick={() => toggleMasterStatus("departments", d)} className="text-xs font-semibold text-slate-500">{d.isActive === false ? "Activate" : "Deactivate"}</button></div></div>)}</div>
-            </div>
-          </section>
-        )}
-
         {showJobForm && (
           <form onSubmit={submitJob} className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between"><h2 className="font-bold text-slate-900">Create job opening</h2><button type="button" onClick={() => setShowJobForm(false)}><X size={18} /></button></div>
