@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, UserCircle,
   CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
-  Settings2, UserPlus, ClipboardList,
+  Settings2, UserPlus, ClipboardList, FileText,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -18,6 +18,15 @@ const modules = [
     icon: UserCircle,
     iconStyle: "bg-sky-50 text-sky-700",
     accent: "group-hover:border-sky-200",
+  },
+  {
+    title: "Employee Documents",
+    description: "Send documents to HR or review employee submissions.",
+    href: "/documents",
+    action: "Open documents",
+    icon: FileText,
+    iconStyle: "bg-orange-50 text-orange-700",
+    accent: "group-hover:border-orange-200",
   },
   {
     title: "Employees",
@@ -110,7 +119,7 @@ export default function Home() {
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["My Profile", "Attendance", "Leave Management", "Payroll", "Holiday Calendar"].includes(item.title));
+    : modules.filter((item) => ["My Profile", "Employee Documents", "Attendance", "Leave Management", "Payroll", "Holiday Calendar"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
