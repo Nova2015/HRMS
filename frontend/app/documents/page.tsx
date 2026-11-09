@@ -52,6 +52,7 @@ function DocumentsContent() {
   const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
   const [employees, setEmployees] = useState<EmployeeInfo[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [employeeDocumentType, setEmployeeDocumentType] = useState("other");
   const [issueFile, setIssueFile] = useState<File | null>(null);
   const [targetEmployee, setTargetEmployee] = useState("");
   const [issueType, setIssueType] = useState("payslip");
@@ -135,11 +136,11 @@ function DocumentsContent() {
     try {
       const formData = new FormData();
       formData.append("document", selectedFile);
-      formData.append("documentType", "resignation_letter");
+      formData.append("documentType", employeeDocumentType);
       const response = await fetch(`${API_URL}/documents/my`, { method: "POST", headers, body: formData });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.message || "Document upload failed");
-      setNotice("Resignation letter submitted to HR successfully.");
+      setNotice(employeeDocumentType === "resignation_letter" ? "Resignation letter submitted to HR successfully." : "Document sent to HR successfully.");
       setSelectedFile(null);
       const input = document.getElementById("employee-document-file") as HTMLInputElement | null;
       if (input) input.value = "";
@@ -263,7 +264,7 @@ function DocumentsContent() {
             <p className="mt-1 text-sm text-slate-500">Upload your resignation letter for HR approval. Supported: PDF, JPG, PNG · Maximum 10 MB.</p>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
               <input id="employee-document-file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} className="block w-full rounded-xl border border-slate-200 p-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700" />
-              <button type="button" onClick={uploadDocument} disabled={!selectedFile || uploading} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{uploading ? "Submitting..." : "Submit to HR"} <Upload size={16} /></button>
+              <button type="button" onClick={uploadDocument} disabled={!selectedFile || uploading} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{uploading ? "Sending..." : "Send to HR"} <Upload size={16} /></button>
             </div>
           </section>
         )}
