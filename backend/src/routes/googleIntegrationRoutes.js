@@ -2,13 +2,15 @@ import express from "express";
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import GoogleGmailIntegration from "../models/GoogleGmailIntegration.js";
+import Employee from "../models/Employee.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const GMAIL_PROFILE_URL = "https://gmail.googleapis.com/gmail/v1/users/me/profile";
+const GMAIL_API_URL = "https://gmail.googleapis.com/gmail/v1/users/me";
+const GMAIL_PROFILE_URL = `${GMAIL_API_URL}/profile`;
 const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 
 const getOAuthConfig = () => {
@@ -36,6 +38,75 @@ const encryptToken = (value) => {
     const ciphertext = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
     return [iv.toString("base64"), cipher.getAuthTag().toString("base64"), ciphertext.toString("base64")].join(".");
 };
+
+const decryptToken = (value) => {
+    if (!value) throw new Error("Stored Google token is missing");
+    const [ivPart, tagPart, ciphertextPart] = value.split(".");
+    if (!ivPart || !tagPart || !ciphertextPart) throw new Error("Stored Google token is invalid");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", getEncryptionKey(), Buffer.from(ivPart, "base64"));
+    decipher.setAuthTag(Buffer.from(tagPart, "base64"));
+    return Buffer.concat([
+        decipher.update(Buffer.from(ciphertextPart, "base64")),
+        decipher.final()
+    ]).toString("utf8");
+};
+
+const getGmailAccessToken = async (integration) => {
+    const expiresSoon = !integration.tokenExpiresAt || integration.tokenExpiresAt.getTime() <= Date.now() + 60_000;
+    if (!expiresSoon) return decryptToken(integration.accessTokenEncrypted);
+
+    const refreshToken = decryptToken(integration.refreshTokenEncrypted);
+    const config = getOAuthConfig();
+    const response = await fetch(GOOGLE_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            refresh_token: refreshToken,
+            grant_type: "refresh_token"
+        })
+    });
+    const tokens = await response.json();
+    if (!response.ok || !tokens.access_token) {
+        console.error("Google Gmail access-token refresh failed:", tokens.error || response.status);
+        const error = new Error("Google Gmail authorization expired; reconnect the account");
+        error.status = 401;
+        throw error;
+    }
+
+    integration.accessTokenEncrypted = encryptToken(tokens.access_token);
+    integration.tokenExpiresAt = new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000);
+    await integration.save();
+    return tokens.access_token;
+};
+
+const gmailApiFetch = async (url, accessToken) => {
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const payload = await response.json();
+    if (!response.ok) {
+        console.error("Gmail API request failed:", payload.error?.status || response.status);
+        const error = new Error("Gmail could not be read. Check Gmail API access and reconnect if needed.");
+        error.status = response.status === 401 ? 401 : 502;
+        throw error;
+    }
+    return payload;
+};
+
+const decodeMessagePart = (data) => {
+    if (!data) return "";
+    return Buffer.from(data, "base64url").toString("utf8");
+};
+
+const collectPlainText = (part, chunks = []) => {
+    if (part?.mimeType === "text/plain" && part.body?.data) {
+        chunks.push(decodeMessagePart(part.body.data));
+    }
+    for (const child of part?.parts || []) collectPlainText(child, chunks);
+    return chunks;
+};
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 router.get("/gmail/connect", protect, authorizeRoles("admin", "hr"), (req, res) => {
     try {
@@ -131,6 +202,79 @@ router.get("/gmail/callback", async (req, res) => {
         }
         console.error("Google Gmail OAuth callback failed:", error.message);
         return res.status(500).json({ success: false, message: "Google Gmail connection failed" });
+    }
+});
+
+// Read-only discovery: returns recent message previews and any matching HRMS employee codes.
+// This endpoint never changes Employee records or applies proposed employee updates.
+router.get("/gmail/messages", protect, authorizeRoles("admin", "hr"), async (req, res) => {
+    try {
+        const integration = await GoogleGmailIntegration.findOne({ userId: req.user.userId })
+            .select("+accessTokenEncrypted +refreshTokenEncrypted");
+        if (!integration) {
+            return res.status(404).json({ success: false, message: "Connect a Gmail account before reading messages" });
+        }
+
+        const query = typeof req.query.q === "string" && req.query.q.trim()
+            ? req.query.q.trim().slice(0, 200)
+            : "newer_than:30d";
+        const requestedLimit = Number.parseInt(req.query.maxResults, 10);
+        const maxResults = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 50) : 20;
+        const accessToken = await getGmailAccessToken(integration);
+        const listUrl = new URL(`${GMAIL_API_URL}/messages`);
+        listUrl.searchParams.set("q", query);
+        listUrl.searchParams.set("maxResults", String(maxResults));
+
+        const list = await gmailApiFetch(listUrl, accessToken);
+        const ids = (list.messages || []).map((message) => message.id).filter(Boolean);
+        const employees = await Employee.find({ employmentStatus: { $ne: "terminated" } })
+            .select("employeeCode")
+            .lean();
+        const employeeCodes = employees.map((employee) => employee.employeeCode).filter(Boolean);
+
+        const messages = [];
+        for (let offset = 0; offset < ids.length; offset += 5) {
+            const batch = await Promise.all(ids.slice(offset, offset + 5).map(async (messageId) => {
+                const detailUrl = new URL(`${GMAIL_API_URL}/messages/${encodeURIComponent(messageId)}`);
+                detailUrl.searchParams.set("format", "full");
+                const message = await gmailApiFetch(detailUrl, accessToken);
+                const headers = message.payload?.headers || [];
+                const header = (name) => headers.find((item) => item.name?.toLowerCase() === name)?.value || "";
+                const bodyText = collectPlainText(message.payload).join("\n").trim();
+                const searchableText = `${header("subject")}\n${message.snippet || ""}\n${bodyText}`.toUpperCase();
+                const matchedEmployeeCodes = employeeCodes.filter((code) => {
+                    const pattern = new RegExp(`(^|[^A-Z0-9])${escapeRegex(code.toUpperCase())}([^A-Z0-9]|$)`);
+                    return pattern.test(searchableText);
+                });
+                return {
+                    messageId: message.id,
+                    threadId: message.threadId,
+                    from: header("from"),
+                    subject: header("subject"),
+                    date: header("date"),
+                    snippet: message.snippet || "",
+                    matchedEmployeeCodes,
+                    textPreview: bodyText.slice(0, 4000)
+                };
+            }));
+            messages.push(...batch);
+        }
+
+        integration.lastUsedAt = new Date();
+        await integration.save();
+        return res.status(200).json({
+            success: true,
+            googleEmail: integration.googleEmail,
+            query,
+            totalReturned: messages.length,
+            messages
+        });
+    } catch (error) {
+        console.error("Google Gmail message discovery failed:", error.message);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || "Could not read Gmail messages"
+        });
     }
 });
 
