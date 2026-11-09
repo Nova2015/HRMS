@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2,
   CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
-  Settings2, UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound,
+  Settings2, UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound, Headset,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -63,6 +63,15 @@ const modules = [
     icon: ReceiptText,
     iconStyle: "bg-violet-50 text-violet-700",
     accent: "group-hover:border-violet-200",
+  },
+  {
+    title: "IT Helpdesk & Support",
+    description: "Submit IT support requests and track ticket progress.",
+    href: "/helpdesk",
+    action: "Open helpdesk",
+    icon: Headset,
+    iconStyle: "bg-indigo-50 text-indigo-700",
+    accent: "group-hover:border-indigo-200",
   },
   {
     title: "Shift Management",
@@ -168,7 +177,7 @@ export default function Home() {
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expense & Reimbursement", "Holiday Calendar"].includes(item.title));
+    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expense & Reimbursement", "IT Helpdesk & Support", "Holiday Calendar"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
@@ -305,14 +314,18 @@ export default function Home() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleModules.map((item) => {
-                const roleDescription = item.title === "Leave Management"
+                const roleDescription = item.title === "IT Helpdesk & Support"
+                  ? (isAdmin ? "View, assign and resolve company-wide IT support tickets." : "Submit IT support requests and track your own ticket status.")
+                  : item.title === "Leave Management"
                   ? (isAdmin ? "Company-wide leave requests, approvals and calendar." : isManager ? "Review leave requests from your assigned team." : "Apply for leave and track your own requests.")
                   : item.title === "Attendance"
                     ? (isAdmin ? "Company-wide attendance register and monthly calendar." : isManager ? "View your assigned team's attendance calendar and daily records." : "View your personal attendance calendar and daily records.")
                     : item.title === "Payroll" && !isAdmin
                       ? "View your own monthly payroll and payslips."
                       : item.description;
-                const roleAction = item.title === "Leave Management"
+                const roleAction = item.title === "IT Helpdesk & Support"
+                  ? (isAdmin ? "Manage support tickets" : "Submit a support ticket")
+                  : item.title === "Leave Management"
                   ? (isAdmin ? "Manage company leaves" : isManager ? "Review team leaves" : "Apply for leave")
                   : item.title === "Attendance" && !isAdmin
                     ? (isManager ? "View team attendance calendar" : "View my attendance calendar")
