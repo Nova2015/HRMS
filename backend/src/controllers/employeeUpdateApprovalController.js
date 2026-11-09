@@ -93,7 +93,7 @@ export const createEmployeeUpdateProposal = async (req, res) => {
         const validationError = validateProposal(proposedChanges);
         if (validationError) return res.status(400).json({ success: false, message: validationError });
 
-        const employee = await Employee.findById(employeeId).select("employeeCode");
+        const employee = await Employee.findById(employeeId);
         if (!employee) return res.status(404).json({ success: false, message: "Employee not found" });
 
         const proposal = await EmployeeUpdateApproval.create({
@@ -103,6 +103,7 @@ export const createEmployeeUpdateProposal = async (req, res) => {
             sourceReference: String(sourceReference).slice(0, 500),
             sourceSubject: String(sourceSubject).slice(0, 300),
             proposedChanges: normalizeChanges(proposedChanges),
+            oldValues: Object.fromEntries(Object.keys(proposedChanges).map((field) => [field, employee[field] ?? null])),
             requestedBy: req.user.userId
         });
         return res.status(201).json({
