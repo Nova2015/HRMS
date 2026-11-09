@@ -23,6 +23,7 @@ import employeeHrDetailsRoutes from "./routes/employeeHrDetailsRoutes.js";
 import expenseRoutes from "./routes/expenseRoutes.js";
 import helpdeskRoutes from "./routes/helpdeskRoutes.js";
 import recruitmentRoutes from "./routes/recruitmentRoutes.js";
+import googleIntegrationRoutes from "./routes/googleIntegrationRoutes.js";
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use("/api/documents", employeeDocumentRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/helpdesk", helpdeskRoutes);
 app.use("/api/recruitment", recruitmentRoutes);
+app.use("/api/integrations/google", googleIntegrationRoutes);
 
 app.use((req, res) => {
     res.status(404).json({
