@@ -60,7 +60,7 @@ function ProfileContent() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => { void Promise.resolve().then(() => loadProfile()); }, [loadProfile]);
 
