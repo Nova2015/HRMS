@@ -18,6 +18,7 @@ import holidayRoutes from "./routes/holidayRoutes.js";
 import shiftRoutes from "./routes/shiftRoutes.js";
 import payrollRoutes from "./routes/payrollRoutes.js";
 import employeeDocumentRoutes from "./routes/employeeDocumentRoutes.js";
+import employeeHrDetailsRoutes from "./routes/employeeHrDetailsRoutes.js";
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/departments", departmentRoutes);
 app.use("/api/designations", designationRoutes);
 app.use("/api/employees", employeeRoutes);
+app.use("/api/employee-hr-details", employeeHrDetailsRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/leaves", leaveRoutes);
