@@ -3,13 +3,22 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2,
+  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, ShieldCheck,
   CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
   Settings2, UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound, Headset,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
 const modules = [
+  {
+    title: "Employee Update Approvals",
+    description: "Review and decide employee data update proposals from Gmail and documents.",
+    href: "/employee-update-approvals",
+    action: "Review update requests",
+    icon: ShieldCheck,
+    iconStyle: "bg-emerald-50 text-emerald-700",
+    accent: "group-hover:border-emerald-200",
+  },
   {
     title: "Employee Documents",
     description: "Send documents to HR or review employee submissions.",
