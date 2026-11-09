@@ -8,51 +8,142 @@ import Employee from "../models/Employee.js";
 import { decryptHrDetails } from "./hrDetailsCrypto.js";
 import { DOCUMENT_STORAGE_DIR } from "../middleware/documentUpload.js";
 
-const money = (value) => new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
+const money = (value) => "INR " + new Intl.NumberFormat("en-IN", {
     maximumFractionDigits: 2
 }).format(Number(value) || 0);
 
 const safeText = (value) => String(value ?? "-").replace(/[\\r\\n]+/g, " ").slice(0, 500);
 const masked = (value) => value ? "*".repeat(Math.max(0, String(value).length - 4)) + String(value).slice(-4) : "-";
 
-const writePdf = async (filePath, title, employee, sections) => {
+const writePdf = async (filePath, title, employee, sections, documentType) => {
     await fs.mkdir(DOCUMENT_STORAGE_DIR, { recursive: true });
     await new Promise((resolve, reject) => {
         const output = createWriteStream(filePath, { flags: "wx" });
-        const pdf = new PDFDocument({ size: "A4", margin: 48, info: { Title: title, Author: "HRMS" } });
+        const pdf = new PDFDocument({ size: "A4", margin: 42, info: { Title: title, Author: "HRMS" } });
         output.on("finish", resolve);
         output.on("error", reject);
         pdf.on("error", reject);
         pdf.pipe(output);
 
-        pdf.font("Helvetica-Bold").fontSize(18).text("HRMS", { align: "center" });
-        pdf.moveDown(0.3);
-        pdf.fontSize(15).text(title, { align: "center" });
-        pdf.moveDown();
-        pdf.font("Helvetica").fontSize(10);
-        pdf.text("Employee: " + safeText(employee.firstName + " " + employee.lastName));
-        pdf.text("Employee Code: " + safeText(employee.employeeCode));
-        pdf.text("Email: " + safeText(employee.email));
-        pdf.moveDown();
-
-        for (const section of sections) {
-            pdf.font("Helvetica-Bold").fontSize(11).text(safeText(section.heading));
-            pdf.moveDown(0.25);
-            pdf.font("Helvetica").fontSize(10);
-            for (const [label, value] of section.rows) {
-                pdf.text(safeText(label) + ": " + safeText(value));
+        if (documentType !== "payslip") {
+            pdf.font("Helvetica-Bold").fontSize(18).fillColor("#17365D").text("HRMS", { align: "center" });
+            pdf.moveDown(0.3);
+            pdf.fontSize(15).text(title, { align: "center" });
+            pdf.moveDown();
+            pdf.font("Helvetica").fontSize(10).fillColor("#222222");
+            pdf.text("Employee: " + safeText(employee.firstName + " " + employee.lastName));
+            pdf.text("Employee Code: " + safeText(employee.employeeCode));
+            pdf.text("Email: " + safeText(employee.email));
+            pdf.moveDown();
+            for (const section of sections) {
+                pdf.font("Helvetica-Bold").fontSize(11).fillColor("#17365D").text(safeText(section.heading));
+                pdf.moveDown(0.25);
+                pdf.font("Helvetica").fontSize(10).fillColor("#222222");
+                for (const [label, value] of section.rows) pdf.text(safeText(label) + ": " + safeText(value));
+                pdf.moveDown(0.7);
             }
-            pdf.moveDown(0.7);
+            pdf.moveDown();
+            pdf.fontSize(8).fillColor("gray").text("This is a system-generated document. Please contact HR for corrections.", { align: "center" });
+            pdf.end();
+            return;
         }
 
-        pdf.moveDown();
-        pdf.fontSize(8).fillColor("gray").text("This is a system-generated document. Please contact HR for corrections.", { align: "center" });
+        const pageWidth = pdf.page.width;
+        const pageHeight = pdf.page.height;
+        const left = 42;
+        const right = pageWidth - 42;
+        const contentWidth = right - left;
+        const bottomLimit = pageHeight - 48;
+        const navy = "#17365D";
+        const blue = "#2563EB";
+        const pale = "#EFF5FC";
+        const line = "#D8E1EC";
+        const ink = "#243247";
+        const muted = "#64748B";
+        const payPeriod = sections.find((section) => section.heading === "Pay Period");
+        const periodLabel = payPeriod?.rows?.find((row) => row[0] === "Month")?.[1] || "Salary Statement";
+
+        const drawCompactHeader = () => {
+            pdf.font("Helvetica-Bold").fontSize(9).fillColor(navy).text("COMPANY NAME", left, 24);
+            pdf.font("Helvetica").fontSize(8).fillColor(muted).text("MONTHLY PAYSLIP", right - 130, 25, { width: 130, align: "right" });
+            pdf.moveTo(left, 40).lineTo(right, 40).strokeColor(line).lineWidth(0.7).stroke();
+            pdf.y = 52;
+        };
+        const ensureSpace = (height) => {
+            if (pdf.y + height > bottomLimit) {
+                pdf.addPage();
+                drawCompactHeader();
+            }
+        };
+
+        // Reserved logo and company identity area for later branding configuration.
+        pdf.roundedRect(left, 42, 54, 54, 7).lineWidth(1).strokeColor(blue).stroke();
+        pdf.font("Helvetica-Bold").fontSize(8).fillColor(muted).text("LOGO", left + 8, 64, { width: 38, align: "center" });
+        pdf.font("Helvetica-Bold").fontSize(16).fillColor(navy).text("COMPANY NAME", left + 68, 48, { width: 275 });
+        pdf.font("Helvetica").fontSize(8).fillColor(muted).text("Company address and contact details", left + 68, 70, { width: 275 });
+        pdf.font("Helvetica-Bold").fontSize(19).fillColor(blue).text("PAYSLIP", right - 125, 48, { width: 125, align: "right" });
+        pdf.font("Helvetica").fontSize(8).fillColor(muted).text(safeText(periodLabel), right - 155, 74, { width: 155, align: "right" });
+        pdf.moveTo(left, 110).lineTo(right, 110).strokeColor(blue).lineWidth(2).stroke();
+        pdf.y = 124;
+
+        // Employee information card.
+        pdf.roundedRect(left, pdf.y, contentWidth, 76, 6).fillAndStroke(pale, line);
+        pdf.font("Helvetica-Bold").fontSize(9).fillColor(navy).text("EMPLOYEE INFORMATION", left + 13, pdf.y + 10);
+        const employeeY = pdf.y + 29;
+        const col1 = left + 13;
+        const col2 = left + 205;
+        const col3 = left + 390;
+        pdf.font("Helvetica").fontSize(7).fillColor(muted).text("EMPLOYEE NAME", col1, employeeY);
+        pdf.text("EMPLOYEE CODE", col2, employeeY);
+        pdf.text("EMAIL", col3, employeeY);
+        pdf.font("Helvetica-Bold").fontSize(9).fillColor(ink).text(safeText(employee.firstName + " " + employee.lastName), col1, employeeY + 12, { width: 180 });
+        pdf.text(safeText(employee.employeeCode), col2, employeeY + 12, { width: 170 });
+        pdf.font("Helvetica").fontSize(8).text(safeText(employee.email), col3, employeeY + 12, { width: right - col3 - 12 });
+        pdf.y += 91;
+
+        for (const section of sections) {
+            const isNetPay = section.heading === "Net Pay";
+            ensureSpace(34);
+            const headingY = pdf.y;
+            pdf.roundedRect(left, headingY, contentWidth, 23, 4).fill(isNetPay ? navy : blue);
+            pdf.font("Helvetica-Bold").fontSize(9).fillColor("#FFFFFF").text(safeText(section.heading).toUpperCase(), left + 11, headingY + 7, { width: contentWidth - 22 });
+            pdf.y = headingY + 27;
+
+            for (let index = 0; index < section.rows.length; index += 1) {
+                const row = section.rows[index];
+                const label = safeText(row[0]);
+                const value = safeText(row[1]);
+                const isNetAmount = isNetPay && label.toLowerCase() === "net payable";
+                const labelWidth = Math.floor(contentWidth * 0.57);
+                const valueWidth = contentWidth - labelWidth - 24;
+                const labelHeight = pdf.heightOfString(label, { width: labelWidth, font: "Helvetica", fontSize: isNetAmount ? 10 : 9 });
+                const valueHeight = pdf.heightOfString(value, { width: valueWidth, font: isNetAmount ? "Helvetica-Bold" : "Helvetica", fontSize: isNetAmount ? 12 : 9 });
+                const rowHeight = Math.max(isNetAmount ? 34 : 25, Math.max(labelHeight, valueHeight) + 12);
+                ensureSpace(rowHeight + 2);
+
+                const rowY = pdf.y;
+                if (isNetAmount) pdf.roundedRect(left, rowY, contentWidth, rowHeight, 4).fill("#E8F1FF");
+                else if (index % 2 === 0) pdf.rect(left, rowY, contentWidth, rowHeight).fill("#F8FAFC");
+                pdf.font(isNetAmount ? "Helvetica-Bold" : "Helvetica").fontSize(isNetAmount ? 10 : 9).fillColor(isNetAmount ? navy : ink);
+                pdf.text(label, left + 11, rowY + 7, { width: labelWidth });
+                pdf.font(isNetAmount ? "Helvetica-Bold" : "Helvetica").fontSize(isNetAmount ? 12 : 9).fillColor(isNetAmount ? blue : ink);
+                pdf.text(value, left + 11 + labelWidth, rowY + 7, { width: valueWidth, align: "right" });
+                pdf.y = rowY + rowHeight;
+                pdf.moveTo(left, pdf.y).lineTo(right, pdf.y).strokeColor(line).lineWidth(0.35).stroke();
+            }
+            pdf.y += 12;
+        }
+
+        ensureSpace(42);
+        pdf.moveTo(left, pdf.y).lineTo(right, pdf.y).strokeColor(line).lineWidth(0.8).stroke();
+        pdf.y += 10;
+        pdf.font("Helvetica").fontSize(7).fillColor(muted).text(
+            "This is a system-generated document. Sensitive identity and banking numbers are masked for security. Please contact HR for corrections.",
+            left, pdf.y, { width: contentWidth, align: "center" }
+        );
         pdf.end();
     });
 };
-
 export const createGeneratedEmployeeDocument = async ({
     employee,
     documentType,
@@ -68,7 +159,7 @@ export const createGeneratedEmployeeDocument = async ({
     const storedName = randomUUID() + ".pdf";
     const filePath = path.join(DOCUMENT_STORAGE_DIR, storedName);
     try {
-        await writePdf(filePath, title, employee, sections);
+        await writePdf(filePath, title, employee, sections, documentType);
         const stats = await fs.stat(filePath);
         return await EmployeeDocument.create({
             employee: employee._id,
@@ -114,8 +205,8 @@ export const generatePayslipDocument = async (payroll, issuedBy = null) => {
     return createGeneratedEmployeeDocument({
         employee,
         documentType: "payslip",
-        title: "Monthly Payslip - " + month,
-        sourceKey: "payroll:" + payroll._id,
+        title: "Monthly Payslip - " + month + " - Professional",
+        sourceKey: "payroll:" + payroll._id + ":template-v2",
         issuedBy,
         sections: [
             { heading: "Pay Period", rows: [["Month", month], ["Working Days", payroll.workingDays], ["Paid Days", payroll.paidDays]] },
