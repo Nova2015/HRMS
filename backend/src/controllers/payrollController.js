@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Employee from "../models/Employee.js";
 import SalaryStructure from "../models/SalaryStructure.js";
 import Payroll from "../models/Payroll.js";
+import { generatePayslipDocument } from "../services/employeeDocumentGenerator.js";
 
 const isPeriod = (value) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value || "");
 const money = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
@@ -142,6 +143,26 @@ export const getPayslip = async (req, res) => {
     }
 };
 
+const issuePayslipForPaidPayroll = async (payrollId, issuedBy) => {
+    const payroll = await Payroll.findOne({ _id: payrollId, status: "paid" })
+        .populate("employee", "employeeCode firstName lastName email");
+    if (!payroll) return null;
+    const document = await generatePayslipDocument(payroll, issuedBy);
+    return { payroll, document };
+};
+
+export const generatePaidPayslip = async (req, res) => {
+    try {
+        if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid payroll ID" });
+        const result = await issuePayslipForPaidPayroll(req.params.id, req.user.userId);
+        if (!result) return res.status(409).json({ success: false, message: "Payslip can be generated only after payroll is marked paid" });
+        return res.json({ success: true, message: "Payslip generated and delivered to employee documents", data: result.document });
+    } catch (error) {
+        console.error("Generate paid payslip:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to generate payslip. HR can retry the generation." });
+    }
+};
+
 export const markPayrollPaid = async (req, res) => {
     try {
         if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid payroll ID" });
@@ -157,7 +178,13 @@ export const markPayrollPaid = async (req, res) => {
                 message: exists ? "Payroll is already marked paid" : "Payroll record not found"
             });
         }
-        res.json({ success: true, message: "Payroll marked as paid", data: payroll });
+        try {
+            const result = await issuePayslipForPaidPayroll(payroll._id, req.user.userId);
+            return res.json({ success: true, message: "Payroll marked paid and payslip delivered to employee documents", data: { payroll: result.payroll, document: result.document } });
+        } catch (documentError) {
+            console.error("Automatic payslip generation failed:", documentError.message);
+            return res.json({ success: true, message: "Payroll marked paid. Payslip generation failed; HR can retry it from the payroll record.", data: { payroll, payslipGenerated: false } });
+        }
     } catch (error) {
         console.error("Mark payroll paid:", error);
         res.status(500).json({ success: false, message: "Unable to update payroll status" });
