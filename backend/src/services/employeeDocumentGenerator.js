@@ -19,7 +19,7 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
     await fs.mkdir(DOCUMENT_STORAGE_DIR, { recursive: true });
     await new Promise((resolve, reject) => {
         const output = createWriteStream(filePath, { flags: "wx" });
-        const pdf = new PDFDocument({ size: "A4", margin: 42, info: { Title: title, Author: "HRMS" } });
+        const pdf = new PDFDocument({ size: "A4", margin: 38, bufferPages: true, info: { Title: title, Author: "HRMS" } });
         output.on("finish", resolve);
         output.on("error", reject);
         pdf.on("error", reject);
@@ -50,97 +50,173 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
 
         const pageWidth = pdf.page.width;
         const pageHeight = pdf.page.height;
-        const left = 42;
-        const right = pageWidth - 42;
-        const contentWidth = right - left;
-        const bottomLimit = pageHeight - 48;
-        const navy = "#17365D";
-        const blue = "#2563EB";
-        const pale = "#EFF5FC";
-        const line = "#D8E1EC";
-        const ink = "#243247";
-        const muted = "#64748B";
-        const payPeriod = sections.find((section) => section.heading === "Pay Period");
-        const periodLabel = payPeriod?.rows?.find((row) => row[0] === "Month")?.[1] || "Salary Statement";
-
-        const drawCompactHeader = () => {
-            pdf.font("Helvetica-Bold").fontSize(9).fillColor(navy).text("COMPANY NAME", left, 24);
-            pdf.font("Helvetica").fontSize(8).fillColor(muted).text("MONTHLY PAYSLIP", right - 130, 25, { width: 130, align: "right" });
-            pdf.moveTo(left, 40).lineTo(right, 40).strokeColor(line).lineWidth(0.7).stroke();
-            pdf.y = 52;
+        const left = 38;
+        const right = pageWidth - 38;
+        const width = right - left;
+        const bottom = pageHeight - 48;
+        const colors = {
+            navy: "#142D4E",
+            blue: "#2563EB",
+            teal: "#0F766E",
+            ink: "#1E293B",
+            muted: "#64748B",
+            line: "#DCE4EE",
+            pale: "#F1F5F9",
+            white: "#FFFFFF",
+            greenPale: "#E8F5EF",
+            green: "#166534"
         };
+        const getSection = (heading) => sections.find((section) => section.heading === heading);
+        const rows = (heading) => getSection(heading)?.rows || [];
+        const valueOf = (heading, label) => rows(heading).find((row) => row[0] === label)?.[1] ?? "-";
+        const period = safeText(valueOf("Pay Period", "Month"));
+        const employeeName = safeText([employee.firstName, employee.lastName].filter(Boolean).join(" "));
+        let y = 0;
+
         const ensureSpace = (height) => {
-            if (pdf.y + height > bottomLimit) {
+            if (y + height > bottom) {
                 pdf.addPage();
-                drawCompactHeader();
+                drawPageHeader(true);
             }
         };
-
-        // Reserved logo and company identity area for later branding configuration.
-        pdf.roundedRect(left, 42, 54, 54, 7).lineWidth(1).strokeColor(blue).stroke();
-        pdf.font("Helvetica-Bold").fontSize(8).fillColor(muted).text("LOGO", left + 8, 64, { width: 38, align: "center" });
-        pdf.font("Helvetica-Bold").fontSize(16).fillColor(navy).text("COMPANY NAME", left + 68, 48, { width: 275 });
-        pdf.font("Helvetica").fontSize(8).fillColor(muted).text("Company address and contact details", left + 68, 70, { width: 275 });
-        pdf.font("Helvetica-Bold").fontSize(19).fillColor(blue).text("PAYSLIP", right - 125, 48, { width: 125, align: "right" });
-        pdf.font("Helvetica").fontSize(8).fillColor(muted).text(safeText(periodLabel), right - 155, 74, { width: 155, align: "right" });
-        pdf.moveTo(left, 110).lineTo(right, 110).strokeColor(blue).lineWidth(2).stroke();
-        pdf.y = 124;
-
-        // Employee information card.
-        pdf.roundedRect(left, pdf.y, contentWidth, 76, 6).fillAndStroke(pale, line);
-        pdf.font("Helvetica-Bold").fontSize(9).fillColor(navy).text("EMPLOYEE INFORMATION", left + 13, pdf.y + 10);
-        const employeeY = pdf.y + 29;
-        const col1 = left + 13;
-        const col2 = left + 205;
-        const col3 = left + 390;
-        pdf.font("Helvetica").fontSize(7).fillColor(muted).text("EMPLOYEE NAME", col1, employeeY);
-        pdf.text("EMPLOYEE CODE", col2, employeeY);
-        pdf.text("EMAIL", col3, employeeY);
-        pdf.font("Helvetica-Bold").fontSize(9).fillColor(ink).text(safeText(employee.firstName + " " + employee.lastName), col1, employeeY + 12, { width: 180 });
-        pdf.text(safeText(employee.employeeCode), col2, employeeY + 12, { width: 170 });
-        pdf.font("Helvetica").fontSize(8).text(safeText(employee.email), col3, employeeY + 12, { width: right - col3 - 12 });
-        pdf.y += 91;
-
-        for (const section of sections) {
-            const isNetPay = section.heading === "Net Pay";
-            ensureSpace(34);
-            const headingY = pdf.y;
-            pdf.roundedRect(left, headingY, contentWidth, 23, 4).fill(isNetPay ? navy : blue);
-            pdf.font("Helvetica-Bold").fontSize(9).fillColor("#FFFFFF").text(safeText(section.heading).toUpperCase(), left + 11, headingY + 7, { width: contentWidth - 22 });
-            pdf.y = headingY + 27;
-
-            for (let index = 0; index < section.rows.length; index += 1) {
-                const row = section.rows[index];
-                const label = safeText(row[0]);
-                const value = safeText(row[1]);
-                const isNetAmount = isNetPay && label.toLowerCase() === "net payable";
-                const labelWidth = Math.floor(contentWidth * 0.57);
-                const valueWidth = contentWidth - labelWidth - 24;
-                const labelHeight = pdf.heightOfString(label, { width: labelWidth, font: "Helvetica", fontSize: isNetAmount ? 10 : 9 });
-                const valueHeight = pdf.heightOfString(value, { width: valueWidth, font: isNetAmount ? "Helvetica-Bold" : "Helvetica", fontSize: isNetAmount ? 12 : 9 });
-                const rowHeight = Math.max(isNetAmount ? 34 : 25, Math.max(labelHeight, valueHeight) + 12);
-                ensureSpace(rowHeight + 2);
-
-                const rowY = pdf.y;
-                if (isNetAmount) pdf.roundedRect(left, rowY, contentWidth, rowHeight, 4).fill("#E8F1FF");
-                else if (index % 2 === 0) pdf.rect(left, rowY, contentWidth, rowHeight).fill("#F8FAFC");
-                pdf.font(isNetAmount ? "Helvetica-Bold" : "Helvetica").fontSize(isNetAmount ? 10 : 9).fillColor(isNetAmount ? navy : ink);
-                pdf.text(label, left + 11, rowY + 7, { width: labelWidth });
-                pdf.font(isNetAmount ? "Helvetica-Bold" : "Helvetica").fontSize(isNetAmount ? 12 : 9).fillColor(isNetAmount ? blue : ink);
-                pdf.text(value, left + 11 + labelWidth, rowY + 7, { width: valueWidth, align: "right" });
-                pdf.y = rowY + rowHeight;
-                pdf.moveTo(left, pdf.y).lineTo(right, pdf.y).strokeColor(line).lineWidth(0.35).stroke();
+        const drawPageHeader = (compact = false) => {
+            if (compact) {
+                pdf.rect(0, 0, pageWidth, 48).fill(colors.navy);
+                pdf.font("Helvetica-Bold").fontSize(9).fillColor(colors.white).text("COMPANY NAME", left, 17);
+                pdf.font("Helvetica").fontSize(8).fillColor("#DCE8F7").text("PAYSLIP  |  " + period, right - 180, 18, { width: 180, align: "right" });
+                y = 62;
+                return;
             }
-            pdf.y += 12;
+            pdf.rect(0, 0, pageWidth, 116).fill(colors.navy);
+            pdf.rect(0, 110, pageWidth, 6).fill(colors.blue);
+            pdf.roundedRect(left, 27, 55, 55, 8).lineWidth(1.2).strokeColor("#8FB5E8").stroke();
+            pdf.font("Helvetica-Bold").fontSize(8).fillColor("#DCE8F7").text("LOGO", left + 8, 49, { width: 39, align: "center" });
+            pdf.font("Helvetica-Bold").fontSize(17).fillColor(colors.white).text("COMPANY NAME", left + 70, 30, { width: 285 });
+            pdf.font("Helvetica").fontSize(8).fillColor("#DCE8F7").text("Company address  |  Phone  |  Email", left + 70, 55, { width: 300 });
+            pdf.font("Helvetica-Bold").fontSize(21).fillColor(colors.white).text("PAYSLIP", right - 145, 31, { width: 145, align: "right" });
+            pdf.font("Helvetica").fontSize(9).fillColor("#DCE8F7").text(period, right - 145, 61, { width: 145, align: "right" });
+            y = 132;
+        };
+
+        const drawSectionTitle = (label, x, top, w, accent = colors.blue) => {
+            pdf.roundedRect(x, top, w, 22, 4).fill(accent);
+            pdf.font("Helvetica-Bold").fontSize(8).fillColor(colors.white).text(label.toUpperCase(), x + 10, top + 7, { width: w - 20 });
+        };
+
+        const drawTable = (label, tableRows, x, top, w, accent) => {
+            drawSectionTitle(label, x, top, w, accent);
+            let cursor = top + 22;
+            const labelW = w * 0.67;
+            tableRows.forEach(([name, amount], index) => {
+                const isTotal = /^(gross earnings|total deductions)$/i.test(String(name));
+                const rowH = 24;
+                if (cursor + rowH > bottom) {
+                    pdf.addPage();
+                    drawPageHeader(true);
+                    cursor = y;
+                }
+                if (isTotal) pdf.rect(x, cursor, w, rowH).fill("#EAF0F7");
+                else if (index % 2 === 0) pdf.rect(x, cursor, w, rowH).fill("#F8FAFC");
+                pdf.font(isTotal ? "Helvetica-Bold" : "Helvetica").fontSize(8.5).fillColor(colors.ink).text(safeText(name), x + 8, cursor + 7, { width: labelW - 12 });
+                pdf.font(isTotal ? "Helvetica-Bold" : "Helvetica").fontSize(8.5).fillColor(colors.ink).text(safeText(amount), x + labelW, cursor + 7, { width: w - labelW - 8, align: "right" });
+                pdf.moveTo(x, cursor + rowH).lineTo(x + w, cursor + rowH).strokeColor(colors.line).lineWidth(0.4).stroke();
+                cursor += rowH;
+            });
+            return cursor;
+        };
+
+        drawPageHeader(false);
+
+        // Employee details panel
+        pdf.roundedRect(left, y, width, 82, 7).fillAndStroke("#F5F8FC", colors.line);
+        pdf.font("Helvetica-Bold").fontSize(8).fillColor(colors.navy).text("EMPLOYEE DETAILS", left + 13, y + 10);
+        const info = [
+            ["EMPLOYEE NAME", employeeName],
+            ["EMPLOYEE CODE", safeText(employee.employeeCode)],
+            ["EMAIL ADDRESS", safeText(employee.email)],
+            ["PAY PERIOD", period],
+            ["WORKING DAYS", safeText(valueOf("Pay Period", "Working Days"))],
+            ["PAID DAYS", safeText(valueOf("Pay Period", "Paid Days"))]
+        ];
+        const infoColW = (width - 26) / 3;
+        info.forEach(([label, value], index) => {
+            const col = index % 3;
+            const row = Math.floor(index / 3);
+            const x = left + 13 + col * infoColW;
+            const top = y + 29 + row * 25;
+            pdf.font("Helvetica").fontSize(6.5).fillColor(colors.muted).text(label, x, top, { width: infoColW - 8 });
+            pdf.font("Helvetica-Bold").fontSize(8).fillColor(colors.ink).text(value, x, top + 9, { width: infoColW - 8, ellipsis: true });
+        });
+        y += 96;
+
+        // Three high-visibility payroll summary cards
+        const summaryGap = 10;
+        const cardW = (width - summaryGap * 2) / 3;
+        const summaries = [
+            ["GROSS EARNINGS", valueOf("Earnings", "Gross Earnings"), colors.navy, "#EFF4FA"],
+            ["TOTAL DEDUCTIONS", valueOf("Deductions", "Total Deductions"), colors.teal, "#EAF6F4"],
+            ["NET PAYABLE", valueOf("Net Pay", "Net Payable"), colors.green, colors.greenPale]
+        ];
+        summaries.forEach(([label, value, accent, fill], index) => {
+            const x = left + index * (cardW + summaryGap);
+            pdf.roundedRect(x, y, cardW, 62, 7).fill(fill);
+            pdf.rect(x, y, 4, 62).fill(accent);
+            pdf.font("Helvetica-Bold").fontSize(7).fillColor(colors.muted).text(label, x + 12, y + 12, { width: cardW - 22 });
+            pdf.font("Helvetica-Bold").fontSize(index === 2 ? 14 : 12).fillColor(accent).text(safeText(value), x + 12, y + 31, { width: cardW - 22 });
+        });
+        y += 77;
+
+        // Side-by-side earnings and deductions statements
+        const tableGap = 14;
+        const tableW = (width - tableGap) / 2;
+        const earningsRows = rows("Earnings");
+        const deductionRows = rows("Deductions");
+        const leftEnd = drawTable("Earnings", earningsRows, left, y, tableW, colors.blue);
+        const rightEnd = drawTable("Deductions", deductionRows, left + tableW + tableGap, y, tableW, colors.teal);
+        y = Math.max(leftEnd, rightEnd) + 17;
+
+        // Net pay emphasis panel
+        ensureSpace(72);
+        pdf.roundedRect(left, y, width, 62, 7).fill(colors.navy);
+        pdf.font("Helvetica-Bold").fontSize(8).fillColor("#DCE8F7").text("FINAL NET PAY", left + 15, y + 12);
+        pdf.font("Helvetica-Bold").fontSize(19).fillColor(colors.white).text(safeText(valueOf("Net Pay", "Net Payable")), left + 15, y + 28, { width: width * 0.55 });
+        pdf.font("Helvetica-Bold").fontSize(8).fillColor("#DCE8F7").text("PAYMENT STATUS", right - 135, y + 13, { width: 120, align: "right" });
+        pdf.font("Helvetica-Bold").fontSize(10).fillColor(colors.white).text(safeText(valueOf("Net Pay", "Payment Status")).toUpperCase(), right - 135, y + 30, { width: 120, align: "right" });
+        y += 77;
+
+        // Bank and statutory information in a compact two-column table
+        const statutory = rows("Employee Bank and Statutory Details");
+        if (statutory.length) {
+            ensureSpace(35 + Math.ceil(statutory.length / 2) * 31);
+            drawSectionTitle("Bank & Statutory Details", left, y, width, colors.navy);
+            y += 22;
+            const statColW = (width - 20) / 2;
+            statutory.forEach(([label, value], index) => {
+                const col = index % 2;
+                const row = Math.floor(index / 2);
+                const x = left + 10 + col * statColW;
+                const top = y + row * 31;
+                if (index % 2 === 0) pdf.rect(left, top, width, 31).fill("#F8FAFC");
+                pdf.font("Helvetica").fontSize(7).fillColor(colors.muted).text(safeText(label).toUpperCase(), x, top + 5, { width: statColW - 12 });
+                pdf.font("Helvetica-Bold").fontSize(8).fillColor(colors.ink).text(safeText(value), x, top + 16, { width: statColW - 12 });
+            });
+            y += Math.ceil(statutory.length / 2) * 31 + 14;
         }
 
-        ensureSpace(42);
-        pdf.moveTo(left, pdf.y).lineTo(right, pdf.y).strokeColor(line).lineWidth(0.8).stroke();
-        pdf.y += 10;
-        pdf.font("Helvetica").fontSize(7).fillColor(muted).text(
-            "This is a system-generated document. Sensitive identity and banking numbers are masked for security. Please contact HR for corrections.",
-            left, pdf.y, { width: contentWidth, align: "center" }
+        ensureSpace(30);
+        pdf.moveTo(left, y).lineTo(right, y).strokeColor(colors.line).lineWidth(0.8).stroke();
+        pdf.font("Helvetica").fontSize(7).fillColor(colors.muted).text(
+            "This is a system-generated payslip. Banking and identity numbers are masked for security. Contact HR for corrections.",
+            left, y + 9, { width, align: "center" }
         );
+
+        const pageRange = pdf.bufferedPageRange();
+        for (let page = pageRange.start; page < pageRange.start + pageRange.count; page += 1) {
+            pdf.switchToPage(page);
+            pdf.font("Helvetica").fontSize(7).fillColor(colors.muted)
+                .text("CONFIDENTIAL  |  HRMS", left, pageHeight - 27, { width: width / 2, lineBreak: false });
+            pdf.text("Page " + (page + 1) + " of " + pageRange.count, right - 100, pageHeight - 27, { width: 100, align: "right", lineBreak: false });
+        }
         pdf.end();
     });
 };
@@ -205,8 +281,8 @@ export const generatePayslipDocument = async (payroll, issuedBy = null) => {
     return createGeneratedEmployeeDocument({
         employee,
         documentType: "payslip",
-        title: "Monthly Payslip - " + month + " - Professional",
-        sourceKey: "payroll:" + payroll._id + ":template-v2",
+        title: "Monthly Payslip - " + month + " - Premium Corporate",
+        sourceKey: "payroll:" + payroll._id + ":template-v3",
         issuedBy,
         sections: [
             { heading: "Pay Period", rows: [["Month", month], ["Working Days", payroll.workingDays], ["Paid Days", payroll.paidDays]] },
