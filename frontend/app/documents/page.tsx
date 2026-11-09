@@ -66,7 +66,7 @@ function DocumentsContent() {
     } finally {
       setLoading(false);
     }
-  }, [isHR]);
+  }, [isHR, router]);
 
   useEffect(() => {
     void Promise.resolve().then(() => {
