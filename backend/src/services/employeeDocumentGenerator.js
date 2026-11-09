@@ -4,6 +4,8 @@ import { createWriteStream } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import PDFDocument from "pdfkit";
 import EmployeeDocument from "../models/EmployeeDocument.js";
+import Employee from "../models/Employee.js";
+import { decryptHrDetails } from "./hrDetailsCrypto.js";
 import { DOCUMENT_STORAGE_DIR } from "../middleware/documentUpload.js";
 
 const money = (value) => new Intl.NumberFormat("en-IN", {
@@ -13,6 +15,7 @@ const money = (value) => new Intl.NumberFormat("en-IN", {
 }).format(Number(value) || 0);
 
 const safeText = (value) => String(value ?? "-").replace(/[\\r\\n]+/g, " ").slice(0, 500);
+const masked = (value) => value ? "*".repeat(Math.max(0, String(value).length - 4)) + String(value).slice(-4) : "-";
 
 const writePdf = async (filePath, title, employee, sections) => {
     await fs.mkdir(DOCUMENT_STORAGE_DIR, { recursive: true });
@@ -95,6 +98,19 @@ export const generatePayslipDocument = async (payroll, issuedBy = null) => {
     const month = new Date(payroll.period + "-01T00:00:00.000Z").toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
     const earnings = (payroll.earnings || []).map((line) => [line.name, money(line.amount)]);
     const deductions = (payroll.deductions || []).map((line) => [line.name, money(line.amount)]);
+    const employeeRecord = await Employee.findById(employee._id).select("+hrDetailsEncrypted dateOfBirth");
+    const hrDetails = employeeRecord?.hrDetailsEncrypted
+        ? decryptHrDetails(employeeRecord.hrDetailsEncrypted)
+        : {};
+    const payrollIdentityRows = [
+        ["Bank Name", hrDetails.bankName || "-"],
+        ["Account Holder", hrDetails.accountHolderName || "-"],
+        ["Bank Account", masked(hrDetails.bankAccountNumber)],
+        ["IFSC", hrDetails.ifscCode || "-"],
+        ["PAN", masked(hrDetails.panNumber)],
+        ["PF Number", masked(hrDetails.pfNumber)],
+        ["UAN", masked(hrDetails.uanNumber)]
+    ];
     return createGeneratedEmployeeDocument({
         employee,
         documentType: "payslip",
@@ -105,7 +121,8 @@ export const generatePayslipDocument = async (payroll, issuedBy = null) => {
             { heading: "Pay Period", rows: [["Month", month], ["Working Days", payroll.workingDays], ["Paid Days", payroll.paidDays]] },
             { heading: "Earnings", rows: [["Basic Salary", money(payroll.basic)], ...earnings, ["Gross Earnings", money(payroll.grossEarnings)]] },
             { heading: "Deductions", rows: [...deductions, ["Total Deductions", money(payroll.totalDeductions)]] },
-            { heading: "Net Pay", rows: [["Net Payable", money(payroll.netPay)], ["Payment Status", payroll.status], ["Paid Date", payroll.paidAt ? new Date(payroll.paidAt).toLocaleDateString("en-IN") : "-"]] }
+            { heading: "Net Pay", rows: [["Net Payable", money(payroll.netPay)], ["Payment Status", payroll.status], ["Paid Date", payroll.paidAt ? new Date(payroll.paidAt).toLocaleDateString("en-IN") : "-"]] },
+            { heading: "Employee Bank and Statutory Details", rows: payrollIdentityRows }
         ]
     });
 };
@@ -180,7 +197,7 @@ export const generateAppointmentLetterDocument = async (employee, issuedBy = nul
         sourceKey: "appointment:" + employee._id,
         issuedBy,
         sections: [
-            { heading: "Appointment Details", rows: [["Employee Code", employee.employeeCode], ["Designation", designationName], ["Department", departmentName], ["Date of Joining", joiningDate], ["Work Shift", shiftName], ["Employment Status", employee.employmentStatus || "active"]] },
+            { heading: "Appointment Details", rows: [["Employee Code", employee.employeeCode], ["Date of Birth", employee.dateOfBirth ? new Date(employee.dateOfBirth).toLocaleDateString("en-IN", { timeZone: "UTC" }) : "-"], ["Designation", designationName], ["Department", departmentName], ["Date of Joining", joiningDate], ["Work Shift", shiftName], ["Employment Status", employee.employmentStatus || "active"]] },
             { heading: "Employment Confirmation", rows: [["Appointment", "You are appointed to the above position with effect from the date of joining recorded in HRMS."], ["Terms and Conditions", "Your employment will be governed by the company's applicable policies and terms communicated by HR."]] }
         ]
     });
