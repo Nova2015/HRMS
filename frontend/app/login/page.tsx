@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Hexagon,
@@ -70,11 +71,6 @@ export default function LoginPage() {
 
   return (
     <main className="nexus-login min-h-screen h-screen w-full overflow-auto bg-white text-slate-800 antialiased">
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-      />
-
       <div className="flex min-h-full w-full">
 
         {/* LEFT SIDE — ORIGINAL NEXUS BRANDING */}
@@ -130,22 +126,31 @@ export default function LoginPage() {
 
               <div className="flex -space-x-3">
 
-                <img
+                <Image
                   className="z-30 h-10 w-10 rounded-full border-2 border-slate-900"
                   src="https://ui-avatars.com/api/?name=Alex&background=6366f1&color=fff"
-                  alt="User"
+                  alt="User avatar"
+                  width={40}
+                  height={40}
+                  unoptimized
                 />
 
-                <img
+                <Image
                   className="z-20 h-10 w-10 rounded-full border-2 border-slate-900"
                   src="https://ui-avatars.com/api/?name=Sam&background=8b5cf6&color=fff"
-                  alt="User"
+                  alt="User avatar"
+                  width={40}
+                  height={40}
+                  unoptimized
                 />
 
-                <img
+                <Image
                   className="z-10 h-10 w-10 rounded-full border-2 border-slate-900"
                   src="https://ui-avatars.com/api/?name=Taylor&background=ecfdf5&color=059669"
-                  alt="User"
+                  alt="User avatar"
+                  width={40}
+                  height={40}
+                  unoptimized
                 />
 
               </div>

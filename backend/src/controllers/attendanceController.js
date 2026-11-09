@@ -1,12 +1,24 @@
 import mongoose from "mongoose";
 import Attendance from "../models/Attendance.js";
 import Employee from "../models/Employee.js";
+import Shift from "../models/Shift.js";
 
 const TIME_ZONE = "Asia/Kolkata";
 
-const OFFICE_START_MINUTES = 9 * 60;
-const LATE_AFTER_MINUTES = 9 * 60 + 15;
-const OFFICE_END_MINUTES = 18 * 60;
+const DEFAULT_LATE_AFTER_MINUTES = 9 * 60 + 15;
+const DEFAULT_OFFICE_END_MINUTES = 18 * 60;
+const LATE_AFTER_MINUTES = DEFAULT_LATE_AFTER_MINUTES;
+const OFFICE_END_MINUTES = DEFAULT_OFFICE_END_MINUTES;
+
+const timeToMinutes = (value) => {
+    const [hours, minutes] = value.split(":").map(Number);
+    return hours * 60 + minutes;
+};
+
+const getShiftForEmployee = async (employee) => {
+    if (!employee?.shift) return null;
+    return Shift.findById(employee.shift).select("startTime endTime gracePeriodMinutes");
+};
 
 const HALF_DAY_MINUTES = 4 * 60;
 
@@ -109,14 +121,24 @@ export const checkIn = async (req, res) => {
             });
         }
 
+        const shift = await getShiftForEmployee(employee);
         const localMinutes = getLocalMinutes(now);
+        const startMinutes = shift ? timeToMinutes(shift.startTime) : DEFAULT_LATE_AFTER_MINUTES - 15;
+        const endMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
+        const overnight = Boolean(shift && endMinutes <= startMinutes);
+        const adjustedCheckInMinutes = overnight && localMinutes < endMinutes
+            ? localMinutes + 1440
+            : localMinutes;
+        const lateThreshold = shift
+            ? startMinutes + shift.gracePeriodMinutes
+            : DEFAULT_LATE_AFTER_MINUTES;
 
         const attendance = await Attendance.create({
             employee: employeeId,
             dateKey,
             checkIn: now,
             status: "present",
-            isLate: localMinutes > LATE_AFTER_MINUTES,
+            isLate: adjustedCheckInMinutes > lateThreshold,
             source: "self"
         });
 
@@ -189,11 +211,21 @@ export const checkOut = async (req, res) => {
             now
         );
 
+        const employee = await Employee.findById(employeeId).select("shift");
+        const shift = await getShiftForEmployee(employee);
+        const localMinutes = getLocalMinutes(now);
+        const shiftStartMinutes = shift ? timeToMinutes(shift.startTime) : null;
+        const shiftEndMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
+        const overnight = Boolean(shift && shiftEndMinutes <= shiftStartMinutes);
+        const adjustedCheckOutMinutes = overnight && localMinutes < shiftStartMinutes
+            ? localMinutes + 1440
+            : localMinutes;
+        const expectedEndMinutes = overnight ? shiftEndMinutes + 1440 : shiftEndMinutes;
+
         attendance.checkOut = now;
         attendance.workMinutes = workMinutes;
         attendance.status = getAttendanceStatus(workMinutes);
-        attendance.isEarlyLeaving =
-            getLocalMinutes(now) < OFFICE_END_MINUTES;
+        attendance.isEarlyLeaving = adjustedCheckOutMinutes < expectedEndMinutes;
 
         await attendance.save();
 
@@ -293,6 +325,42 @@ export const getMyAttendance = async (req, res) => {
     }
 };
 
+// MANAGER'S ASSIGNED TEAM (for team attendance filters)
+export const getAttendanceTeam = async (req, res) => {
+    try {
+        if (req.user.role === "admin" || req.user.role === "hr") {
+            const employees = await Employee.find({ employmentStatus: "active" })
+                .select("employeeCode firstName lastName shift")
+                .populate("shift", "name weeklyOffDays")
+                .sort({ firstName: 1, lastName: 1 });
+            return res.status(200).json({ success: true, data: employees });
+        }
+
+        if (req.user.role !== "manager") {
+            return res.status(403).json({
+                success: false,
+                message: "Team attendance is available to managers only"
+            });
+        }
+
+        const employees = await Employee.find({
+            reportingManager: req.user.employeeId,
+            employmentStatus: "active"
+        })
+            .select("employeeCode firstName lastName shift")
+            .populate("shift", "name weeklyOffDays")
+            .sort({ firstName: 1, lastName: 1 });
+
+        return res.status(200).json({ success: true, data: employees });
+    } catch (error) {
+        console.error("Attendance team error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load attendance team"
+        });
+    }
+};
+
 // ADMIN / HR ATTENDANCE REGISTER
 export const getAttendanceRegister = async (req, res) => {
     try {
@@ -300,7 +368,25 @@ export const getAttendanceRegister = async (req, res) => {
 
         const { date, from, to, employeeId } = req.query;
 
-        if (req.user.role !== "admin" && req.user.role !== "hr") {
+        if (req.user.role === "manager") {
+            const teamIds = await Employee.find({
+                reportingManager: req.user.employeeId,
+                employmentStatus: "active"
+            }).distinct("_id");
+            const allowedIds = [...teamIds, new mongoose.Types.ObjectId(req.user.employeeId)];
+            filter.employee = { $in: allowedIds };
+
+            if (employeeId) {
+                if (!mongoose.isValidObjectId(employeeId) ||
+                    !allowedIds.some((id) => id.toString() === employeeId)) {
+                    return res.status(403).json({
+                        success: false,
+                        message: "You can only view attendance for yourself and your assigned team"
+                    });
+                }
+                filter.employee = employeeId;
+            }
+        } else if (req.user.role !== "admin" && req.user.role !== "hr") {
             filter.employee = req.user.employeeId;
         } else if (employeeId) {
             if (!mongoose.isValidObjectId(employeeId)) {
@@ -451,6 +537,19 @@ export const saveManualAttendance = async (req, res) => {
             ? getLocalMinutes(checkOutDate)
             : null;
 
+        const shift = await getShiftForEmployee(employee);
+        const shiftStartMinutes = shift ? timeToMinutes(shift.startTime) : DEFAULT_LATE_AFTER_MINUTES - 15;
+        const shiftEndMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
+        const overnight = Boolean(shift && shiftEndMinutes <= shiftStartMinutes);
+        const adjustedManualCheckIn = localCheckInMinutes !== null && overnight && localCheckInMinutes < shiftEndMinutes
+            ? localCheckInMinutes + 1440
+            : localCheckInMinutes;
+        const adjustedManualCheckOut = localCheckOutMinutes !== null && overnight && localCheckOutMinutes < shiftStartMinutes
+            ? localCheckOutMinutes + 1440
+            : localCheckOutMinutes;
+        const lateThreshold = shift ? shiftStartMinutes + shift.gracePeriodMinutes : LATE_AFTER_MINUTES;
+        const expectedEnd = overnight ? shiftEndMinutes + 1440 : shiftEndMinutes;
+
         const update = {
             employee: employeeId,
             dateKey,
@@ -458,11 +557,11 @@ export const saveManualAttendance = async (req, res) => {
             checkOut: checkOutDate,
             workMinutes,
             status,
-            isLate: localCheckInMinutes !== null
-                ? localCheckInMinutes > LATE_AFTER_MINUTES
+            isLate: adjustedManualCheckIn !== null
+                ? adjustedManualCheckIn > lateThreshold
                 : false,
-            isEarlyLeaving: localCheckOutMinutes !== null
-                ? localCheckOutMinutes < OFFICE_END_MINUTES
+            isEarlyLeaving: adjustedManualCheckOut !== null
+                ? adjustedManualCheckOut < expectedEnd
                 : false,
             notes: String(notes || "").trim(),
             source: "manual",

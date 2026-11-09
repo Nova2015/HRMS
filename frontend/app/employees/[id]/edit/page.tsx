@@ -22,6 +22,15 @@ type Designation = {
   isActive?: boolean;
 };
 
+type ManagerOption = {
+  _id: string;
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  employmentStatus: string;
+  account: { role: string; isActive: boolean } | null;
+};
+
 type Employee = {
   _id: string;
   employeeCode: string;
@@ -31,6 +40,7 @@ type Employee = {
   phone?: string;
   department: { _id: string } | null;
   designation: { _id: string } | null;
+  reportingManager: { _id: string } | null;
   joiningDate: string;
   employmentStatus: "active" | "inactive" | "resigned" | "terminated";
 };
@@ -42,6 +52,7 @@ function EditEmployeeForm() {
 
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
+  const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -55,6 +66,7 @@ function EditEmployeeForm() {
     phone: "",
     department: "",
     designation: "",
+    reportingManager: "",
     joiningDate: "",
     employmentStatus: "active",
   });
@@ -73,33 +85,27 @@ function EditEmployeeForm() {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [employeeResponse, departmentResponse, designationResponse] =
+      const [employeeResponse, departmentResponse, designationResponse, employeesResponse] =
         await Promise.all([
-          fetch(`${API_URL}/employees/${id}`, {
-            headers,
-            cache: "no-store",
-          }),
-          fetch(`${API_URL}/departments`, {
-            headers,
-            cache: "no-store",
-          }),
-          fetch(`${API_URL}/designations`, {
-            headers,
-            cache: "no-store",
-          }),
+          fetch(`${API_URL}/employees/${id}`, { headers, cache: "no-store" }),
+          fetch(`${API_URL}/departments`, { headers, cache: "no-store" }),
+          fetch(`${API_URL}/designations`, { headers, cache: "no-store" }),
+          fetch(`${API_URL}/employees`, { headers, cache: "no-store" }),
         ]);
 
-      const [employeeResult, departmentResult, designationResult] =
+      const [employeeResult, departmentResult, designationResult, employeesResult] =
         await Promise.all([
           employeeResponse.json(),
           departmentResponse.json(),
           designationResponse.json(),
+          employeesResponse.json(),
         ]);
 
       if (
         employeeResponse.status === 401 ||
         departmentResponse.status === 401 ||
-        designationResponse.status === 401
+        designationResponse.status === 401 ||
+        employeesResponse.status === 401
       ) {
         sessionStorage.removeItem("hrms_token");
         sessionStorage.removeItem("hrms_user");
@@ -118,6 +124,9 @@ function EditEmployeeForm() {
       if (!designationResponse.ok || !designationResult.success) {
         throw new Error(designationResult.message || "Unable to load designations");
       }
+      if (!employeesResponse.ok || !employeesResult.success) {
+        throw new Error(employeesResult.message || "Unable to load manager list");
+      }
 
       const employee: Employee = employeeResult.data;
 
@@ -129,6 +138,7 @@ function EditEmployeeForm() {
         phone: employee.phone || "",
         department: employee.department?._id || "",
         designation: employee.designation?._id || "",
+        reportingManager: employee.reportingManager?._id || "",
         joiningDate: employee.joiningDate
           ? new Date(employee.joiningDate).toISOString().slice(0, 10)
           : "",
@@ -146,6 +156,12 @@ function EditEmployeeForm() {
           (item: Designation) => item.isActive !== false
         )
       );
+      setManagers((employeesResult.data || []).filter((item: ManagerOption) =>
+        item._id !== id &&
+        item.employmentStatus === "active" &&
+        item.account?.role === "manager" &&
+        item.account.isActive
+      ));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load data");
     } finally {
@@ -154,7 +170,7 @@ function EditEmployeeForm() {
   }, [id, router]);
 
   useEffect(() => {
-    loadData();
+    void Promise.resolve().then(loadData);
   }, [loadData]);
 
   const filteredDesignations = designations.filter((item) => {
@@ -209,6 +225,7 @@ function EditEmployeeForm() {
           designation: form.designation,
           joiningDate: form.joiningDate,
           employmentStatus: form.employmentStatus,
+          reportingManager: form.reportingManager || null,
         }),
       });
 
@@ -384,6 +401,23 @@ function EditEmployeeForm() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Reporting Manager</label>
+                  <select
+                    className={inputClass}
+                    value={form.reportingManager}
+                    onChange={(e) => updateField("reportingManager", e.target.value)}
+                  >
+                    <option value="">No manager assigned</option>
+                    {managers.map((manager) => (
+                      <option key={manager._id} value={manager._id}>
+                        {manager.firstName} {manager.lastName} ({manager.employeeCode})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">Manager access to this employee&apos;s leave records follows this assignment.</p>
                 </div>
 
                 <div>

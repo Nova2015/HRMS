@@ -36,6 +36,7 @@ type Employee = {
   phone?: string;
   department: Department | null;
   designation: Designation | null;
+  reportingManager?: { firstName: string; lastName: string } | null;
   joiningDate: string;
   employmentStatus: "active" | "inactive" | "resigned" | "terminated";
   account: {
@@ -95,7 +96,7 @@ function EmployeeList() {
   }, [router]);
 
   useEffect(() => {
-    loadEmployees();
+    void Promise.resolve().then(loadEmployees);
   }, [loadEmployees]);
 
   const departments = useMemo(() => {
@@ -285,6 +286,7 @@ function EmployeeList() {
                     <th className="px-4 py-3 font-semibold">Employee</th>
                     <th className="px-4 py-3 font-semibold">Department</th>
                     <th className="px-4 py-3 font-semibold">Designation</th>
+                    <th className="px-4 py-3 font-semibold">Reporting Manager</th>
                     <th className="px-4 py-3 font-semibold">Joining Date</th>
                     <th className="px-4 py-3 font-semibold">Employment</th>
                     <th className="px-4 py-3 font-semibold">Account Role</th>
@@ -314,6 +316,12 @@ function EmployeeList() {
 
                       <td className="px-4 py-4 text-slate-700">
                         {employee.designation?.name || "-"}
+                      </td>
+
+                      <td className="px-4 py-4 text-slate-700">
+                        {employee.reportingManager
+                          ? `${employee.reportingManager.firstName} ${employee.reportingManager.lastName}`
+                          : <span className="text-slate-400">Not assigned</span>}
                       </td>
 
                       <td className="px-4 py-4 text-slate-700">

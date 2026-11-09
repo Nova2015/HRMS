@@ -84,7 +84,7 @@ function EmployeeDetails() {
   }, [id, router]);
 
   useEffect(() => {
-    loadEmployee();
+    void Promise.resolve().then(loadEmployee);
   }, [loadEmployee]);
 
   const changeStatus = async (action: "activate" | "deactivate") => {

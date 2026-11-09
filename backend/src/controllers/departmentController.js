@@ -1,5 +1,7 @@
 ﻿import mongoose from "mongoose";
 import Department from "../models/Department.js";
+import Employee from "../models/Employee.js";
+import Designation from "../models/Designation.js";
 
 // CREATE
 export const createDepartment = async (req, res) => {
@@ -29,7 +31,7 @@ export const createDepartment = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "Department name or code already exists"
-                : error.message
+                : "Unable to create department"
         });
     }
 };
@@ -47,7 +49,7 @@ export const getDepartments = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to load departments"
         });
     }
 };
@@ -64,13 +66,44 @@ export const updateDepartment = async (req, res) => {
             });
         }
 
+        const allowedFields = ["name", "code", "description", "isActive"];
+        const updates = {};
+
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) {
+                updates[field] = req.body[field];
+            }
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No valid department fields provided"
+            });
+        }
+
+        if (updates.name !== undefined) {
+            updates.name = String(updates.name).trim();
+            if (!updates.name) {
+                return res.status(400).json({ success: false, message: "Department name is required" });
+            }
+        }
+
+        if (updates.code !== undefined) {
+            updates.code = String(updates.code).trim().toUpperCase();
+            if (!updates.code) {
+                return res.status(400).json({ success: false, message: "Department code is required" });
+            }
+        }
+
+        if (updates.description !== undefined) {
+            updates.description = String(updates.description).trim();
+        }
+
         const department = await Department.findByIdAndUpdate(
             id,
-            req.body,
-            {
-                new: true,
-                runValidators: true
-            }
+            { $set: updates },
+            { new: true, runValidators: true }
         );
 
         if (!department) {
@@ -90,7 +123,7 @@ export const updateDepartment = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "Department name or code already exists"
-                : error.message
+                : "Unable to update department"
         });
     }
 };
@@ -104,6 +137,18 @@ export const deleteDepartment = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Invalid department ID"
+            });
+        }
+
+        const [employeeCount, designationCount] = await Promise.all([
+            Employee.countDocuments({ department: id }),
+            Designation.countDocuments({ department: id })
+        ]);
+
+        if (employeeCount > 0 || designationCount > 0) {
+            return res.status(409).json({
+                success: false,
+                message: "Department is in use. Deactivate it instead of deleting it."
             });
         }
 
@@ -123,7 +168,7 @@ export const deleteDepartment = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to delete department"
         });
     }
 };

@@ -8,16 +8,22 @@ import Employee from "../models/Employee.js";
 // LOGIN
 export const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password } = req.body || {};
 
-        if (!email || !password) {
+        if (
+            typeof email !== "string" ||
+            typeof password !== "string" ||
+            !email.trim() ||
+            !password ||
+            email.length > 254
+        ) {
             return res.status(400).json({
                 success: false,
-                message: "Email and password are required"
+                message: "Provide a valid email and password"
             });
         }
 
-        if (!process.env.JWT_SECRET) {
+        if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
             return res.status(500).json({
                 success: false,
                 message: "JWT configuration error"
@@ -108,10 +114,11 @@ export const getMe = async (req, res) => {
         const user = await User.findById(req.user.userId)
             .populate({
                 path: "employee",
-                select: "employeeCode firstName lastName email phone department designation employmentStatus",
+                select: "employeeCode firstName lastName email phone department designation shift employmentStatus",
                 populate: [
                     { path: "department", select: "name code" },
-                    { path: "designation", select: "name" }
+                    { path: "designation", select: "name" },
+                    { path: "shift", select: "name weeklyOffDays startTime endTime" }
                 ]
             });
 
@@ -119,6 +126,13 @@ export const getMe = async (req, res) => {
             return res.status(401).json({
                 success: false,
                 message: "User account not found or disabled"
+            });
+        }
+
+        if (!user.employee) {
+            return res.status(403).json({
+                success: false,
+                message: "User account is not linked to an employee"
             });
         }
 
@@ -133,9 +147,10 @@ export const getMe = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Get logged-in user error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to load user profile"
         });
     }
 };
@@ -143,19 +158,24 @@ export const getMe = async (req, res) => {
 // CHANGE PASSWORD
 export const changePassword = async (req, res) => {
     try {
-        const { currentPassword, newPassword } = req.body;
+        const { currentPassword, newPassword } = req.body || {};
 
-        if (!currentPassword || !newPassword) {
+        if (
+            typeof currentPassword !== "string" ||
+            typeof newPassword !== "string" ||
+            !currentPassword ||
+            !newPassword
+        ) {
             return res.status(400).json({
                 success: false,
                 message: "Current password and new password are required"
             });
         }
 
-        if (newPassword.length < 12) {
+        if (newPassword.length < 12 || Buffer.byteLength(newPassword, "utf8") > 72) {
             return res.status(400).json({
                 success: false,
-                message: "New password must be at least 12 characters long"
+                message: "New password must be at least 12 characters and no more than 72 UTF-8 bytes"
             });
         }
 
@@ -190,9 +210,10 @@ export const changePassword = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Change password error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to change password"
         });
     }
 };

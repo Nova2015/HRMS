@@ -6,6 +6,7 @@ import {
     getTodayAttendance,
     getMyAttendance,
     getAttendanceRegister,
+    getAttendanceTeam,
     saveManualAttendance
 } from "../controllers/attendanceController.js";
 
@@ -20,6 +21,7 @@ router.use(protect);
 // Employee self-service
 router.get("/today", getTodayAttendance);
 router.get("/me", getMyAttendance);
+router.get("/team", authorizeRoles("admin", "hr", "manager"), getAttendanceTeam);
 router.post("/check-in", checkIn);
 router.post("/check-out", checkOut);
 

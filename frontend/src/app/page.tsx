@@ -3,7 +3,6 @@ import {
   Clock,
   CalendarDays,
   Wallet,
-  TrendingUp,
 } from "lucide-react";
 
 const stats = [

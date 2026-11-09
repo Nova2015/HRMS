@@ -6,6 +6,7 @@ import Employee from "../models/Employee.js";
 import User from "../models/User.js";
 import Department from "../models/Department.js";
 import Designation from "../models/Designation.js";
+import Shift from "../models/Shift.js";
 
 const ALLOWED_ROLES = ["employee", "manager", "hr"];
 const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
@@ -13,7 +14,9 @@ const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
 const populateEmployee = (query) => {
     return query
         .populate("department", "name code")
-        .populate("designation", "name");
+        .populate("designation", "name")
+        .populate("shift", "name code startTime endTime gracePeriodMinutes")
+        .populate("reportingManager", "employeeCode firstName lastName");
 };
 
 const attachAccount = (employee, user) => {
@@ -46,6 +49,8 @@ export const createEmployee = async (req, res) => {
             department,
             designation,
             joiningDate,
+            shift = null,
+            reportingManager = null,
             role = "employee",
             initialPassword
         } = req.body;
@@ -69,10 +74,10 @@ export const createEmployee = async (req, res) => {
         const normalizedEmail = String(email).trim().toLowerCase();
         const normalizedCode = String(employeeCode).trim().toUpperCase();
 
-        if (String(initialPassword).length < 12) {
+        if (String(initialPassword).length < 12 || Buffer.byteLength(String(initialPassword), "utf8") > 72) {
             return res.status(400).json({
                 success: false,
-                message: "Initial password must contain at least 12 characters"
+                message: "Initial password must contain at least 12 characters and no more than 72 UTF-8 bytes"
             });
         }
 
@@ -138,6 +143,27 @@ export const createEmployee = async (req, res) => {
             });
         }
 
+        if (shift && (!mongoose.isValidObjectId(shift) || !(await Shift.exists({ _id: shift, isActive: true })))) {
+            return res.status(400).json({ success: false, message: "Selected shift is invalid or inactive" });
+        }
+
+        if (reportingManager) {
+            if (!mongoose.isValidObjectId(reportingManager)) {
+                return res.status(400).json({ success: false, message: "Invalid reporting manager" });
+            }
+            const managerUser = await User.findOne({
+                employee: reportingManager,
+                role: "manager",
+                isActive: true
+            });
+            const managerEmployee = managerUser
+                ? await Employee.findOne({ _id: reportingManager, employmentStatus: "active" })
+                : null;
+            if (!managerEmployee) {
+                return res.status(400).json({ success: false, message: "Select an active employee with Manager role" });
+            }
+        }
+
         // Create employee record
         createdEmployee = await Employee.create({
             employeeCode: normalizedCode,
@@ -147,6 +173,8 @@ export const createEmployee = async (req, res) => {
             phone: phone || "",
             department,
             designation,
+            shift,
+            reportingManager: reportingManager || null,
             joiningDate,
             employmentStatus: "active"
         });
@@ -188,7 +216,7 @@ export const createEmployee = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "Employee code or email already exists"
-                : error.message
+                : "Unable to create employee"
         });
     }
 };
@@ -228,7 +256,7 @@ export const getEmployees = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to load employees"
         });
     }
 };
@@ -268,7 +296,7 @@ export const getEmployeeById = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to load employee"
         });
     }
 };
@@ -294,6 +322,14 @@ export const updateEmployee = async (req, res) => {
             });
         }
 
+        const linkedUser = await User.findOne({ employee: employee._id });
+        if (!linkedUser) {
+            return res.status(409).json({
+                success: false,
+                message: "Employee login account is missing; contact system administrator"
+            });
+        }
+
         const allowedFields = [
             "firstName",
             "lastName",
@@ -301,6 +337,8 @@ export const updateEmployee = async (req, res) => {
             "phone",
             "department",
             "designation",
+            "shift",
+            "reportingManager",
             "joiningDate",
             "employmentStatus"
         ];
@@ -342,6 +380,36 @@ export const updateEmployee = async (req, res) => {
 
         if (updates.lastName !== undefined) {
             updates.lastName = String(updates.lastName).trim();
+        }
+
+        if (updates.shift !== undefined && updates.shift !== null &&
+            (!mongoose.isValidObjectId(updates.shift) || !(await Shift.exists({ _id: updates.shift, isActive: true })))) {
+            return res.status(400).json({ success: false, message: "Selected shift is invalid or inactive" });
+        }
+
+        if (updates.reportingManager !== undefined) {
+            if (updates.reportingManager === null || updates.reportingManager === "") {
+                updates.reportingManager = null;
+            } else {
+                if (!mongoose.isValidObjectId(updates.reportingManager) ||
+                    updates.reportingManager.toString() === employee._id.toString()) {
+                    return res.status(400).json({ success: false, message: "Invalid reporting manager" });
+                }
+                const managerUser = await User.findOne({
+                    employee: updates.reportingManager,
+                    role: "manager",
+                    isActive: true
+                });
+                const managerEmployee = managerUser
+                    ? await Employee.findOne({
+                        _id: updates.reportingManager,
+                        employmentStatus: "active"
+                    })
+                    : null;
+                if (!managerEmployee) {
+                    return res.status(400).json({ success: false, message: "Select an active employee with Manager role" });
+                }
+            }
         }
 
         const departmentId = updates.department || employee.department.toString();
@@ -407,11 +475,17 @@ export const updateEmployee = async (req, res) => {
         }
 
         if (Object.keys(userUpdate).length > 0) {
-            await User.findOneAndUpdate(
+            const syncedUser = await User.findOneAndUpdate(
                 { employee: employee._id },
                 { $set: userUpdate },
-                { runValidators: true }
+                { new: true, runValidators: true }
             );
+            if (!syncedUser) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Employee login account could not be synchronized"
+                });
+            }
         }
 
         const updatedEmployee = await populateEmployee(
@@ -435,7 +509,7 @@ export const updateEmployee = async (req, res) => {
             success: false,
             message: error.code === 11000
                 ? "Employee email already exists"
-                : error.message
+                : "Unable to update employee"
         });
     }
 };
@@ -461,13 +535,20 @@ export const deactivateEmployee = async (req, res) => {
             });
         }
 
+        const linkedUser = await User.findOneAndUpdate(
+            { employee: employee._id },
+            { $set: { isActive: false } },
+            { new: true }
+        );
+        if (!linkedUser) {
+            return res.status(409).json({
+                success: false,
+                message: "Employee login account is missing; cannot safely deactivate employee"
+            });
+        }
+
         employee.employmentStatus = "inactive";
         await employee.save();
-
-        await User.findOneAndUpdate(
-            { employee: employee._id },
-            { $set: { isActive: false } }
-        );
 
         return res.status(200).json({
             success: true,
@@ -479,7 +560,7 @@ export const deactivateEmployee = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to deactivate employee"
         });
     }
 };
@@ -505,13 +586,20 @@ export const activateEmployee = async (req, res) => {
             });
         }
 
+        const linkedUser = await User.findOneAndUpdate(
+            { employee: employee._id },
+            { $set: { isActive: true } },
+            { new: true }
+        );
+        if (!linkedUser) {
+            return res.status(409).json({
+                success: false,
+                message: "Employee login account is missing; cannot safely activate employee"
+            });
+        }
+
         employee.employmentStatus = "active";
         await employee.save();
-
-        await User.findOneAndUpdate(
-            { employee: employee._id },
-            { $set: { isActive: true } }
-        );
 
         return res.status(200).json({
             success: true,
@@ -523,7 +611,7 @@ export const activateEmployee = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Unable to activate employee"
         });
     }
 };
