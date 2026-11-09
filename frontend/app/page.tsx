@@ -3,13 +3,22 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2,
+  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, UserCircle,
   CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
   Settings2, UserPlus, ClipboardList,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
 const modules = [
+  {
+    title: "My Profile",
+    description: "View your personal and employment information.",
+    href: "/profile",
+    action: "View my profile",
+    icon: UserCircle,
+    iconStyle: "bg-sky-50 text-sky-700",
+    accent: "group-hover:border-sky-200",
+  },
   {
     title: "Employees",
     description: "Employee profiles, records and account access.",
@@ -101,7 +110,7 @@ export default function Home() {
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["Attendance", "Leave Management", "Payroll", "Holiday Calendar"].includes(item.title));
+    : modules.filter((item) => ["My Profile", "Attendance", "Leave Management", "Payroll", "Holiday Calendar"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
