@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, FileText, Download, Upload, RefreshCw, ShieldCheck } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
@@ -25,6 +26,7 @@ type EmployeeDocument = {
 };
 
 function DocumentsContent() {
+  const router = useRouter();
   const [role, setRole] = useState("employee");
   const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -38,7 +40,7 @@ function DocumentsContent() {
   const loadDocuments = useCallback(async () => {
     const token = sessionStorage.getItem("hrms_token");
     if (!token) {
-      window.location.assign("/login");
+      router.push("/login");
       return;
     }
     setLoading(true);
@@ -52,7 +54,7 @@ function DocumentsContent() {
       if (response.status === 401) {
         sessionStorage.removeItem("hrms_token");
         sessionStorage.removeItem("hrms_user");
-        window.location.assign("/login");
+        router.push("/login");
         return;
       }
       if (!response.ok || !result.success) {
@@ -78,7 +80,7 @@ function DocumentsContent() {
   }, []);
 
   useEffect(() => {
-    void loadDocuments();
+    void Promise.resolve().then(() => loadDocuments());
   }, [loadDocuments]);
 
   const uploadDocument = async () => {
@@ -98,7 +100,7 @@ function DocumentsContent() {
 
     const token = sessionStorage.getItem("hrms_token");
     if (!token) {
-      window.location.assign("/login");
+      router.push("/login");
       return;
     }
 
@@ -132,7 +134,7 @@ function DocumentsContent() {
   const downloadDocument = async (item: EmployeeDocument) => {
     const token = sessionStorage.getItem("hrms_token");
     if (!token) {
-      window.location.assign("/login");
+      router.push("/login");
       return;
     }
     setError("");
