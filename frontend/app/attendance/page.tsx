@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3,
   LogIn, LogOut, RefreshCw, Save, Users, CheckCircle2,
-  AlertCircle, Timer, CalendarCheck2, X
+  AlertCircle, Timer, CalendarCheck2, X, Volume2, VolumeX
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
@@ -79,6 +79,7 @@ function AttendanceWorkspace() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
   const [manualForm, setManualForm] = useState({
     employeeId: "", dateKey: todayKey(), status: "present",
@@ -193,11 +194,46 @@ function AttendanceWorkspace() {
     previousDateRef.current = currentDate;
   }, [currentDate, loadWorkspace, roleReady]);
 
+  useEffect(() => {
+    setSoundEnabled(localStorage.getItem("hrms_attendance_sound") === "on");
+  }, []);
+
+  const playSuccessTone = () => {
+    if (!soundEnabled) return;
+    try {
+      const audio = new window.AudioContext();
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(660, audio.currentTime);
+      oscillator.frequency.setValueAtTime(880, audio.currentTime + 0.11);
+      gain.gain.setValueAtTime(0.0001, audio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.075, audio.currentTime + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.28);
+      oscillator.connect(gain);
+      gain.connect(audio.destination);
+      oscillator.start();
+      oscillator.stop(audio.currentTime + 0.3);
+      oscillator.onended = () => { void audio.close(); };
+    } catch {
+      // Audio is optional; attendance actions must work without sound support.
+    }
+  };
+
+  const toggleSound = () => {
+    setSoundEnabled((enabled) => {
+      const next = !enabled;
+      localStorage.setItem("hrms_attendance_sound", next ? "on" : "off");
+      return next;
+    });
+  };
+
   const performAttendanceAction = async (action: "check-in" | "check-out") => {
     setSaving(true); setError(""); setNotice("");
     try {
       const result = await apiRequest(`/attendance/${action}`, { method: "POST" });
       setNotice(result.message || "Attendance updated.");
+      playSuccessTone();
       await loadWorkspace();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Attendance action failed");
@@ -284,7 +320,7 @@ function AttendanceWorkspace() {
   });
 
   return (
-    <main className="min-h-screen bg-[#f4f7fc] px-4 py-6 sm:px-6 lg:px-8">
+    <main className="hrms-enter min-h-screen px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1440px]">
         <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -297,9 +333,17 @@ function AttendanceWorkspace() {
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {isAdmin && <button type="button" onClick={() => setShowCorrection((value) => !value)} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-violet-700 hover:shadow-md"><Save size={16} /> Manual Correction</button>}
-            <button type="button" onClick={loadWorkspace} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50"><RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Refresh</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="mr-1 rounded-xl border border-white/80 bg-white/75 px-3 py-2 text-right shadow-sm backdrop-blur">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Local time</p>
+              <p className="text-sm font-bold tabular-nums text-slate-800">{currentDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}</p>
+            </div>
+            <button type="button" onClick={toggleSound} aria-pressed={soundEnabled} title={soundEnabled ? "Mute success sounds" : "Enable success sounds"} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-50">
+              {soundEnabled ? <Volume2 size={16} className="text-indigo-600" /> : <VolumeX size={16} />}
+              <span>{soundEnabled ? "Sound on" : "Sound off"}</span>
+            </button>
+            {isAdmin && <button type="button" onClick={() => setShowCorrection((value) => !value)} className="hrms-interactive inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 hover:shadow-md"><Save size={16} /> Manual Correction</button>}
+            <button type="button" onClick={loadWorkspace} disabled={loading} className="hrms-interactive inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50"><RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Refresh</button>
           </div>
         </header>
 
@@ -347,7 +391,7 @@ function AttendanceWorkspace() {
         )}
 
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(310px,0.8fr)]">
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <section className="hrms-card overflow-hidden rounded-2xl">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6">
               <div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Attendance Calendar</p><h2 className="mt-1 text-xl font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h2><p className="mt-1 text-sm text-slate-500">Select a date to inspect attendance details.</p></div>
               <div className="flex items-center gap-2">
@@ -390,7 +434,7 @@ function AttendanceWorkspace() {
             </div>
           </section>
 
-          <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <aside className="hrms-card rounded-2xl p-5 sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Day details</p><h2 className="mt-1 text-lg font-bold text-slate-900">{selectedLabel}</h2></div><span className="rounded-xl bg-indigo-50 p-2.5 text-indigo-600"><CalendarCheck2 size={20} /></span></div>
             {selectedHoliday.map((holiday) => <div key={holiday._id} className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3"><p className="font-semibold text-rose-900">{holiday.name}</p><p className="mt-1 text-xs capitalize text-rose-700">{holiday.type} holiday</p></div>)}
             {(selectedIsSunday || selectedWeeklyOff) && <div className="mb-3 rounded-xl border border-rose-100 bg-rose-50 p-3"><p className="font-semibold text-rose-900">{selectedIsSunday ? "Sunday" : "Weekly Off"}{selectedIsSunday && selectedWeeklyOff ? " · Scheduled Weekly Off" : ""}</p><p className="mt-1 text-xs text-rose-700">{selectedIsSunday ? "Sunday is highlighted as a weekly rest day." : "Based on the weekly-off days configured in your assigned shift."}</p></div>}
@@ -412,7 +456,7 @@ function AttendanceWorkspace() {
         </div>
 
         {!isAdmin && (
-          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <section className="hrms-card mt-6 rounded-2xl p-5 sm:p-6">
             <div className="mb-4"><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Daily attendance</p><h2 className="mt-1 text-lg font-bold text-slate-900">Today&apos;s check-in / check-out</h2><p className="mt-1 text-sm text-slate-500">Record your attendance for today.</p></div>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Check-in</p><p className="mt-1 text-lg font-bold text-slate-900">{formatTime(today?.checkIn || null)}</p></div>
