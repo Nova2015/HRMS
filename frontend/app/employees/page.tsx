@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  ArrowLeft,
   Users,
   Search,
   RefreshCw,
@@ -165,6 +166,13 @@ function EmployeeList() {
       <div className="mx-auto max-w-7xl">
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
+            <Link
+              href="/"
+              className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <ArrowLeft size={16} />
+              Back to Dashboard
+            </Link>
             <h1 className="text-3xl font-bold text-slate-900">
               Employee Management
             </h1>
