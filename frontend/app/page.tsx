@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, UserCircle,
   CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
-  Settings2, UserPlus, ClipboardList, FileText,
+  Settings2, UserPlus, ClipboardList, FileText, Activity, BarChart3, CheckCircle2, UserRound,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -99,8 +99,23 @@ const quickActions = [
   { title: "Payroll processing", href: "/payroll", icon: Wallet },
 ];
 
+type DashboardAttendance = {
+  _id: string;
+  dateKey: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  status: "present" | "half-day" | "absent";
+  isLate: boolean;
+  employee?: { firstName: string; lastName: string; employeeCode: string };
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export default function Home() {
   const [role, setRole] = useState("employee");
+  const [attendanceRecords, setAttendanceRecords] = useState<DashboardAttendance[]>([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceError, setAttendanceError] = useState("");
 
   useEffect(() => {
     const stored = sessionStorage.getItem("hrms_user");
@@ -114,6 +129,40 @@ export default function Home() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (role !== "admin" && role !== "hr") return;
+    const loadDashboardAttendance = async () => {
+      setAttendanceLoading(true);
+      setAttendanceError("");
+      try {
+        const token = sessionStorage.getItem("hrms_token");
+        if (!token) return;
+        const now = new Date();
+        const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        const from = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, "0")}-${String(fromDate.getDate()).padStart(2, "0")}`;
+        const response = await fetch(`http://localhost:5000/api/attendance?from=${from}&to=${to}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const result = await response.json();
+        if (response.status === 401) {
+          sessionStorage.removeItem("hrms_token");
+          sessionStorage.removeItem("hrms_user");
+          window.location.href = "/login";
+          return;
+        }
+        if (!response.ok || !result.success) throw new Error(result.message || "Unable to load attendance dashboard");
+        setAttendanceRecords(Array.isArray(result.data) ? result.data : []);
+      } catch (error) {
+        setAttendanceError(error instanceof Error ? error.message : "Unable to load attendance dashboard");
+      } finally {
+        setAttendanceLoading(false);
+      }
+    };
+    void loadDashboardAttendance();
+  }, [role]);
 
   const isAdmin = role === "admin" || role === "hr";
   const isManager = role === "manager";
@@ -150,9 +199,14 @@ export default function Home() {
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{dashboardTitle}</h1>
               <p className="mt-1.5 text-sm text-slate-500">{dashboardDescription}</p>
             </div>
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 shadow-sm">
-              <LayoutGrid size={17} className="text-blue-600" />
-              Single-company workspace
+            <div className="flex items-center gap-2">
+              <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 shadow-sm sm:flex">
+                <LayoutGrid size={17} className="text-blue-600" />
+                Single-company workspace
+              </div>
+              <Link href="/profile" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                <UserRound size={17} /> Profile
+              </Link>
             </div>
           </header>
 
@@ -178,6 +232,71 @@ export default function Home() {
               <div><p className="text-xs text-slate-400">Access</p><p className="mt-1 text-sm font-semibold">Role-based</p></div>
             </div>
           </section>
+
+          {isAdmin && (
+            <section className="mb-7">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Live overview</p>
+                  <h2 className="mt-1 text-xl font-bold text-slate-900">Attendance dashboard</h2>
+                  <p className="mt-1 text-sm text-slate-500">Company attendance recorded from the start of this month to today.</p>
+                </div>
+                <Link href="/attendance" className="text-sm font-semibold text-blue-700 hover:text-blue-900">Open attendance register →</Link>
+              </div>
+              {attendanceError && <p role="alert" className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{attendanceError}</p>}
+              <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  { label: "Present records", value: attendanceRecords.filter((item) => item.status === "present").length, icon: CheckCircle2, color: "text-emerald-700 bg-emerald-50" },
+                  { label: "Half-day records", value: attendanceRecords.filter((item) => item.status === "half-day").length, icon: Clock3, color: "text-amber-700 bg-amber-50" },
+                  { label: "Absent records", value: attendanceRecords.filter((item) => item.status === "absent").length, icon: Activity, color: "text-rose-700 bg-rose-50" },
+                  { label: "Late arrivals", value: attendanceRecords.filter((item) => item.isLate).length, icon: Clock3, color: "text-orange-700 bg-orange-50" },
+                ].map((stat) => {
+                  const Icon = stat.icon;
+                  return <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-500">{stat.label}</span><span className={`rounded-lg p-2 ${stat.color}`}><Icon size={18} /></span></div>
+                    <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{attendanceLoading ? "…" : stat.value}</p>
+                  </div>;
+                })}
+              </div>
+              <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-5 flex items-center gap-2"><BarChart3 size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Attendance trend · Last 7 days</h3></div>
+                  <div className="flex h-44 items-end justify-around gap-3 border-b border-slate-100 pb-2">
+                    {Array.from({ length: 7 }, (_, index) => {
+                      const day = new Date();
+                      day.setDate(day.getDate() - (6 - index));
+                      const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+                      const count = attendanceRecords.filter((record) => record.dateKey === key && record.status !== "absent").length;
+                      const max = Math.max(1, ...Array.from({ length: 7 }, (_, offset) => {
+                        const d = new Date(); d.setDate(d.getDate() - (6 - offset));
+                        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                        return attendanceRecords.filter((record) => record.dateKey === k && record.status !== "absent").length;
+                      }));
+                      return <div key={key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
+                        <span className="text-xs font-semibold text-slate-600">{count}</span>
+                        <div className="w-full max-w-10 rounded-t-lg bg-blue-600 transition-all" style={{ height: `${Math.max(5, (count / max) * 112)}px` }} />
+                        <span className="text-[11px] text-slate-500">{day.toLocaleDateString("en-IN", { weekday: "short" })}</span>
+                      </div>;
+                    })}
+                  </div>
+                  <p className="mt-3 text-xs text-slate-400">Counts include present and half-day records for each date.</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2"><Activity size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Recent attendance activity</h3></div>
+                  {attendanceLoading ? <p className="py-6 text-sm text-slate-500">Loading recent activity…</p> : attendanceRecords.length === 0 ? <p className="py-6 text-sm text-slate-500">No attendance records found for this month yet.</p> : (
+                    <div className="space-y-3">
+                      {[...attendanceRecords].sort((a, b) => new Date(b.updatedAt || b.createdAt || b.dateKey).getTime() - new Date(a.updatedAt || a.createdAt || a.dateKey).getTime()).slice(0, 6).map((record) => (
+                        <div key={record._id} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                          <div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-800">{record.employee ? `${record.employee.firstName} ${record.employee.lastName}` : "Employee"}</p><p className="text-xs text-slate-500">{record.employee?.employeeCode || "—"} · {record.dateKey}</p></div>
+                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${record.status === "present" ? "bg-emerald-50 text-emerald-700" : record.status === "half-day" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"}`}>{record.status.replace("-", " ")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
 
           <section className="mb-7">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
