@@ -21,8 +21,8 @@ export const getRecruitmentWorkspace = async (req, res) => {
         const [jobs, candidates, departments, designations] = await Promise.all([
             JobOpening.find().populate("department", "name").populate("designation", "name").sort({ createdAt: -1 }).limit(300),
             populatedCandidate(Candidate.find().sort({ createdAt: -1 }).limit(500)),
-            Department.find({ isActive: true }).select("name code").sort({ name: 1 }),
-            Designation.find({ isActive: true }).select("name department").sort({ name: 1 })
+            Department.find().select("name code description isActive").sort({ name: 1 }),
+            Designation.find().select("name department description isActive").sort({ name: 1 })
         ]);
         const summary = {
             openJobs: jobs.filter((job) => job.status === "open").length,
