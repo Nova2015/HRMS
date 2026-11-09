@@ -67,12 +67,14 @@ function DocumentsContent() {
   }, [isHR]);
 
   useEffect(() => {
-    try {
-      const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
-      setRole(user.role || "employee");
-    } catch {
-      setRole("employee");
-    }
+    void Promise.resolve().then(() => {
+      try {
+        const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
+        setRole(user.role || "employee");
+      } catch {
+        setRole("employee");
+      }
+    });
   }, []);
 
   useEffect(() => {
