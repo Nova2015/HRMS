@@ -57,6 +57,7 @@ const validateReceipt = async (file, res) => {
 export const getExpenseWorkspace = async (req, res) => {
     try {
         const filter = isPrivileged(req.user.role) ? {} : { employee: req.user.employeeId };
+        const aggregateFilter = isPrivileged(req.user.role) ? {} : { employee: new mongoose.Types.ObjectId(req.user.employeeId) };
         const monthStart = new Date();
         monthStart.setUTCDate(1);
         monthStart.setUTCHours(0, 0, 0, 0);
@@ -65,7 +66,7 @@ export const getExpenseWorkspace = async (req, res) => {
             populateClaim(ExpenseClaim.find(filter).sort({ createdAt: -1 }).limit(200)),
             ExpenseLimit.find({ isActive: true }).sort({ category: 1 }),
             ExpenseClaim.aggregate([
-                { $match: filter },
+                { $match: aggregateFilter },
                 { $group: {
                     _id: null,
                     totalReimbursed: { $sum: { $cond: [{ $eq: ["$status", "reimbursed"] }, "$amount", 0] } },
