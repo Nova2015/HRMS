@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import Department from "../models/Department.js";
 import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
+import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
 
 const ALLOWED_ROLES = ["employee", "manager", "hr"];
 const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
@@ -194,10 +195,23 @@ export const createEmployee = async (req, res) => {
             Employee.findById(createdEmployee._id)
         );
 
+        let generatedDocument = null;
+        let documentWarning = "";
+        try {
+            generatedDocument = await generateAppointmentLetterDocument(
+                employeeData,
+                req.user.userId
+            );
+        } catch (documentError) {
+            documentWarning = ". Appointment letter generation failed; HR should issue it from the Documents module";
+            console.error("Automatic appointment letter generation failed:", documentError.message);
+        }
+
         return res.status(201).json({
             success: true,
-            message: "Employee and login account created successfully",
-            data: attachAccount(employeeData, createdUser)
+            message: "Employee and login account created successfully" + documentWarning,
+            data: attachAccount(employeeData, createdUser),
+            generatedDocument
         });
 
     } catch (error) {
