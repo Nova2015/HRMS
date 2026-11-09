@@ -58,8 +58,9 @@ export const getExpenseWorkspace = async (req, res) => {
     try {
         const filter = isPrivileged(req.user.role) ? {} : { employee: req.user.employeeId };
         const monthStart = new Date();
-        monthStart.setDate(1);
-        monthStart.setHours(0, 0, 0, 0);
+        monthStart.setUTCDate(1);
+        monthStart.setUTCHours(0, 0, 0, 0);
+        const usageFilter = { employee: new mongoose.Types.ObjectId(req.user.employeeId) };
         const [claims, limits, totals, monthlyUsage] = await Promise.all([
             populateClaim(ExpenseClaim.find(filter).sort({ createdAt: -1 }).limit(200)),
             ExpenseLimit.find({ isActive: true }).sort({ category: 1 }),
@@ -74,7 +75,7 @@ export const getExpenseWorkspace = async (req, res) => {
                 } }
             ]),
             ExpenseClaim.aggregate([
-                { $match: { ...filter, expenseDate: { $gte: monthStart }, status: { $ne: "rejected" } } },
+                { $match: { ...usageFilter, expenseDate: { $gte: monthStart }, status: { $ne: "rejected" } } },
                 { $group: { _id: "$category", used: { $sum: "$amount" } } }
             ])
         ]);
