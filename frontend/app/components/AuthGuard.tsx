@@ -52,15 +52,19 @@ export default function AuthGuard({
           if (sessionStorage.getItem("hrms_attendance_prompt") === "pending") {
             sessionStorage.setItem("hrms_attendance_prompt", "shown");
             setShowAttendancePrompt(true);
-            const attendanceResponse = await fetch("http://localhost:5000/api/attendance/today", {
-              headers: { Authorization: `Bearer ${token}` },
-              cache: "no-store",
-            });
-            const attendanceResult = await attendanceResponse.json();
-            if (!attendanceResponse.ok || !attendanceResult.success) {
-              throw new Error(attendanceResult.message || "Unable to load today\u2019s attendance.");
+            try {
+              const attendanceResponse = await fetch("http://localhost:5000/api/attendance/today", {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: "no-store",
+              });
+              const attendanceResult = await attendanceResponse.json();
+              if (!attendanceResponse.ok || !attendanceResult.success) {
+                throw new Error(attendanceResult.message || "Unable to load today\u2019s attendance.");
+              }
+              if (!cancelled) setTodayAttendance(attendanceResult.data || null);
+            } catch (attendanceLoadError) {
+              if (!cancelled) setAttendanceError(attendanceLoadError instanceof Error ? attendanceLoadError.message : "Unable to load today\u2019s attendance.");
             }
-            if (!cancelled) setTodayAttendance(attendanceResult.data || null);
           }
         }
       } catch {
