@@ -51,6 +51,7 @@ export default function LoginPage() {
 
       sessionStorage.setItem("hrms_token", result.token);
       sessionStorage.setItem("hrms_user", JSON.stringify(result.data));
+      sessionStorage.setItem("hrms_attendance_prompt", "pending");
 
       router.replace("/");
     } catch (err) {
