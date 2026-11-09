@@ -100,6 +100,15 @@ const modules = [
     iconStyle: "bg-indigo-50 text-indigo-700",
     accent: "group-hover:border-indigo-200",
   },
+  {
+    title: "Recruitment & Applicant Tracking",
+    description: "Manage job openings, candidate selection and employee onboarding.",
+    href: "/recruitment",
+    action: "Manage recruitment",
+    icon: UserPlus,
+    iconStyle: "bg-fuchsia-50 text-fuchsia-700",
+    accent: "group-hover:border-fuchsia-200",
+  },
 ];
 
 const quickActions = [
