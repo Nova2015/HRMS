@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, UserCircle,
-  CalendarCheck, LayoutGrid, Sparkles, ChevronRight,
-  Settings2, FileText, Activity, BarChart3, CheckCircle2,
+  CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
+  Settings2, UserPlus, ClipboardList, FileText, Activity, BarChart3, CheckCircle2, UserRound,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -102,6 +102,12 @@ const modules = [
   },
 ];
 
+const quickActions = [
+  { title: "Add employee", href: "/employees/new", icon: UserPlus },
+  { title: "Attendance register", href: "/attendance", icon: ClipboardList },
+  { title: "Payroll processing", href: "/payroll", icon: Wallet },
+];
+
 type DashboardAttendance = {
   _id: string;
   dateKey: string;
@@ -172,6 +178,13 @@ export default function Home() {
   const visibleModules = isAdmin
     ? modules
     : modules.filter((item) => ["My Profile", "Employee Documents", "Attendance", "Company Calendar", "Leave Management", "Payroll", "Holiday Calendar"].includes(item.title));
+  const visibleQuickActions = isAdmin
+    ? quickActions
+    : [
+        { title: "Apply for leave", href: "/leaves", icon: CalendarDays },
+        { title: "My attendance", href: "/attendance", icon: Clock3 },
+        { title: "My payslips", href: "/payroll", icon: Wallet },
+      ];
   const dashboardTitle = isAdmin
     ? "Admin / HR Dashboard"
     : isManager
@@ -200,25 +213,32 @@ export default function Home() {
                 <LayoutGrid size={17} className="text-blue-600" />
                 Single-company workspace
               </div>
+              <Link href="/profile" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                <UserRound size={17} /> Profile
+              </Link>
             </div>
           </header>
 
-          <section className="relative mb-7 overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-white via-blue-50/80 to-indigo-50/70 px-6 py-8 shadow-lg shadow-blue-100/50 sm:px-9 sm:py-10">
-            <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-blue-100/60" />
-            <div className="pointer-events-none absolute right-24 top-16 h-36 w-36 rounded-full bg-indigo-200/40 blur-3xl" />
+          <section className="relative mb-7 overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-9 sm:py-10">
+            <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-white/5" />
+            <div className="pointer-events-none absolute right-24 top-16 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
             <div className="relative z-10 max-w-2xl">
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-3 py-1.5 text-xs font-semibold text-blue-700">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-blue-100">
                 <Sparkles size={14} /> Human Resource Management
               </span>
-              <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-3xl">
+              <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
                 {isAdmin ? <>Your company operations,<br className="hidden sm:block" /> in one organized workspace.</> : isManager ? <>Your team and personal HR tasks,<br className="hidden sm:block" /> in one focused workspace.</> : <>Your workday essentials,<br className="hidden sm:block" /> in one simple workspace.</>}
               </h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">{isAdmin ? "Manage employees, attendance, leave, shifts, holidays and payroll." : isManager ? "Review assigned team leave requests and manage your own attendance and payroll." : "Check attendance, apply for leave and view your own payroll records."}</p>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">{isAdmin ? "Manage employees, attendance, leave, shifts, holidays and payroll." : isManager ? "Review assigned team leave requests and manage your own attendance and payroll." : "Check attendance, apply for leave and view your own payroll records."}</p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href={isAdmin ? "/employees" : "/leaves"} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-blue-50">{isAdmin ? "View employees" : isManager ? "Review team leaves" : "Apply for leave"} <ArrowUpRight size={16} /></Link>
+                <Link href="/attendance" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15">{isAdmin ? "Open attendance register" : "My attendance"} <ChevronRight size={16} /></Link>
+              </div>
             </div>
-            <div className="relative z-10 mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-blue-100 pt-5 sm:absolute sm:bottom-8 sm:right-9 sm:mt-0 sm:w-[390px] sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
-              <div><p className="text-xs text-slate-500">Available modules</p><p className="mt-1 text-2xl font-bold text-slate-900">{visibleModules.length.toString().padStart(2, "0")}</p></div>
-              <div><p className="text-xs text-slate-500">Workspace</p><p className="mt-1 text-sm font-semibold text-slate-800">Centralized</p></div>
-              <div><p className="text-xs text-slate-500">Access</p><p className="mt-1 text-sm font-semibold text-slate-800">Role-based</p></div>
+            <div className="relative z-10 mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/15 pt-5 sm:absolute sm:bottom-8 sm:right-9 sm:mt-0 sm:w-[390px] sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
+              <div><p className="text-xs text-slate-400">Available modules</p><p className="mt-1 text-2xl font-bold">{visibleModules.length.toString().padStart(2, "0")}</p></div>
+              <div><p className="text-xs text-slate-400">Workspace</p><p className="mt-1 text-sm font-semibold">Centralized</p></div>
+              <div><p className="text-xs text-slate-400">Access</p><p className="mt-1 text-sm font-semibold">Role-based</p></div>
             </div>
           </section>
 
@@ -319,6 +339,16 @@ export default function Home() {
                     <div className="mt-auto flex items-center gap-1.5 pt-4 text-sm font-semibold text-blue-700">{roleAction}<ChevronRight size={15} className="transition group-hover:translate-x-1" /></div>
                   </Link>
                 );
+              })}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-4 flex items-center gap-3"><div className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><BriefcaseBusiness size={20} /></div><div><h2 className="font-bold text-slate-900">Quick actions</h2><p className="mt-1 text-sm text-slate-500">Jump directly to common HR tasks.</p></div></div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {visibleQuickActions.map((item) => {
+                const Icon = item.icon;
+                return <Link key={item.href} href={item.href} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3.5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700"><span className="flex items-center gap-3"><Icon size={18} className="text-blue-600" />{item.title}</span><ArrowUpRight size={16} className="text-slate-400" /></Link>;
               })}
             </div>
           </section>
