@@ -32,8 +32,8 @@ const upload = multer({
     limits: {
         fileSize: 10 * 1024 * 1024,
         files: 1,
-        fields: 0,
-        parts: 1
+        fields: 3,
+        parts: 4
     },
     fileFilter: (req, file, callback) => {
         const extension = path.extname(file.originalname).toLowerCase();
