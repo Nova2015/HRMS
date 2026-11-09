@@ -7,7 +7,8 @@ import {
     listPayroll,
     processPayroll,
     getPayslip,
-    markPayrollPaid
+    markPayrollPaid,
+    generatePaidPayslip
 } from "../controllers/payrollController.js";
 
 const router = express.Router();
@@ -17,5 +18,6 @@ router.put("/salary-structures/:employeeId", authorizeRoles("admin", "hr"), save
 router.get("/", listPayroll);
 router.post("/process", authorizeRoles("admin", "hr"), processPayroll);
 router.get("/:id/payslip", getPayslip);
+router.post("/:id/payslip/generate", authorizeRoles("admin", "hr"), generatePaidPayslip);
 router.patch("/:id/paid", authorizeRoles("admin", "hr"), markPayrollPaid);
 export default router;
