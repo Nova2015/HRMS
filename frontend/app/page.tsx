@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2,
   CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
-  Settings2, UserPlus, ClipboardList, FileText, Activity, BarChart3, CheckCircle2, UserRound,
+  Settings2, UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -54,6 +54,15 @@ const modules = [
     icon: Wallet,
     iconStyle: "bg-emerald-50 text-emerald-700",
     accent: "group-hover:border-emerald-200",
+  },
+  {
+    title: "Expense & Reimbursement",
+    description: "Submit expense claims, review approvals and track reimbursements.",
+    href: "/expenses",
+    action: "Manage expenses",
+    icon: ReceiptText,
+    iconStyle: "bg-violet-50 text-violet-700",
+    accent: "group-hover:border-violet-200",
   },
   {
     title: "Shift Management",
@@ -159,7 +168,7 @@ export default function Home() {
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Holiday Calendar"].includes(item.title));
+    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expense & Reimbursement", "Holiday Calendar"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
