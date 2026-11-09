@@ -16,6 +16,7 @@ export default function AuthGuard({
   const [showAttendancePrompt, setShowAttendancePrompt] = useState(false);
   const [todayAttendance, setTodayAttendance] = useState<{ checkIn?: string | null; checkOut?: string | null; workMinutes?: number } | null>(null);
   const [attendanceBusy, setAttendanceBusy] = useState(false);
+  const [attendancePromptLoading, setAttendancePromptLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState("");
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export default function AuthGuard({
           if (sessionStorage.getItem("hrms_attendance_prompt") === "pending") {
             sessionStorage.setItem("hrms_attendance_prompt", "shown");
             setShowAttendancePrompt(true);
+            setAttendancePromptLoading(true);
             try {
               const attendanceResponse = await fetch("http://localhost:5000/api/attendance/today", {
                 headers: { Authorization: `Bearer ${token}` },
@@ -64,6 +66,8 @@ export default function AuthGuard({
               if (!cancelled) setTodayAttendance(attendanceResult.data || null);
             } catch (attendanceLoadError) {
               if (!cancelled) setAttendanceError(attendanceLoadError instanceof Error ? attendanceLoadError.message : "Unable to load today\u2019s attendance.");
+            } finally {
+              if (!cancelled) setAttendancePromptLoading(false);
             }
           }
         }
@@ -157,7 +161,7 @@ export default function AuthGuard({
             {(todayAttendance?.checkIn || todayAttendance?.checkOut) && <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Punch in</p><p className="mt-1 text-sm font-bold text-slate-800">{todayAttendance.checkIn ? new Date(todayAttendance.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "—"}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Punch out</p><p className="mt-1 text-sm font-bold text-slate-800">{todayAttendance.checkOut ? new Date(todayAttendance.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "—"}</p></div></div>}
             {attendanceError && <p role="alert" className="mt-3 rounded-xl bg-rose-50 p-3 text-xs font-medium text-rose-700">{attendanceError}</p>}
             <div className="mt-5 flex gap-2">
-              {!todayAttendance?.checkIn ? <button type="button" disabled={attendanceBusy} onClick={() => handleAttendanceAction("check-in")} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/15 disabled:opacity-50"><LogIn size={16} />{attendanceBusy ? "Processing..." : "Punch In"}</button> : !todayAttendance.checkOut ? <button type="button" disabled={attendanceBusy} onClick={() => handleAttendanceAction("check-out")} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-600/15 disabled:opacity-50"><LogOut size={16} />{attendanceBusy ? "Processing..." : "Punch Out"}</button> : <button type="button" onClick={() => setShowAttendancePrompt(false)} className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white">Continue</button>}
+              {!todayAttendance?.checkIn ? <button type="button" disabled={attendanceBusy || attendancePromptLoading} onClick={() => handleAttendanceAction("check-in")} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/15 disabled:opacity-50"><LogIn size={16} />{attendancePromptLoading ? "Loading..." : attendanceBusy ? "Processing..." : "Punch In"}</button> : !todayAttendance.checkOut ? <button type="button" disabled={attendanceBusy || attendancePromptLoading} onClick={() => handleAttendanceAction("check-out")} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-600/15 disabled:opacity-50"><LogOut size={16} />{attendancePromptLoading ? "Loading..." : attendanceBusy ? "Processing..." : "Punch Out"}</button> : <button type="button" onClick={() => setShowAttendancePrompt(false)} className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white">Continue</button>}
               {todayAttendance?.checkIn && !todayAttendance?.checkOut && <button type="button" onClick={() => setShowAttendancePrompt(false)} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50">Later</button>}
             </div>
           </section>
