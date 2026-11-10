@@ -440,8 +440,7 @@ const fromGoogleCalendarResource = (remote) => {
         endAt,
         allDay,
         location: String(remote.location || "").slice(0, 200),
-        status: remote.status === "cancelled" ? "cancelled" : "scheduled",
-        googleEventId: remote.id
+        status: remote.status === "cancelled" ? "cancelled" : "scheduled"
     };
 };
 
