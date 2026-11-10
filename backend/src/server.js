@@ -28,6 +28,7 @@ import employeeUpdateApprovalRoutes from "./routes/employeeUpdateApprovalRoutes.
 import performanceRoutes from "./routes/performanceRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import auditLogRoutes from "./routes/auditLogRoutes.js";
+import companyEventRoutes from "./routes/companyEventRoutes.js";
 
 const app = express();
 
@@ -76,6 +77,7 @@ app.use("/api/employee-update-approvals", employeeUpdateApprovalRoutes);
 app.use("/api/performance", performanceRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
+app.use("/api/calendar/events", companyEventRoutes);
 
 app.use((req, res) => {
     res.status(404).json({
