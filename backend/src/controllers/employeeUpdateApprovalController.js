@@ -198,3 +198,111 @@ export const decideEmployeeUpdateProposal = async (req, res) => {
         return res.status(500).json({ success: false, message: "Could not process approval decision" });
     }
 };
+
+
+export const createApprovalTestFixture = async (req, res) => {
+    let testEmployee = null;
+    try {
+        if (process.env.NODE_ENV === "production") {
+            return res.status(404).json({ success: false, message: "Not found" });
+        }
+
+        const designation = await Designation.findOne({ isActive: true }).sort({ createdAt: 1 });
+        if (!designation) {
+            return res.status(409).json({ success: false, message: "No active designation is available for a test fixture" });
+        }
+        const department = await Department.findOne({
+            _id: designation.department,
+            isActive: true
+        });
+        if (!department) {
+            return res.status(409).json({ success: false, message: "No active department/designation pair is available" });
+        }
+
+        const stamp = Date.now();
+        testEmployee = await Employee.create({
+            employeeCode: `TEST-${stamp}`,
+            firstName: "Approval",
+            lastName: "Test",
+            email: `approval-test-${stamp}@example.invalid`,
+            phone: "0000000000",
+            department: department._id,
+            designation: designation._id,
+            joiningDate: new Date(),
+            employmentStatus: "inactive",
+            isTestRecord: true
+        });
+
+        const proposals = await EmployeeUpdateApproval.create([
+            {
+                employee: testEmployee._id,
+                employeeCode: testEmployee.employeeCode,
+                source: "manual",
+                sourceReference: "test-fixture",
+                sourceSubject: "TEST ONLY - Approve this sample",
+                proposedChanges: { firstName: "ApprovalPassed" },
+                oldValues: { firstName: testEmployee.firstName },
+                requestedBy: req.user.userId
+            },
+            {
+                employee: testEmployee._id,
+                employeeCode: testEmployee.employeeCode,
+                source: "manual",
+                sourceReference: "test-fixture",
+                sourceSubject: "TEST ONLY - Reject this sample",
+                proposedChanges: { phone: "9990000000" },
+                oldValues: { phone: testEmployee.phone },
+                requestedBy: req.user.userId
+            }
+        ]);
+
+        return res.status(201).json({
+            success: true,
+            message: "Isolated test employee and two test proposals created. No login account or appointment letter was created.",
+            data: {
+                employeeId: testEmployee._id,
+                employeeCode: testEmployee.employeeCode,
+                proposalIds: proposals.map((proposal) => proposal._id)
+            }
+        });
+    } catch (error) {
+        if (testEmployee) {
+            await EmployeeUpdateApproval.deleteMany({ employee: testEmployee._id }).catch(() => {});
+            await Employee.deleteOne({ _id: testEmployee._id, isTestRecord: true }).catch(() => {});
+        }
+        console.error("Create approval test fixture failed:", error.message);
+        return res.status(500).json({ success: false, message: "Could not create approval test fixture" });
+    }
+};
+
+export const deleteApprovalTestFixture = async (req, res) => {
+    try {
+        if (process.env.NODE_ENV === "production") {
+            return res.status(404).json({ success: false, message: "Not found" });
+        }
+        const { employeeId } = req.params;
+        if (!mongoose.isValidObjectId(employeeId)) {
+            return res.status(400).json({ success: false, message: "Invalid test employee ID" });
+        }
+        const testEmployee = await Employee.findOne({
+            _id: employeeId,
+            isTestRecord: true
+        }).select("+isTestRecord");
+        if (!testEmployee) {
+            return res.status(404).json({ success: false, message: "Test employee not found" });
+        }
+        if (await User.exists({ employee: testEmployee._id })) {
+            return res.status(409).json({ success: false, message: "Test employee has a linked login account; cleanup stopped" });
+        }
+
+        await EmployeeUpdateApproval.deleteMany({ employee: testEmployee._id });
+        await Employee.deleteOne({ _id: testEmployee._id, isTestRecord: true });
+        return res.status(200).json({
+            success: true,
+            message: "Test employee and its approval proposals were deleted"
+        });
+    } catch (error) {
+        console.error("Delete approval test fixture failed:", error.message);
+        return res.status(500).json({ success: false, message: "Could not delete approval test fixture" });
+    }
+};
