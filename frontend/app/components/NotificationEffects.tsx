@@ -227,7 +227,7 @@ export default function NotificationEffects() {
             {canManageGmail && <button type="button" onClick={() => setSettingsTab("integrations")} aria-pressed={settingsTab === "integrations"} className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[11px] font-bold transition ${settingsTab === "integrations" ? "bg-rose-400/15 text-rose-100 shadow-inner ring-1 ring-rose-300/25" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}><Layers3 size={14} /> Integrations</button>}
           </div>
         </div>
-        <div className="relative max-h-[min(58vh,500px)] min-h-[230px] space-y-4 overflow-y-auto overscroll-contain p-4">
+        <div className="hrms-scrollbar-hidden relative max-h-[min(58vh,500px)] min-h-[230px] space-y-4 overflow-y-auto overscroll-contain p-4">
           {settingsTab === "appearance" && <>
           <section><div className="mb-2.5 flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-indigo-200/75">Appearance studio</p><p className="mt-0.5 text-xs text-slate-400">Choose confirmation animation style</p></div><Sparkles size={16} className="text-indigo-300" /></div>
             <div className="grid grid-cols-2 gap-2">
