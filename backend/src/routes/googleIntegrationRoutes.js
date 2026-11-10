@@ -412,6 +412,21 @@ const toGoogleCalendarResource = (event) => {
     return resource;
 };
 
+const getCalendarMapping = (event, userId) => (event.googleCalendarMappings || []).find(
+    (mapping) => mapping.userId?.toString() === userId.toString() && mapping.calendarId === "primary"
+);
+const setCalendarMapping = (event, userId, remote) => {
+    const mapping = getCalendarMapping(event, userId);
+    const values = {
+        userId,
+        calendarId: "primary",
+        googleEventId: remote.id,
+        googleUpdatedAt: remote.updated ? new Date(remote.updated) : null
+    };
+    if (mapping) Object.assign(mapping, values);
+    else event.googleCalendarMappings.push(values);
+};
+
 const fromGoogleCalendarResource = (remote) => {
     const allDay = Boolean(remote.start?.date);
     const startAt = allDay ? new Date(`${remote.start.date}T00:00:00.000Z`) : new Date(remote.start?.dateTime);
@@ -489,7 +504,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
         for (const remote of remoteEvents) {
             if (!remote.id) continue;
             if (remote.status === "cancelled") {
-                const cancelledLocal = await CompanyEvent.findOne({ googleEventId: remote.id });
+                const cancelledLocal = await CompanyEvent.findOne({ googleCalendarMappings: { $elemMatch: { userId: req.user.userId, calendarId: "primary", googleEventId: remote.id } } });
                 if (cancelledLocal && cancelledLocal.status !== "cancelled") {
                     cancelledLocal.status = "cancelled";
                     await cancelledLocal.save();
@@ -500,7 +515,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
             }
             const mapped = fromGoogleCalendarResource(remote);
             if (!mapped) continue;
-            let local = await CompanyEvent.findOne({ googleEventId: remote.id });
+            let local = await CompanyEvent.findOne({ googleCalendarMappings: { $elemMatch: { userId: req.user.userId, calendarId: "primary", googleEventId: remote.id } } });
             if (!local && remote.status !== "cancelled") {
                 local = await CompanyEvent.findOne({
                     title: mapped.title,
@@ -509,7 +524,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
             }
             if (!local) {
                 if (mapped.status === "cancelled") continue;
-                local = await CompanyEvent.create({ ...mapped, createdBy: req.user.userId });
+                local = await CompanyEvent.create({ ...mapped, googleCalendarMappings: [{ userId: req.user.userId, calendarId: "primary", googleEventId: remote.id, googleUpdatedAt: remote.updated ? new Date(remote.updated) : null }], createdBy: req.user.userId });
                 imported++;
                 continue;
             }
@@ -517,10 +532,11 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
             const localUpdatedAt = local.updatedAt || local.createdAt || new Date(0);
             if (remoteUpdatedAt > localUpdatedAt) {
                 Object.assign(local, mapped);
+                setCalendarMapping(local, req.user.userId, remote);
                 await local.save();
                 pulledUpdates++;
-            } else if (!local.googleEventId) {
-                local.googleEventId = remote.id;
+            } else {
+                setCalendarMapping(local, req.user.userId, remote);
                 await local.save();
             }
         }
@@ -531,15 +547,16 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
         }).sort({ startAt: 1, _id: 1 });
 
         for (const local of localEvents) {
-            if (local.status === "cancelled" && !local.googleEventId) continue;
+            const mapping = getCalendarMapping(local, req.user.userId);
+            if (local.status === "cancelled" && !mapping) continue;
             const resource = toGoogleCalendarResource(local);
-            if (local.googleEventId) {
-                const remote = remoteEvents.find((item) => item.id === local.googleEventId);
+            if (mapping?.googleEventId) {
+                const remote = remoteEvents.find((item) => item.id === mapping.googleEventId);
                 if (remote?.status === "cancelled" && local.status !== "cancelled") continue;
                 const remoteUpdatedAt = remote?.updated ? new Date(remote.updated) : new Date(0);
                 const localUpdatedAt = local.updatedAt || local.createdAt || new Date(0);
                 if (remote && remoteUpdatedAt > localUpdatedAt) continue;
-                await calendarApiRequest(`${GOOGLE_CALENDAR_API_URL}/${encodeURIComponent(local.googleEventId)}`, accessToken, {
+                await calendarApiRequest(`${GOOGLE_CALENDAR_API_URL}/${encodeURIComponent(mapping.googleEventId)}`, accessToken, {
                     method: "PATCH",
                     body: JSON.stringify(resource)
                 });
@@ -550,7 +567,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
                     body: JSON.stringify(resource)
                 });
                 if (created.id) {
-                    local.googleEventId = created.id;
+                    setCalendarMapping(local, req.user.userId, created);
                     await local.save();
                     pushed++;
                 }
