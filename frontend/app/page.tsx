@@ -11,7 +11,7 @@ import AuthGuard from "./components/AuthGuard";
 
 const modules = [
   {
-    title: "Employee Update Approvals",
+    title: "Update approvals",
     description: "Review and decide employee data update proposals from Gmail and documents.",
     href: "/employee-update-approvals",
     action: "Review update requests",
@@ -65,7 +65,7 @@ const modules = [
     accent: "group-hover:border-emerald-200",
   },
   {
-    title: "Expense & Reimbursement",
+    title: "Expenses",
     description: "Submit expense claims, review approvals and track reimbursements.",
     href: "/expenses",
     action: "Manage expenses",
@@ -74,7 +74,7 @@ const modules = [
     accent: "group-hover:border-violet-200",
   },
   {
-    title: "IT Helpdesk & Support",
+    title: "IT support",
     description: "Submit IT support requests and track ticket progress.",
     href: "/helpdesk",
     action: "Open helpdesk",
@@ -110,7 +110,7 @@ const modules = [
     accent: "group-hover:border-indigo-200",
   },
   {
-    title: "Recruitment & Applicant Tracking",
+    title: "Recruitment",
     description: "Manage job openings, candidate selection and employee onboarding.",
     href: "/recruitment",
     action: "Manage recruitment",
@@ -195,7 +195,7 @@ export default function Home() {
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expense & Reimbursement", "IT Helpdesk & Support", "Holiday Calendar"].includes(item.title));
+    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expenses", "IT support", "Holiday Calendar"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
@@ -204,15 +204,15 @@ export default function Home() {
         { title: "My payslips", href: "/payroll", icon: Wallet },
       ];
   const dashboardTitle = isAdmin
-    ? "Admin / HR Dashboard"
+    ? "Dashboard"
     : isManager
-      ? "Manager Dashboard"
-      : "Employee Self-Service";
+      ? "Team"
+      : "My workspace";
   const dashboardDescription = isAdmin
-    ? "Manage company people operations, records and approvals."
+    ? "People, attendance and approvals."
     : isManager
-      ? "Manage your team's leave approvals and access your own HR records."
-      : "Access your attendance, apply for leave and view your payslips.";
+      ? "Your team and HR tasks."
+      : "Attendance, leave and payslips.";
 
   return (
     <AuthGuard>
@@ -221,7 +221,7 @@ export default function Home() {
           <header className="mb-7 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" /> Company workspace
+                <span className="h-2 w-2 rounded-full bg-emerald-500" /> HRMS
               </p>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{dashboardTitle}</h1>
               <p className="mt-1.5 text-sm text-slate-500">{dashboardDescription}</p>
@@ -229,7 +229,7 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 shadow-sm sm:flex">
                 <LayoutGrid size={17} className="text-blue-600" />
-                Single-company workspace
+                HRMS workspace
               </div>
               <Link href="/profile" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
                 <UserRound size={17} /> Profile
@@ -242,12 +242,12 @@ export default function Home() {
             <div className="pointer-events-none absolute right-24 top-16 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
             <div className="relative z-10 max-w-2xl">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-blue-100">
-                <Sparkles size={14} /> Human Resource Management
+                <Sparkles size={14} /> People operations
               </span>
               <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
-                {isAdmin ? <>Your company operations,<br className="hidden sm:block" /> in one organized workspace.</> : isManager ? <>Your team and personal HR tasks,<br className="hidden sm:block" /> in one focused workspace.</> : <>Your workday essentials,<br className="hidden sm:block" /> in one simple workspace.</>}
+                {isAdmin ? <>People operations,<br className="hidden sm:block" /> made simpler.</> : isManager ? <>Your team,<br className="hidden sm:block" /> in one place.</> : <>Your work,<br className="hidden sm:block" /> in one place.</>}
               </h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">{isAdmin ? "Manage employees, attendance, leave, shifts, holidays and payroll." : isManager ? "Review assigned team leave requests and manage your own attendance and payroll." : "Check attendance, apply for leave and view your own payroll records."}</p>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">{isAdmin ? "Employees, attendance, leave and payroll." : isManager ? "Team leave and your HR records." : "Your attendance, leave and payslips."}</p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link href={isAdmin ? "/employees" : "/leaves"} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-blue-50">{isAdmin ? "View employees" : isManager ? "Review team leaves" : "Apply for leave"} <ArrowUpRight size={16} /></Link>
                 <Link href="/attendance" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15">{isAdmin ? "Open attendance register" : "My attendance"} <ChevronRight size={16} /></Link>
@@ -264,7 +264,7 @@ export default function Home() {
             <section className="mb-7">
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Live overview</p>
+                  
                   <h2 className="mt-1 text-xl font-bold text-slate-900">Attendance dashboard</h2>
                   <p className="mt-1 text-sm text-slate-500">Company attendance recorded from the start of this month to today.</p>
                 </div>
@@ -279,14 +279,14 @@ export default function Home() {
                   { label: "Late arrivals", value: attendanceRecords.filter((item) => item.isLate).length, icon: Clock3, color: "text-orange-700 bg-orange-50" },
                 ].map((stat) => {
                   const Icon = stat.icon;
-                  return <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  return <div key={stat.label} className="hrms-premium-card rounded-2xl p-4">
                     <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-500">{stat.label}</span><span className={`rounded-lg p-2 ${stat.color}`}><Icon size={18} /></span></div>
                     <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{attendanceLoading ? "…" : stat.value}</p>
                   </div>;
                 })}
               </div>
               <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="hrms-premium-card rounded-2xl p-5">
                   <div className="mb-5 flex items-center gap-2"><BarChart3 size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Attendance trend · Last 7 days</h3></div>
                   <div className="flex h-44 items-end justify-around gap-3 border-b border-slate-100 pb-2">
                     {Array.from({ length: 7 }, (_, index) => {
@@ -308,7 +308,7 @@ export default function Home() {
                   </div>
                   <p className="mt-3 text-xs text-slate-400">Counts include present and half-day records for each date.</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="hrms-premium-card rounded-2xl p-5">
                   <div className="mb-4 flex items-center gap-2"><Activity size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Recent Activity</h3></div>
                   {attendanceLoading ? <p className="py-6 text-sm text-slate-500">Loading recent activity…</p> : attendanceRecords.length === 0 ? <p className="py-6 text-sm text-slate-500">No attendance records found for this month yet.</p> : (
                     <div className="space-y-3">
@@ -327,12 +327,12 @@ export default function Home() {
 
           <section className="mb-7">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-              <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Workspace</p><h2 className="mt-1 text-xl font-bold text-slate-900">HR modules</h2><p className="mt-1 text-sm text-slate-500">Choose a module to view or manage its records.</p></div>
+              <div><h2 className="mt-1 text-xl font-bold text-slate-900">HR modules</h2></div>
               <span className="text-xs font-medium text-slate-400">{visibleModules.length} modules available</span>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleModules.map((item) => {
-                const roleDescription = item.title === "IT Helpdesk & Support"
+                const roleDescription = item.title === "IT support"
                   ? (isAdmin ? "View, assign and resolve company-wide IT support tickets." : "Submit IT support requests and track your own ticket status.")
                   : item.title === "Leave Management"
                   ? (isAdmin ? "Company-wide leave requests, approvals and calendar." : isManager ? "Review leave requests from your assigned team." : "Apply for leave and track your own requests.")
@@ -341,7 +341,7 @@ export default function Home() {
                     : item.title === "Payroll" && !isAdmin
                       ? "View your own monthly payroll and payslips."
                       : item.description;
-                const roleAction = item.title === "IT Helpdesk & Support"
+                const roleAction = item.title === "IT support"
                   ? (isAdmin ? "Manage support tickets" : "Submit a support ticket")
                   : item.title === "Leave Management"
                   ? (isAdmin ? "Manage company leaves" : isManager ? "Review team leaves" : "Apply for leave")
@@ -352,7 +352,7 @@ export default function Home() {
                       : item.action;
                 const Icon = item.icon;
                 return (
-                  <Link key={item.href} href={item.href} className={`group flex min-h-[190px] flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/70 ${item.accent}`}>
+                  <Link key={item.href} href={item.href} className={`group hrms-premium-card flex min-h-[190px] flex-col rounded-2xl p-5 transition duration-300 ${item.accent}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className={`rounded-xl p-3 ${item.iconStyle}`}><Icon size={21} /></div>
                       <span className="rounded-lg p-2 text-slate-300 transition group-hover:bg-slate-50 group-hover:text-slate-700"><ArrowUpRight size={18} /></span>
@@ -365,19 +365,19 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-4 flex items-center gap-3"><div className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><BriefcaseBusiness size={20} /></div><div><h2 className="font-bold text-slate-900">Quick actions</h2><p className="mt-1 text-sm text-slate-500">Jump directly to common HR tasks.</p></div></div>
+          <section className="hrms-premium-card rounded-2xl p-5 sm:p-6">
+            <div className="mb-4 flex items-center gap-3"><div className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><BriefcaseBusiness size={20} /></div><div><h2 className="font-bold text-slate-900">Quick actions</h2></div></div>
             <div className="grid gap-3 sm:grid-cols-3">
               {visibleQuickActions.map((item) => {
                 const Icon = item.icon;
-                return <Link key={item.href} href={item.href} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3.5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700"><span className="flex items-center gap-3"><Icon size={18} className="text-blue-600" />{item.title}</span><ArrowUpRight size={16} className="text-slate-400" /></Link>;
+                return <Link key={item.href} href={item.href} className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3.5 text-sm font-semibold shadow-[0_3px_10px_rgba(15,23,42,0.04)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md text-slate-700 transition hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700"><span className="flex items-center gap-3"><Icon size={18} className="text-blue-600" />{item.title}</span><ArrowUpRight size={16} className="text-slate-400" /></Link>;
               })}
             </div>
           </section>
 
           <footer className="mt-7 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 py-5 text-xs text-slate-400">
-            <span>HRMS · Company workspace</span>
-            <span className="inline-flex items-center gap-1.5"><Settings2 size={13} /> Manage your organization settings</span>
+            <span>HRMS</span>
+            
           </footer>
         </div>
       </main>
