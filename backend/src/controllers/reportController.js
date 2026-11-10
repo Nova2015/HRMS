@@ -50,7 +50,7 @@ export const getReportsSummary = async (req, res) => {
             ]),
             PerformanceReview.aggregate([
                 { $match: performanceYearFilter },
-                { $group: { _id: "$status", reviews: { $sum: 1 }, averageRating: { $avg: "$managerReview.rating" } } }
+                { $group: { _id: "$status", reviews: { $sum: 1 }, ratedReviews: { $sum: { $cond: [{ $isNumber: "$managerReview.rating" }, 1, 0] } }, averageRating: { $avg: "$managerReview.rating" } } }
             ]),
             Employee.aggregate([
                 { $match: activeEmployeeFilter },
@@ -93,8 +93,8 @@ export const getReportsSummary = async (req, res) => {
             if (Object.prototype.hasOwnProperty.call(performanceSummary, key) && key !== "averageRating" && key !== "totalReviews") performanceSummary[key] = item.reviews;
             performanceSummary.totalReviews += item.reviews;
             if (item.averageRating !== null) {
-                ratingWeightedTotal += item.averageRating * item.reviews;
-                ratedReviews += item.reviews;
+                ratingWeightedTotal += item.averageRating * item.ratedReviews;
+                ratedReviews += item.ratedReviews;
             }
         });
         performanceSummary.averageRating = ratedReviews ? Math.round((ratingWeightedTotal / ratedReviews) * 100) / 100 : null;
