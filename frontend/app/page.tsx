@@ -119,6 +119,15 @@ const modules = [
     accent: "group-hover:border-amber-200",
   },
   {
+    title: "Reports & Analytics",
+    description: "Company-wide attendance, leave, payroll and performance insights.",
+    href: "/reports",
+    action: "View reports",
+    icon: BarChart3,
+    iconStyle: "bg-indigo-50 text-indigo-700",
+    accent: "group-hover:border-indigo-200",
+  },
+  {
     title: "Recruitment",
     description: "Manage job openings, candidate selection and employee onboarding.",
     href: "/recruitment",
