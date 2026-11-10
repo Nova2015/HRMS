@@ -9,6 +9,7 @@ import {
   AlertCircle, Timer, CalendarCheck2, X
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
+import CalendarExportActions from "./CalendarExportActions";
 
 const API_URL = "http://localhost:5000/api";
 
@@ -627,6 +628,7 @@ function AttendanceWorkspace() {
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6">
               <div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Attendance Calendar</p><h2 className="mt-1 text-xl font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h2><p className="mt-1 text-sm text-slate-500">Select a date to inspect attendance details.</p></div>
               <div className="flex flex-wrap items-center gap-2">
+                <CalendarExportActions month={month} selectedDay={selectedDay} records={records} holidays={holidays} leaves={leaves} events={companyEvents} />
                 {isAdmin && <><button type="button" onClick={() => { setHolidayEditId(null); setHolidayForm({ name: "", dateKey: selectedDay, type: "public", description: "" }); setShowHolidayModal(true); }} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-50">Manage holidays</button><button type="button" onClick={() => { setEventEditId(null); setEventForm({ title: "", description: "", eventType: "company_event", startAt: "", endAt: "", allDay: false, location: "" }); setShowEventForm(true); }} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:-translate-y-0.5"><CalendarDays size={15} /> Add event / meeting</button></>}
                 <button type="button" aria-label="Previous month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() - 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronLeft size={18} /></button>
                 <button type="button" onClick={() => { setMonth(new Date()); setSelectedDay(todayKey()); }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Today</button>
