@@ -90,6 +90,10 @@ function AttendanceWorkspace() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [holidayEditId, setHolidayEditId] = useState<string | null>(null);
+  const [holidaySaving, setHolidaySaving] = useState(false);
+  const [holidayForm, setHolidayForm] = useState({ name: "", dateKey: todayKey(), type: "public" as Holiday["type"], description: "" });
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [companyEvents, setCompanyEvents] = useState<CompanyEvent[]>([]);
   const [showDayDetails, setShowDayDetails] = useState(false);
@@ -122,13 +126,13 @@ function AttendanceWorkspace() {
 
   // Keep the document behind any calendar popup from scrolling.
   useEffect(() => {
-    if (!showDayDetails && !showLeaveModal && !showEventForm) return;
+    if (!showDayDetails && !showLeaveModal && !showEventForm && !showHolidayModal) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [showDayDetails, showLeaveModal, showEventForm]);
+  }, [showDayDetails, showLeaveModal, showEventForm, showHolidayModal]);
 
   const isAdmin = role === "admin" || role === "hr";
   const isManager = role === "manager";
@@ -322,6 +326,45 @@ function AttendanceWorkspace() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to delete calendar event.");
     } finally { setEventSaving(false); }
+  };
+
+  const submitHoliday = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setHolidaySaving(true); setError(""); setNotice("");
+    try {
+      const result = await apiRequest(holidayEditId ? `/holidays/${holidayEditId}` : "/holidays", {
+        method: holidayEditId ? "PUT" : "POST",
+        body: JSON.stringify({
+          name: holidayForm.name.trim(),
+          dateKey: holidayForm.dateKey,
+          type: holidayForm.type,
+          description: holidayForm.description.trim(),
+        }),
+      });
+      setNotice(result.message || (holidayEditId ? "Holiday updated successfully." : "Holiday created successfully."));
+      setHolidayEditId(null);
+      setHolidayForm({ name: "", dateKey: selectedDay, type: "public", description: "" });
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save holiday.");
+    } finally { setHolidaySaving(false); }
+  };
+
+  const editHoliday = (holiday: Holiday) => {
+    setHolidayEditId(holiday._id);
+    setHolidayForm({ name: holiday.name, dateKey: holiday.dateKey, type: holiday.type, description: holiday.description || "" });
+  };
+
+  const removeHoliday = async (holiday: Holiday) => {
+    if (!window.confirm(`Delete holiday "${holiday.name}"?`)) return;
+    setHolidaySaving(true); setError(""); setNotice("");
+    try {
+      const result = await apiRequest(`/holidays/${holiday._id}`, { method: "DELETE" });
+      setNotice(result.message || "Holiday deleted successfully.");
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete holiday.");
+    } finally { setHolidaySaving(false); }
   };
 
   const submitCorrection = async (event: FormEvent<HTMLFormElement>) => {
@@ -545,6 +588,20 @@ function AttendanceWorkspace() {
           </section>
         )}
 
+        {isAdmin && showHolidayModal && <div className="fixed inset-0 z-[105] grid place-items-center overflow-hidden bg-slate-950/50 p-4 backdrop-blur-md" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowHolidayModal(false); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="calendar-holiday-title" className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-[28px] border border-white/80 bg-white p-5 shadow-[0_30px_100px_rgba(15,23,42,0.3)] sm:p-7">
+            <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-rose-600">Attendance Calendar</p><h3 id="calendar-holiday-title" className="mt-1 text-xl font-extrabold text-slate-950">Holiday management</h3><p className="mt-1 text-sm text-slate-500">Add, edit or remove holidays without leaving this calendar.</p></div><button type="button" aria-label="Close holiday manager" onClick={() => { setShowHolidayModal(false); setHolidayEditId(null); }} className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition hover:bg-slate-200"><X size={18} /></button></div>
+            <form onSubmit={submitHoliday} className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Holiday name *<input required maxLength={120} value={holidayForm.name} onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })} placeholder="e.g. Diwali" className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100" /></label>
+              <label className="text-sm font-semibold text-slate-700">Date *<input required type="date" value={holidayForm.dateKey} onChange={(e) => setHolidayForm({ ...holidayForm, dateKey: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+              <label className="text-sm font-semibold text-slate-700">Type<select value={holidayForm.type} onChange={(e) => setHolidayForm({ ...holidayForm, type: e.target.value as Holiday["type"] })} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal"><option value="public">Public holiday</option><option value="optional">Optional holiday</option><option value="company">Company holiday</option></select></label>
+              <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Description<textarea maxLength={500} rows={2} value={holidayForm.description} onChange={(e) => setHolidayForm({ ...holidayForm, description: e.target.value })} placeholder="Optional details..." className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+              <div className="flex justify-end gap-2 border-b border-slate-100 pb-4 sm:col-span-2"><button type="button" onClick={() => { setHolidayEditId(null); setHolidayForm({ name: "", dateKey: selectedDay, type: "public", description: "" }); }} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600">Clear</button><button type="submit" disabled={holidaySaving || !holidayForm.name.trim()} className="rounded-xl bg-gradient-to-r from-rose-600 to-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-50">{holidaySaving ? "Saving..." : holidayEditId ? "Update holiday" : "Add holiday"}</button></div>
+            </form>
+            <div className="mt-4"><div className="mb-3 flex items-center justify-between"><h4 className="text-sm font-extrabold text-slate-900">Current month holidays</h4><span className="text-xs text-slate-500">{holidays.length} listed</span></div>{holidays.length ? <div className="max-h-64 space-y-2 overflow-y-auto pr-1">{holidays.map((holiday) => <div key={holiday._id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5"><div className="min-w-0"><p className="truncate text-sm font-bold text-slate-800">{holiday.name}</p><p className="mt-0.5 text-xs text-slate-500">{new Date(`${holiday.dateKey}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · {holiday.type}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => editHoliday(holiday)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Edit</button><button type="button" disabled={holidaySaving} onClick={() => void removeHoliday(holiday)} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50">Delete</button></div></div>)}</div> : <p className="rounded-xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-500">No active holidays in this month.</p>}</div>
+            <div className="mt-5 flex justify-end"><button type="button" onClick={() => { setShowHolidayModal(false); setHolidayEditId(null); }} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white">Close</button></div>
+          </section>
+        </div>}
         {isAdmin && showEventForm && <div className="fixed inset-0 z-[100] grid place-items-center overflow-hidden bg-slate-950/50 p-4 backdrop-blur-md" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowEventForm(false); }}>
           <section role="dialog" aria-modal="true" aria-labelledby="company-event-title" className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-[28px] border border-white/80 bg-white p-5 shadow-[0_30px_100px_rgba(15,23,42,0.3)] sm:p-7">
             <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-violet-600">Attendance Calendar</p><h3 id="company-event-title" className="mt-1 text-xl font-extrabold text-slate-950">{eventEditId ? "Edit event / meeting" : "Add event / meeting"}</h3><p className="mt-1 text-sm text-slate-500">This will appear on the existing Attendance Calendar.</p></div><button type="button" aria-label="Close event form" onClick={() => { setShowEventForm(false); setEventEditId(null); }} className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition hover:bg-slate-200"><X size={18} /></button></div>
@@ -565,7 +622,7 @@ function AttendanceWorkspace() {
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6">
               <div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Attendance Calendar</p><h2 className="mt-1 text-xl font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h2><p className="mt-1 text-sm text-slate-500">Select a date to inspect attendance details.</p></div>
               <div className="flex flex-wrap items-center gap-2">
-                {isAdmin && <button type="button" onClick={() => setShowEventForm(true)} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:-translate-y-0.5"><CalendarDays size={15} /> Add event / meeting</button>}
+                {isAdmin && <><button type="button" onClick={() => { setHolidayEditId(null); setHolidayForm({ name: "", dateKey: selectedDay, type: "public", description: "" }); setShowHolidayModal(true); }} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-50">Manage holidays</button><button type="button" onClick={() => { setEventEditId(null); setEventForm({ title: "", description: "", eventType: "company_event", startAt: "", endAt: "", allDay: false, location: "" }); setShowEventForm(true); }} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:-translate-y-0.5"><CalendarDays size={15} /> Add event / meeting</button></>}
                 <button type="button" aria-label="Previous month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() - 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronLeft size={18} /></button>
                 <button type="button" onClick={() => { setMonth(new Date()); setSelectedDay(todayKey()); }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Today</button>
                 <button type="button" aria-label="Next month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() + 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronRight size={18} /></button>
