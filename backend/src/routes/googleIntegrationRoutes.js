@@ -16,7 +16,9 @@ const GMAIL_API_URL = "https://gmail.googleapis.com/gmail/v1/users/me";
 const GMAIL_PROFILE_URL = `${GMAIL_API_URL}/profile`;
 const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const GOOGLE_CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events";
-const GOOGLE_CALENDAR_API_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+const GOOGLE_CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
+const GOOGLE_CALENDAR_API_URL = "https://www.googleapis.com/calendar/v3/calendars";
+const GOOGLE_CALENDAR_LIST_API_URL = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
 
 const getOAuthConfig = () => {
     const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_GMAIL_REDIRECT_URI, JWT_SECRET } = process.env;
@@ -125,7 +127,7 @@ router.get("/gmail/connect", protect, authorizeRoles("admin", "hr"), (req, res) 
             client_id: config.clientId,
             redirect_uri: config.redirectUri,
             response_type: "code",
-            scope: `openid email profile ${GMAIL_READONLY_SCOPE} ${GOOGLE_CALENDAR_EVENTS_SCOPE}`,
+            scope: `openid email profile ${GMAIL_READONLY_SCOPE} ${GOOGLE_CALENDAR_EVENTS_SCOPE} ${GOOGLE_CALENDAR_LIST_SCOPE}`,
             access_type: "offline",
             prompt: "consent",
             include_granted_scopes: "true",
@@ -513,14 +515,14 @@ const toGoogleCalendarResource = (event) => {
     return resource;
 };
 
-const getCalendarMapping = (event, userId) => (event.googleCalendarMappings || []).find(
-    (mapping) => mapping.userId?.toString() === userId.toString() && mapping.calendarId === "primary"
+const getCalendarMapping = (event, userId, calendarId = "primary") => (event.googleCalendarMappings || []).find(
+    (mapping) => mapping.userId?.toString() === userId.toString() && mapping.calendarId === calendarId
 );
-const setCalendarMapping = (event, userId, remote) => {
-    const mapping = getCalendarMapping(event, userId);
+const setCalendarMapping = (event, userId, remote, calendarId = "primary") => {
+    const mapping = getCalendarMapping(event, userId, calendarId);
     const values = {
         userId,
-        calendarId: "primary",
+        calendarId,
         googleEventId: remote.id,
         googleUpdatedAt: remote.updated ? new Date(remote.updated) : null
     };
@@ -572,12 +574,14 @@ router.get("/calendar/status", protect, authorizeRoles("admin", "hr"), async (re
         const integration = await GoogleGmailIntegration.findOne({ userId: req.user.userId })
             .select("googleEmail scopes connectedAt");
         const connected = Boolean(integration?.scopes?.includes(GOOGLE_CALENDAR_EVENTS_SCOPE));
+        const calendarListAccess = Boolean(integration?.scopes?.includes(GOOGLE_CALENDAR_LIST_SCOPE));
         return res.status(200).json({
             success: true,
             connected,
             googleEmail: integration?.googleEmail || null,
             connectedAt: integration?.connectedAt || null,
-            needsConsent: Boolean(integration) && !connected
+            calendarListAccess,
+            needsConsent: Boolean(integration) && (!connected || !calendarListAccess)
         });
     } catch (error) {
         console.error("Google Calendar status lookup failed:", error.message);
@@ -599,7 +603,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
         if (!integration) {
             return res.status(409).json({ success: false, message: "Connect your Google account before syncing Calendar" });
         }
-        if (!integration.scopes?.includes(GOOGLE_CALENDAR_EVENTS_SCOPE)) {
+        if (!integration.scopes?.includes(GOOGLE_CALENDAR_EVENTS_SCOPE) || !integration.scopes?.includes(GOOGLE_CALENDAR_LIST_SCOPE)) {
             return res.status(409).json({ success: false, message: "Google Calendar permission is required. Reconnect your Google account to grant Calendar access." });
         }
 
@@ -609,26 +613,40 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
         // Read a wider window so a linked event moved across month boundaries is still discovered.
         const timeMin = new Date(new Date(from).getTime() - 366 * 86400000).toISOString();
         const timeMax = new Date(new Date(to).getTime() + 366 * 86400000).toISOString();
-        const remoteEvents = [];
-        let pageToken = "";
+        const calendarList = [];
+        let calendarPageToken = "";
         do {
-            const listUrl = new URL(GOOGLE_CALENDAR_API_URL);
-            listUrl.searchParams.set("timeMin", timeMin);
-            listUrl.searchParams.set("timeMax", timeMax);
-            listUrl.searchParams.set("singleEvents", "true");
-            listUrl.searchParams.set("showDeleted", "true");
-            listUrl.searchParams.set("maxResults", "2500");
-            if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
-            const page = await calendarApiRequest(listUrl, accessToken);
-            remoteEvents.push(...(page.items || []));
-            pageToken = page.nextPageToken || "";
-        } while (pageToken);
+            const calendarsUrl = new URL(GOOGLE_CALENDAR_LIST_API_URL);
+            calendarsUrl.searchParams.set("maxResults", "250");
+            calendarsUrl.searchParams.set("showDeleted", "false");
+            if (calendarPageToken) calendarsUrl.searchParams.set("pageToken", calendarPageToken);
+            const calendarPage = await calendarApiRequest(calendarsUrl, accessToken);
+            calendarList.push(...(calendarPage.items || []).filter((calendar) => calendar.id && calendar.accessRole !== "freeBusyReader"));
+            calendarPageToken = calendarPage.nextPageToken || "";
+        } while (calendarPageToken);
+
+        const remoteEvents = [];
+        for (const calendar of calendarList) {
+            let pageToken = "";
+            do {
+                const listUrl = new URL(`${GOOGLE_CALENDAR_API_URL}/${encodeURIComponent(calendar.id)}/events`);
+                listUrl.searchParams.set("timeMin", timeMin);
+                listUrl.searchParams.set("timeMax", timeMax);
+                listUrl.searchParams.set("singleEvents", "true");
+                listUrl.searchParams.set("showDeleted", "true");
+                listUrl.searchParams.set("maxResults", "2500");
+                if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
+                const page = await calendarApiRequest(listUrl, accessToken);
+                remoteEvents.push(...(page.items || []).map((item) => ({ ...item, _calendarId: calendar.id })));
+                pageToken = page.nextPageToken || "";
+            } while (pageToken);
+        }
 
         let imported = 0, pulledUpdates = 0, pushed = 0, cancelled = 0;
         for (const remote of remoteEvents) {
             if (!remote.id) continue;
             if (remote.status === "cancelled") {
-                const cancelledLocal = await CompanyEvent.findOne({ googleCalendarMappings: { $elemMatch: { userId: req.user.userId, calendarId: "primary", googleEventId: remote.id } } });
+                const cancelledLocal = await CompanyEvent.findOne({ googleCalendarMappings: { $elemMatch: { userId: req.user.userId, calendarId: remote._calendarId || "primary", googleEventId: remote.id } } });
                 if (cancelledLocal && cancelledLocal.status !== "cancelled") {
                     cancelledLocal.status = "cancelled";
                     await cancelledLocal.save();
@@ -639,7 +657,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
             }
             const mapped = fromGoogleCalendarResource(remote);
             if (!mapped) continue;
-            let local = await CompanyEvent.findOne({ googleCalendarMappings: { $elemMatch: { userId: req.user.userId, calendarId: "primary", googleEventId: remote.id } } });
+            let local = await CompanyEvent.findOne({ googleCalendarMappings: { $elemMatch: { userId: req.user.userId, calendarId: remote._calendarId || "primary", googleEventId: remote.id } } });
             const overlapsRequestedRange = mapped.startAt <= new Date(requestedTimeMax) && mapped.endAt >= new Date(requestedTimeMin);
             if (!local && !overlapsRequestedRange) continue;
             if (!local && remote.status !== "cancelled") {
@@ -649,12 +667,12 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
                 });
             }
             // Correct the type when an existing HRMS event is first linked to this Google event.
-            if (local && !getCalendarMapping(local, req.user.userId)) {
+            if (local && !getCalendarMapping(local, req.user.userId, remote._calendarId || "primary")) {
                 local.eventType = mapped.eventType;
             }
             if (!local) {
                 if (mapped.status === "cancelled") continue;
-                local = await CompanyEvent.create({ ...mapped, googleCalendarMappings: [{ userId: req.user.userId, calendarId: "primary", googleEventId: remote.id, googleUpdatedAt: remote.updated ? new Date(remote.updated) : null }], createdBy: req.user.userId });
+                local = await CompanyEvent.create({ ...mapped, googleCalendarMappings: [{ userId: req.user.userId, calendarId: remote._calendarId || "primary", googleEventId: remote.id, googleUpdatedAt: remote.updated ? new Date(remote.updated) : null }], createdBy: req.user.userId });
                 imported++;
                 continue;
             }
@@ -662,7 +680,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
             const localUpdatedAt = local.updatedAt || local.createdAt || new Date(0);
             if (remoteUpdatedAt > localUpdatedAt) {
                 Object.assign(local, mapped);
-                setCalendarMapping(local, req.user.userId, remote);
+                setCalendarMapping(local, req.user.userId, remote, remote._calendarId || "primary");
                 await local.save();
                 pulledUpdates++;
             } else {
@@ -709,7 +727,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
         return res.status(200).json({
             success: true,
             message: "Google Calendar two-way sync completed",
-            data: { imported, pulledUpdates, pushed, cancelled, googleEventsSeen: remoteEvents.length }
+            data: { imported, pulledUpdates, pushed, cancelled, googleEventsSeen: remoteEvents.length, calendarsScanned: calendarList.length, calendarNames: calendarList.map((calendar) => calendar.summary || calendar.id) }
         });
     } catch (error) {
         console.error("Google Calendar two-way sync failed:", error.message);
