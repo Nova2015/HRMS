@@ -81,7 +81,9 @@ function GmailIntegrationContent() {
       });
       const result = await response.json();
       if (!response.ok || !result.success || !result.authorizationUrl) throw new Error(result.message || "Unable to start Google authorization");
-      window.location.assign(result.authorizationUrl);
+      // Google OAuth must run in the top-level browser window, not inside the HRMS iframe/modal.
+      if (window.top) window.top.location.assign(result.authorizationUrl);
+      else window.location.assign(result.authorizationUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to connect Gmail");
       setConnecting(false);
