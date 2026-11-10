@@ -269,14 +269,14 @@ export default function Home() {
                   { label: "Late arrivals", value: attendanceRecords.filter((item) => item.isLate).length, icon: Clock3, color: "text-orange-700 bg-orange-50" },
                 ].map((stat) => {
                   const Icon = stat.icon;
-                  return <div key={stat.label} className="hrms-premium-card rounded-2xl p-4">
+                  return <div key={stat.label} className="hrms-premium-card hrms-dashboard-3d-card rounded-2xl p-4">
                     <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-500">{stat.label}</span><span className={`rounded-lg p-2 ${stat.color}`}><Icon size={18} /></span></div>
                     <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{attendanceLoading ? "…" : stat.value}</p>
                   </div>;
                 })}
               </div>
               <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
-                <div className="hrms-premium-card rounded-2xl p-5">
+                <div className="hrms-premium-card hrms-dashboard-3d-card rounded-2xl p-5">
                   <div className="mb-5 flex items-center gap-2"><BarChart3 size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Attendance trend · Last 7 days</h3></div>
                   <div className="flex h-44 items-end justify-around gap-3 border-b border-slate-100 pb-2">
                     {Array.from({ length: 7 }, (_, index) => {
@@ -298,7 +298,7 @@ export default function Home() {
                   </div>
                   <p className="mt-3 text-xs text-slate-400">Counts include present and half-day records for each date.</p>
                 </div>
-                <div className="hrms-premium-card rounded-2xl p-5">
+                <div className="hrms-premium-card hrms-dashboard-3d-card rounded-2xl p-5">
                   <div className="mb-4 flex items-center gap-2"><Activity size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Recent Activity</h3></div>
                   {attendanceLoading ? <p className="py-6 text-sm text-slate-500">Loading recent activity…</p> : attendanceRecords.length === 0 ? <p className="py-6 text-sm text-slate-500">No attendance records found for this month yet.</p> : (
                     <div className="space-y-3">
@@ -356,12 +356,12 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="hrms-premium-card rounded-2xl p-5 sm:p-6">
+          <section className="hrms-premium-card hrms-dashboard-3d-card rounded-2xl p-5 sm:p-6">
             <div className="mb-4 flex items-center gap-3"><div className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><BriefcaseBusiness size={20} /></div><div><h2 className="font-bold text-slate-900">Quick actions</h2></div></div>
             <div className="grid gap-3 sm:grid-cols-3">
               {visibleQuickActions.map((item) => {
                 const Icon = item.icon;
-                return <Link key={item.href} href={item.href} className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3.5 text-sm font-semibold shadow-[0_3px_10px_rgba(15,23,42,0.04)] transition duration-200 hover:-translate-y-0.5 hover:shadow-md text-slate-700 transition hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700"><span className="flex items-center gap-3"><Icon size={18} className="text-blue-600" />{item.title}</span><ArrowUpRight size={16} className="text-slate-400" /></Link>;
+                return <Link key={item.href} href={item.href} className="hrms-dashboard-3d-card flex items-center justify-between rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3.5 text-sm font-semibold text-slate-700 hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700"><span className="flex items-center gap-3"><Icon size={18} className="text-blue-600" />{item.title}</span><ArrowUpRight size={16} className="text-slate-400" /></Link>;
               })}
             </div>
           </section>
