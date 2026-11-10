@@ -110,22 +110,22 @@ function GmailIntegrationContent() {
     ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
     : "Not available";
 
-  if (loading) return <main className="flex min-h-[320px] items-center justify-center bg-[#080d1c] text-xs text-slate-400"><RefreshCw size={15} className="mr-2 animate-spin" /> Loading Gmail integration...</main>;
+  if (loading) return <main className="flex min-h-[260px] items-center justify-center bg-[#080d1c] text-xs text-slate-400"><RefreshCw size={15} className="mr-2 animate-spin" /> Loading Gmail integration...</main>;
 
   return (
-    <main className="min-h-full bg-[radial-gradient(ellipse_at_top,_rgba(79,70,229,.18),transparent_42%),linear-gradient(145deg,#0b1224,#080d1c)] px-3 py-3 text-white sm:px-4 sm:py-4">
-      <div className={`mx-auto ${isPopup ? "max-w-3xl" : "max-w-5xl"}`}>
+    <main className="min-h-full bg-[linear-gradient(145deg,#0b1224,#080d1c)] px-3 py-3 text-white sm:px-4 sm:py-4">
+      <div className={`mx-auto ${isPopup ? "max-w-2xl" : "max-w-4xl"}`}>
         {!isPopup && <Link href="/" className="mb-4 inline-flex items-center gap-2 text-xs font-semibold text-slate-400 transition hover:text-white"><ArrowLeft size={14} /> Dashboard</Link>}
-        <header className="mb-4 flex items-center justify-between gap-3">
-          <div className="min-w-0"><p className="text-[9px] font-extrabold uppercase tracking-[.2em] text-indigo-300">Workspace integrations</p><h1 className="mt-1 text-xl font-black tracking-tight text-white">Google Gmail</h1><p className="mt-1 text-[11px] leading-5 text-slate-400">Connect a company Gmail account to review employee-related messages.</p></div>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-rose-300/20 bg-rose-300/10 text-rose-200"><Mail size={18} /></span>
+        <header className="mb-3 flex items-center justify-between gap-3 border-b border-white/[.08] pb-3">
+          <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[.18em] text-indigo-300">Integration settings</p><h1 className="mt-1 text-lg font-bold tracking-tight text-white">Google Gmail</h1><p className="mt-1 text-[10px] leading-4 text-slate-400">Company email connection and recent employee-related messages.</p></div>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-rose-300/20 bg-rose-300/10 text-rose-200"><Mail size={16} /></span>
         </header>
 
         {notice && <div role="status" className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/[.08] px-3 py-2 text-[11px] font-semibold text-emerald-100"><CheckCircle2 size={15} />{notice}</div>}
         {error && <div role="alert" className="mb-3 flex items-center gap-2 rounded-xl border border-rose-300/20 bg-rose-300/[.08] px-3 py-2 text-[11px] text-rose-100"><CircleAlert size={15} />{error}</div>}
 
         {!isAuthorized ? <section className="rounded-xl border border-amber-300/20 bg-amber-300/[.07] p-3 text-xs text-amber-100">Only Admin and HR accounts can manage the company Gmail integration.</section> : <>
-          <section className="rounded-2xl border border-white/10 bg-white/[.045] p-4 shadow-[0_16px_45px_-25px_rgba(0,0,0,.8)] backdrop-blur-xl">
+          <section className="rounded-xl border border-white/10 bg-white/[.045] p-3.5 shadow-[0_12px_35px_-25px_rgba(0,0,0,.8)] backdrop-blur-xl">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${status?.connected ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-200" : "border-white/10 bg-white/5 text-slate-400"}`}>{status?.connected ? <CheckCircle2 size={19} /> : <Unplug size={19} />}</span>
@@ -138,7 +138,7 @@ function GmailIntegrationContent() {
             </div>
           </section>
 
-          <section className="mt-3 flex items-start gap-2.5 rounded-xl border border-indigo-300/15 bg-indigo-300/[.055] p-3"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-indigo-200" /><div><h3 className="text-[11px] font-bold text-indigo-100">Privacy and access</h3><p className="mt-1 text-[10px] leading-4 text-slate-400">Read-only Gmail access. OAuth tokens are encrypted in the backend. Only Admin/HR can manage this integration; employee records are not modified automatically.</p></div></section>
+          <section className="mt-3 flex items-start gap-2 rounded-lg border border-indigo-300/15 bg-indigo-300/[.045] px-3 py-2.5"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-indigo-200" /><div><h3 className="text-[10px] font-bold text-indigo-100">Privacy & access</h3><p className="mt-1 text-[10px] leading-4 text-slate-400">Read-only Gmail access. OAuth tokens are encrypted in the backend. Only Admin/HR can manage this integration; employee records are not modified automatically.</p></div></section>
 
           <section className="mt-4">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-sm font-bold text-white">Recent Gmail messages</h2><p className="mt-0.5 text-[10px] text-slate-500">Up to 20 messages from the last 30 days.</p></div><button type="button" onClick={loadMessages} disabled={!status?.connected || syncing} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[.05] px-3 py-1.5 text-[10px] font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"><RefreshCw size={12} className={syncing ? "animate-spin" : ""} />{syncing ? "Loading..." : "Load messages"}</button></div>
