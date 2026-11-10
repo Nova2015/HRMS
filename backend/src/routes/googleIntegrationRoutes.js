@@ -483,8 +483,11 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
         }
 
         const accessToken = await getGmailAccessToken(integration);
-        const timeMin = new Date(from).toISOString();
-        const timeMax = new Date(to).toISOString();
+        const requestedTimeMin = new Date(from).toISOString();
+        const requestedTimeMax = new Date(to).toISOString();
+        // Read a wider window so a linked event moved across month boundaries is still discovered.
+        const timeMin = new Date(new Date(from).getTime() - 366 * 86400000).toISOString();
+        const timeMax = new Date(new Date(to).getTime() + 366 * 86400000).toISOString();
         const remoteEvents = [];
         let pageToken = "";
         do {
@@ -516,6 +519,8 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
             const mapped = fromGoogleCalendarResource(remote);
             if (!mapped) continue;
             let local = await CompanyEvent.findOne({ googleCalendarMappings: { $elemMatch: { userId: req.user.userId, calendarId: "primary", googleEventId: remote.id } } });
+            const overlapsRequestedRange = mapped.startAt <= new Date(requestedTimeMax) && mapped.endAt >= new Date(requestedTimeMin);
+            if (!local && !overlapsRequestedRange) continue;
             if (!local && remote.status !== "cancelled") {
                 local = await CompanyEvent.findOne({
                     title: mapped.title,
@@ -542,8 +547,8 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
         }
 
         const localEvents = await CompanyEvent.find({
-            startAt: { $lte: new Date(timeMax) },
-            endAt: { $gte: new Date(timeMin) }
+            startAt: { $lte: new Date(requestedTimeMax) },
+            endAt: { $gte: new Date(requestedTimeMin) }
         }).sort({ startAt: 1, _id: 1 });
 
         for (const local of localEvents) {
