@@ -75,6 +75,13 @@ async function parseXlsx(buffer: ArrayBuffer): Promise<string[][]> {
     return values.map((value) => value ?? "");
   });
 }
+function normalizeExcelDate(value: string, withTime = false): string {
+  if (!/^\\d+(?:\\.\\d+)?$/.test(value)) return value;
+  const milliseconds = Date.UTC(1899, 11, 30) + Number(value) * 86400000;
+  const date = new Date(milliseconds);
+  const day = date.toISOString().slice(0, 10);
+  return withTime ? `${day}T${date.toISOString().slice(11, 16)}` : day;
+}
 function downloadTemplate() {
   const blob = new Blob(["\ufeff", template], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob), a = document.createElement("a");
@@ -100,7 +107,7 @@ export default function CalendarImportActions({ onImport }: Props) {
       const parsed: ImportRow[] = raw.map((values, index) => {
         const get = (key: string) => values[headers.indexOf(key)] || "";
         const category = get("category").toLowerCase();
-        const date = get("date");
+        const date = normalizeExcelDate(get("date"));
         const name = get("name");
         if (!["holiday", "event"].includes(category)) throw new Error(`Row ${index + 2}: category must be holiday or event.`);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00Z`).getTime()) || new Date(`${date}T00:00:00Z`).toISOString().slice(0,10) !== date) throw new Error(`Row ${index + 2}: date must be YYYY-MM-DD.`);
@@ -108,8 +115,8 @@ export default function CalendarImportActions({ onImport }: Props) {
         const type = get("type") || (category === "holiday" ? "public" : "company_event");
         if (category === "holiday" && !["public", "optional", "company"].includes(type)) throw new Error(`Row ${index + 2}: holiday type must be public, optional or company.`);
         if (category === "event" && !["meeting", "company_event", "training", "other"].includes(type)) throw new Error(`Row ${index + 2}: event type is invalid.`);
-        const startAt = get("startat") || (category === "event" ? `${date}T09:00` : "");
-        const endAt = get("endat") || (category === "event" ? `${date}T10:00` : "");
+        const startAt = normalizeExcelDate(get("startat"), true) || (category === "event" ? `${date}T09:00` : "");
+        const endAt = normalizeExcelDate(get("endat"), true) || (category === "event" ? `${date}T10:00` : "");
         if (category === "event" && (!Number.isFinite(Date.parse(startAt)) || !Number.isFinite(Date.parse(endAt)) || Date.parse(endAt) <= Date.parse(startAt))) throw new Error(`Row ${index + 2}: event endAt must be after startAt.`);
         return { category: category as ImportRow["category"], date, name, type, description: get("description"), startAt, endAt, location: get("location"), allDay: ["true","yes","1"].includes(get("allday").toLowerCase()) };
       });
