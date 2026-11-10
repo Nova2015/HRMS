@@ -391,12 +391,12 @@ router.get("/gmail/calendar-candidates", protect, authorizeRoles("admin", "hr"),
         const classify = (value) => {
             const text = String(value || "").normalize("NFKC").toLocaleLowerCase();
             // Explicitly reject travel, lodging and entertainment-ticket content.
-            if (/\\b(flight|boarding pass|airline|train|railway|bus ticket|hotel reservation|hotel booking|movie ticket|cinema ticket|show ticket)\\b/i.test(text)) return null;
-            const cancellation = /\\b(cancelled|canceled|cancellation|called off|postponed indefinitely)\\b/i.test(text);
-            const reschedule = /\\b(rescheduled|reschedule|new time|time changed|date changed|updated schedule)\\b/i.test(text);
-            const meeting = /\\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite)\\b/i.test(text);
-            const festival = /\\b(diwali|deepavali|padwa|gudi padwa|ganeshotsav|ganesh chaturthi|holi|eid|christmas|makar sankranti|navratri|dussehra|raksha bandhan)\\b/i.test(text);
-            const functionEvent = /\\b(function|celebration|annual day|gathering|ceremony|company event|office event|seminar|workshop|training|festival)\\b/i.test(text);
+            if (/\b(flight|boarding pass|airline|train|railway|bus ticket|hotel reservation|hotel booking|movie ticket|cinema ticket|show ticket)\b/i.test(text)) return null;
+            const cancellation = /\b(cancelled|canceled|cancellation|called off|postponed indefinitely)\b/i.test(text);
+            const reschedule = /\b(rescheduled|reschedule|new time|time changed|date changed|updated schedule)\b/i.test(text);
+            const meeting = /\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite)\b/i.test(text);
+            const festival = /\b(diwali|deepavali|padwa|gudi padwa|ganeshotsav|ganesh chaturthi|holi|eid|christmas|makar sankranti|navratri|dussehra|raksha bandhan)\b/i.test(text);
+            const functionEvent = /\b(function|celebration|annual day|gathering|ceremony|company event|office event|seminar|workshop|training|festival)\b/i.test(text);
             if (meeting) return { category: "meeting", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "invitation" };
             if (festival) return { category: "festival", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "event" };
             if (functionEvent) return { category: "company_event", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "event" };
@@ -410,9 +410,9 @@ router.get("/gmail/calendar-candidates", protect, authorizeRoles("admin", "hr"),
                 const message = await gmailApiFetch(detailUrl, accessToken);
                 const headers = message.payload?.headers || [];
                 const header = (name) => headers.find((item) => item.name?.toLowerCase() === name)?.value || "";
-                const bodyText = collectPlainText(message.payload).join("\\n").trim();
+                const bodyText = collectPlainText(message.payload).join("\n").trim();
                 const subject = header("subject");
-                const classification = classify(subject + "\\n" + (message.snippet || "") + "\\n" + bodyText);
+                const classification = classify(subject + "\n" + (message.snippet || "") + "\n" + bodyText);
                 if (!classification) return null;
                 return {
                     messageId: message.id,
