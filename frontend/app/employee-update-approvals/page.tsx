@@ -85,6 +85,13 @@ function ApprovalQueue() {
   }, [status]);
 
   useEffect(() => { void loadRequests(); }, [loadRequests]);
+
+  useEffect(() => {
+    const savedMode = window.localStorage.getItem("hrms_approval_animation_mode");
+    if (savedMode === "cinematic" || savedMode === "flip" || savedMode === "hologram" || savedMode === "slide") {
+      setAnimationMode(savedMode);
+    }
+  }, []);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return requests;
@@ -209,12 +216,6 @@ function ApprovalQueue() {
               </div>
             </div>
             <div className="relative p-6 sm:p-7" style={{ transform: "translateZ(16px)" }}>
-              <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                <div className="mb-2 flex items-center justify-between gap-2"><p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-slate-500">Animation mode</p><span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-600">Live preview</span></div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {([{ id: "cinematic", label: "Cinematic", hint: "3D depth" }, { id: "flip", label: "3D Flip", hint: "Card rotation" }, { id: "hologram", label: "Hologram", hint: "Neon reveal" }, { id: "slide", label: "Dynamic", hint: "Motion slide" }] as const).map((mode) => <button key={mode.id} type="button" onClick={() => setAnimationMode(mode.id)} className={`rounded-xl border px-2 py-2 text-left transition-all duration-200 ${animationMode === mode.id ? "border-indigo-500 bg-indigo-50 shadow-[0_5px_18px_-8px_rgba(79,70,229,.55)] ring-1 ring-indigo-400" : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-400"}`}><span className="block text-xs font-bold text-slate-800">{mode.label}</span><span className="mt-0.5 block text-[10px] text-slate-500">{mode.hint}</span></button>)}
-                </div>
-              </div>
               <p className="text-sm leading-6 text-slate-600">{confirmTarget.decision === "approve" ? "This will apply the proposed values to the employee record. Review the change before continuing." : "This will mark the proposal as rejected. The employee record will remain unchanged."}</p>
               <div className="mt-4 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-4 shadow-[inset_0_1px_3px_rgba(15,23,42,.05),0_8px_20px_-15px_rgba(15,23,42,.3)]" style={{ transform: "translateZ(12px)" }}>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employee</p>
