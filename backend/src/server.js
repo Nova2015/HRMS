@@ -27,6 +27,7 @@ import googleIntegrationRoutes from "./routes/googleIntegrationRoutes.js";
 import employeeUpdateApprovalRoutes from "./routes/employeeUpdateApprovalRoutes.js";
 import performanceRoutes from "./routes/performanceRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import auditLogRoutes from "./routes/auditLogRoutes.js";
 
 const app = express();
 
@@ -74,6 +75,7 @@ app.use("/api/integrations/google", googleIntegrationRoutes);
 app.use("/api/employee-update-approvals", employeeUpdateApprovalRoutes);
 app.use("/api/performance", performanceRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/audit-logs", auditLogRoutes);
 
 app.use((req, res) => {
     res.status(404).json({
