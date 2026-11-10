@@ -24,7 +24,7 @@ const MODULES = [
   ["all", "All modules"], ["employees", "Employees"], ["attendance", "Attendance"],
   ["leaves", "Leave"], ["payroll", "Payroll"], ["recruitment", "Recruitment"],
   ["approvals", "Approvals"], ["performance", "Performance"], ["auth", "Security"],
-  ["expenses", "Expenses"], ["helpdesk", "IT support"], ["holidays", "Holidays"], ["shifts", "Shifts"]
+  ["expenses", "Expenses"], ["helpdesk", "IT support"], ["holidays", "Holidays"], ["shifts", "Shifts"], ["calendar", "Calendar"]
 ];
 const pretty = (value: string) => value.replace(/[._]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 const dateTime = (value: string) => new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
