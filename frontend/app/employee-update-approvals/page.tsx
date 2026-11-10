@@ -174,23 +174,39 @@ function ApprovalQueue() {
         </section>
         {confirmTarget && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setConfirmTarget(null); }}>
           <style>{`
-            @keyframes approvalBackdropIn { from { opacity: 0; } to { opacity: 1; } }
-            @keyframes approvalDialogIn { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-            @keyframes approvalIconPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+            @keyframes approvalBackdropIn { from { opacity: 0; backdrop-filter: blur(0); } to { opacity: 1; backdrop-filter: blur(12px); } }
+            @keyframes approval3DEntrance { 0% { opacity: 0; transform: perspective(1400px) translateY(70px) rotateX(22deg) rotateY(-9deg) scale(.82); } 65% { opacity: 1; transform: perspective(1400px) translateY(-8px) rotateX(-3deg) rotateY(2deg) scale(1.015); } 100% { opacity: 1; transform: perspective(1400px) translateY(0) rotateX(0) rotateY(0) scale(1); } }
+            @keyframes approvalIconPulse { 0%, 100% { transform: translateZ(22px) rotateY(-8deg) scale(1); } 50% { transform: translateZ(42px) rotateY(12deg) scale(1.1); } }
+            @keyframes approvalOrbit { from { transform: rotateX(68deg) rotateZ(0deg); } to { transform: rotateX(68deg) rotateZ(360deg); } }
+            @keyframes approvalFloat { 0%, 100% { transform: translate3d(0,0,0) rotate(0deg); } 50% { transform: translate3d(0,-13px,18px) rotate(8deg); } }
+            @keyframes approvalShine { 0% { transform: translateX(-160%) skewX(-20deg); } 100% { transform: translateX(260%) skewX(-20deg); } }
+            @keyframes approvalGlow { 0%,100% { opacity:.42; transform:scale(.94); } 50% { opacity:.9; transform:scale(1.08); } }
+            .approval-3d-scene { perspective: 1600px; perspective-origin: 50% 42%; }
+            .approval-3d-card { position:relative; transform-style:preserve-3d; will-change:transform; box-shadow:0 45px 100px -28px rgba(2,6,23,.72),0 18px 35px -18px rgba(2,6,23,.5),inset 0 1px 0 rgba(255,255,255,.85); }
+            .approval-3d-card:before { content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(255,255,255,.12),rgba(148,163,184,.55));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none; }
+            .approval-3d-card:after { content:"";position:absolute;inset:10px;border-radius:22px;border:1px solid rgba(148,163,184,.13);transform:translateZ(-8px);pointer-events:none; }
+            .approval-3d-shine { position:absolute;inset:-30% auto -30% -35%;width:34%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);animation:approvalShine 4.8s ease-in-out infinite;pointer-events:none; }
+            @media (prefers-reduced-motion: reduce) { .approval-3d-card,.approval-3d-shine { animation:none !important; } }
           `}</style>
-          <section role="dialog" aria-modal="true" aria-labelledby="approval-confirm-title" className="w-full max-w-md overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl" style={{ animation: "approvalDialogIn .28s cubic-bezier(.2,.8,.2,1) both" }}>
-            <div className={`relative overflow-hidden px-6 pb-6 pt-7 text-white ${confirmTarget.decision === "approve" ? "bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700" : "bg-gradient-to-br from-rose-600 via-red-600 to-orange-600"}`}>
-              <div className="absolute -right-8 -top-10 h-36 w-36 rounded-full border-[22px] border-white/10" />
-              <div className="relative flex items-center gap-4">
-                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white/15 shadow-inner" style={{ animation: "approvalIconPulse 1.8s ease-in-out infinite" }}>
-                  {confirmTarget.decision === "approve" ? <ShieldCheck size={30} /> : <X size={30} />}
+          <div className="approval-3d-scene w-full max-w-lg">
+          <section role="dialog" aria-modal="true" aria-labelledby="approval-confirm-title" className="approval-3d-card w-full overflow-hidden rounded-[30px] border border-white/70 bg-white" style={{ animation: "approval3DEntrance .72s cubic-bezier(.16,1,.3,1) both" }}>
+            <div className={`relative isolate overflow-hidden px-6 pb-8 pt-8 text-white ${confirmTarget.decision === "approve" ? "bg-gradient-to-br from-[#052e2b] via-emerald-700 to-cyan-700" : "bg-gradient-to-br from-[#3b0714] via-rose-700 to-orange-700"}`}>
+              <div className="absolute -right-16 -top-24 h-72 w-72 rounded-full border border-white/10" style={{ transform: "translateZ(-24px)", animation: "approvalFloat 7s ease-in-out infinite" }} />
+              <div className="absolute -right-5 -top-14 h-52 w-52 rounded-full border-[24px] border-white/[0.06]" style={{ animation: "approvalGlow 4s ease-in-out infinite" }} />
+              <div className="absolute -bottom-24 left-1/3 h-52 w-52 rounded-full bg-white/10 blur-3xl" />
+              <div className="approval-3d-shine" />
+              <div className="relative flex items-center gap-5" style={{ transformStyle: "preserve-3d" }}>
+                <div className="relative grid h-[76px] w-[76px] shrink-0 place-items-center rounded-[22px] border border-white/30 bg-white/15 shadow-[0_18px_38px_-12px_rgba(0,0,0,.5),inset_0_1px_0_rgba(255,255,255,.45)] backdrop-blur-xl" style={{ transform: "translateZ(34px) rotateY(-9deg) rotateX(7deg)", animation: "approvalIconPulse 3.2s ease-in-out infinite" }}>
+                  <div className="absolute -inset-3 rounded-[28px] border border-white/25" style={{ animation: "approvalOrbit 9s linear infinite" }} />
+                  <div className="absolute inset-1 rounded-[17px] border border-white/15" />
+                  {confirmTarget.decision === "approve" ? <ShieldCheck size={36} strokeWidth={1.8} /> : <X size={36} strokeWidth={2} />}
                 </div>
                 <div><p className="text-xs font-bold uppercase tracking-[.18em] text-white/75">Final confirmation</p><h2 id="approval-confirm-title" className="mt-1 text-2xl font-extrabold">{confirmTarget.decision === "approve" ? "Approve update?" : "Reject update?"}</h2></div>
               </div>
             </div>
-            <div className="p-6">
+            <div className="relative p-6 sm:p-7" style={{ transform: "translateZ(16px)" }}>
               <p className="text-sm leading-6 text-slate-600">{confirmTarget.decision === "approve" ? "This will apply the proposed values to the employee record. Review the change before continuing." : "This will mark the proposal as rejected. The employee record will remain unchanged."}</p>
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mt-4 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-4 shadow-[inset_0_1px_3px_rgba(15,23,42,.05),0_8px_20px_-15px_rgba(15,23,42,.3)]" style={{ transform: "translateZ(12px)" }}>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employee</p>
                 <p className="mt-1 font-bold text-slate-900">{confirmTarget.request.employee ? confirmTarget.request.employee.firstName + " " + confirmTarget.request.employee.lastName : "Employee record"}</p>
                 <p className="text-xs text-slate-500">{confirmTarget.request.employeeCode}</p>
@@ -208,6 +224,7 @@ function ApprovalQueue() {
               <p className="mt-4 text-center text-[11px] text-slate-400">A short confirmation sound plays when supported by your browser.</p>
             </div>
           </section>
+          </div>
         </div>}
         <p className="mt-4 text-xs text-slate-400">Sensitive identifiers and login credentials are excluded from external update approvals.</p>
       </div>
