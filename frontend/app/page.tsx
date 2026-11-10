@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, ShieldCheck,
+  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, ShieldCheck, Award,
   CalendarCheck, BriefcaseBusiness, ChevronRight,
   UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound, Headset,
 } from "lucide-react";
@@ -110,6 +110,15 @@ const modules = [
     accent: "group-hover:border-indigo-200",
   },
   {
+    title: "Performance",
+    description: "Employee self-reviews, manager feedback and performance ratings.",
+    href: "/performance",
+    action: "Open performance reviews",
+    icon: Award,
+    iconStyle: "bg-amber-50 text-amber-700",
+    accent: "group-hover:border-amber-200",
+  },
+  {
     title: "Recruitment",
     description: "Manage job openings, candidate selection and employee onboarding.",
     href: "/recruitment",
@@ -195,7 +204,7 @@ export default function Home() {
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expenses", "IT support", "Holiday Calendar"].includes(item.title));
+    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expenses", "IT support", "Holiday Calendar", "Performance"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
