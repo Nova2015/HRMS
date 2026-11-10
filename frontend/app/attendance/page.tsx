@@ -744,7 +744,6 @@ function AttendanceWorkspace() {
             <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-4">
               <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-500">Selected day · Daily overview</p>
               <h3 className="mt-1 text-lg font-extrabold text-slate-900">{selectedLabel}</h3>
-              <p className="mt-1 text-xs text-slate-500">Calendar मधील Function वर click करून त्या दिवसाची माहिती पाहा.</p>
             </div>
             <div className="max-h-[620px] space-y-4 overflow-y-auto p-4">
               <div>
