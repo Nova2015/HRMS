@@ -76,12 +76,12 @@ function CalendarContent() {
   },[month]);
 
   const onDay = (k:string) => ({
-    event: events.some(x=>keyOf(new Date(x.startAt))===k),
+    event: events.some(x=>keyOf(new Date(x.startAt))<=k&&keyOf(new Date(x.endAt))>=k),
     holiday: holidays.some(x=>x.dateKey===k),
     leave: leaves.some(x=>["pending","approved"].includes(x.status)&&x.startDate<=k&&x.endDate>=k),
     attendance: attendance.some(x=>x.dateKey===k)
   });
-  const dayEvents=events.filter(x=>keyOf(new Date(x.startAt))===selected);
+  const dayEvents=events.filter(x=>keyOf(new Date(x.startAt))<=selected&&keyOf(new Date(x.endAt))>=selected);
   const dayHolidays=holidays.filter(x=>x.dateKey===selected);
   const dayLeaves=leaves.filter(x=>["pending","approved"].includes(x.status)&&x.startDate<=selected&&x.endDate>=selected);
   const dayAttendance=attendance.filter(x=>x.dateKey===selected);
