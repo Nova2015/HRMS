@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import AuditLog from "../models/AuditLog.js";
 
 export const getAuditLogs = async (req, res) => {
