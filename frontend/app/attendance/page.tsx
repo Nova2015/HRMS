@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3,
   LogIn, LogOut, Save, Users, CheckCircle2,
-  AlertCircle, Timer, CalendarCheck2, X
+  AlertCircle, Timer, CalendarCheck2, X, RefreshCw
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 import CalendarExportActions from "./CalendarExportActions";
@@ -123,6 +123,7 @@ function AttendanceWorkspace() {
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [googleSyncing, setGoogleSyncing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [showCorrection, setShowCorrection] = useState(false);
@@ -247,6 +248,34 @@ function AttendanceWorkspace() {
     await loadWorkspace();
     return { created, updated, skipped };
   }, [apiRequest, loadWorkspace]);
+
+  const syncGoogleCalendar = async () => {
+    setGoogleSyncing(true); setError(""); setNotice("");
+    try {
+      const status = await apiRequest("/integrations/google/calendar/status");
+      if (!status.connected) {
+        const connection = await apiRequest("/integrations/google/gmail/connect");
+        if (!connection.authorizationUrl) throw new Error("Unable to start Google Calendar authorization.");
+        setNotice("Google Calendar permission is required. Complete the Google consent screen to connect.");
+        window.location.assign(connection.authorizationUrl);
+        return;
+      }
+      const result = await apiRequest("/integrations/google/calendar/sync", {
+        method: "POST",
+        body: JSON.stringify({
+          from: new Date(`${monthStart}T00:00:00`).toISOString(),
+          to: new Date(`${monthEnd}T23:59:59.999`).toISOString(),
+        }),
+      });
+      const summary = result.data || {};
+      setNotice(`Google Calendar sync complete — ${summary.imported || 0} imported, ${summary.pulledUpdates || 0} updated from Google, ${summary.pushed || 0} sent to Google, ${summary.cancelled || 0} cancelled.`);
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google Calendar sync failed.");
+    } finally {
+      setGoogleSyncing(false);
+    }
+  };
 
   useEffect(() => {
     let nextRole: Role = "employee";
@@ -673,6 +702,8 @@ function AttendanceWorkspace() {
               <div className="flex flex-wrap items-center gap-2">
                 <CalendarExportActions month={month} selectedDay={selectedDay} records={records} holidays={holidays} leaves={leaves} events={companyEvents} />
                 {isAdmin && <CalendarImportActions onImport={importCalendarRows} />}
+                {isAdmin && <button type="button" onClick={syncGoogleCalendar} disabled={googleSyncing} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs font-bold text-sky-700 shadow-sm transition hover:bg-sky-100 disabled:opacity-50"><RefreshCw size={14} className={googleSyncing ? "animate-spin" : ""} />{googleSyncing ? "Syncing..." : "Google Sync"}</button>}
+
                 {isAdmin && <><button type="button" onClick={() => { setHolidayEditId(null); setHolidayForm({ name: "", dateKey: selectedDay, type: "public", description: "" }); setShowHolidayModal(true); }} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-50">Manage holidays</button><button type="button" onClick={() => { setEventEditId(null); setEventForm({ title: "", description: "", eventType: "company_event", startAt: "", endAt: "", allDay: false, location: "" }); setShowEventForm(true); }} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:-translate-y-0.5"><CalendarDays size={15} /> Add event / meeting</button></>}
                 <button type="button" aria-label="Previous month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() - 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronLeft size={18} /></button>
                 <button type="button" onClick={() => { setMonth(new Date()); setSelectedDay(todayKey()); }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Today</button>
