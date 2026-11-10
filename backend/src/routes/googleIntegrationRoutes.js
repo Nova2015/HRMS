@@ -141,7 +141,16 @@ router.get("/gmail/callback", async (req, res) => {
     try {
         const config = getOAuthConfig();
         const { code, state, error: googleError } = req.query;
-        if (googleError) return res.status(400).json({ success: false, message: "Google authorization was not completed" });
+        if (googleError) {
+            const safeGoogleError = typeof googleError === "string" && /^[a-zA-Z0-9_.-]{1,80}$/.test(googleError)
+                ? googleError
+                : "unknown_error";
+            console.error("Google OAuth authorization returned an error:", safeGoogleError);
+            return res.status(400).json({
+                success: false,
+                message: `Google authorization was not completed (${safeGoogleError})`
+            });
+        }
         if (typeof code !== "string" || typeof state !== "string") {
             return res.status(400).json({ success: false, message: "Missing Google OAuth callback parameters" });
         }
