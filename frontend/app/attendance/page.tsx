@@ -45,6 +45,7 @@ type Holiday = {
   name: string;
   dateKey: string;
   type: "public" | "optional" | "company";
+  description?: string;
 };
 type CompanyEvent = {
   _id: string;
@@ -75,6 +76,10 @@ const monthKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 
 const formatTime = (value: string | null) => value
   ? new Date(value).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
   : "—";
+const toLocalDateTimeInput = (value: string) => {
+  const date = new Date(value);
+  return `${localDateKey(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 const formatHours = (minutes: number) => `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 const statusClass: Record<AttendanceStatus, string> = {
   present: "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -306,8 +311,8 @@ function AttendanceWorkspace() {
       title: event.title,
       description: event.description || "",
       eventType: event.eventType,
-      startAt: new Date(event.startAt).toLocaleString("sv-SE").slice(0, 16),
-      endAt: new Date(event.endAt).toLocaleString("sv-SE").slice(0, 16),
+      startAt: toLocalDateTimeInput(event.startAt),
+      endAt: toLocalDateTimeInput(event.endAt),
       allDay: event.allDay,
       location: event.location || "",
     });
