@@ -46,6 +46,17 @@ type Holiday = {
   dateKey: string;
   type: "public" | "optional" | "company";
 };
+type CompanyEvent = {
+  _id: string;
+  title: string;
+  description?: string;
+  eventType: "meeting" | "company_event" | "training" | "other";
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
+  location?: string;
+  status: "scheduled" | "cancelled";
+};
 type LeaveRequest = {
   _id: string;
   leaveType: string;
@@ -80,6 +91,8 @@ function AttendanceWorkspace() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [companyEvents, setCompanyEvents] = useState<CompanyEvent[]>([]);
+  const [showDayDetails, setShowDayDetails] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leaveSaving, setLeaveSaving] = useState(false);
   const [leaveForm, setLeaveForm] = useState({ leaveType: "earned", startDate: todayKey(), endDate: todayKey(), reason: "" });
@@ -146,6 +159,7 @@ function AttendanceWorkspace() {
         apiRequest(`/holidays?${range}`),
         apiRequest("/auth/me"),
         apiRequest("/leaves"),
+        apiRequest(`/calendar/events?from=${encodeURIComponent(new Date(`${monthStart}T00:00:00`).toISOString())}&to=${encodeURIComponent(new Date(`${monthEnd}T23:59:59.999`).toISOString())}`),
       ];
       if (canSeeTeam) requests.push(apiRequest("/attendance/team"));
       const results = await Promise.all(requests);
@@ -153,9 +167,10 @@ function AttendanceWorkspace() {
       setRecords((results[1].data as AttendanceRecord[] | undefined) || []);
       setHolidays((results[2].data as Holiday[] | undefined) || []);
       setLeaves((results[4].data as LeaveRequest[] | undefined) || []);
+      setCompanyEvents((results[5].data as CompanyEvent[] | undefined) || []);
       const authData = results[3].data as { employee?: { shift?: { weeklyOffDays?: number[] } | null } } | undefined;
       setOwnWeeklyOffDays(authData?.employee?.shift?.weeklyOffDays || []);
-      if (canSeeTeam) setEmployees((results[5].data as Employee[] | undefined) || []);
+      if (canSeeTeam) setEmployees((results[6].data as Employee[] | undefined) || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load attendance workspace");
     } finally {
@@ -303,6 +318,13 @@ function AttendanceWorkspace() {
   const selectedRecords = records.filter((record) => record.dateKey === selectedDay);
   const selectedLeaves = leaves.filter((leave) => leave.status === "pending" || leave.status === "approved").filter((leave) => leave.startDate <= selectedDay && leave.endDate >= selectedDay);
   const selectedHoliday = holidays.filter((holiday) => holiday.dateKey === selectedDay);
+  const selectedEvents = companyEvents.filter((event) => {
+    const start = new Date(event.startAt);
+    const end = new Date(event.endAt);
+    const dayStart = new Date(`${selectedDay}T00:00:00`);
+    const dayEnd = new Date(`${selectedDay}T23:59:59.999`);
+    return event.status === "scheduled" && start <= dayEnd && end >= dayStart;
+  });
   const summary = useMemo(() => ({
     present: records.filter((record) => record.status === "present").length,
     halfDay: records.filter((record) => record.status === "half-day").length,
@@ -480,9 +502,10 @@ function AttendanceWorkspace() {
                 const isSelected = cell.key === selectedDay;
                 return (
                   <div key={cell.key} className={`relative flex min-h-[78px] flex-col items-start rounded-2xl border p-1.5 text-left sm:min-h-[112px] sm:p-2.5 ${!cell.inMonth ? "border-transparent bg-slate-50/50 text-slate-300" : isSunday || isHoliday ? "border-rose-100 bg-rose-50/60 text-slate-700" : "border-slate-100/90 bg-white/70 text-slate-700 hover:border-indigo-200"} ${isSelected ? "border-indigo-300 bg-indigo-50/90 shadow-[0_5px_18px_rgba(99,102,241,0.12)] ring-1 ring-indigo-200" : ""}`}>
-                    <div className="flex w-full items-center justify-between"><span aria-label={cell.key} className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${isToday ? (isSunday || isHoliday ? "bg-rose-600 text-white" : "bg-indigo-600 text-white") : isSunday || isHoliday ? "bg-rose-100 text-rose-700" : cell.inMonth ? "text-slate-700" : "text-slate-400"}`}>{cell.day}</span><div className="flex items-center gap-2">{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}{dayRecords.length > 0 && <button type="button" title="Apply for leave" aria-label={`Apply for leave on ${cell.key}`} onClick={() => openLeaveForDate(cell.key)} className={`h-3.5 w-3.5 rounded-full ring-2 ring-white shadow-sm transition hover:scale-125 focus:outline-none focus:ring-4 focus:ring-indigo-200 ${statuses.includes("absent") ? "bg-rose-500" : statuses.includes("half-day") ? "bg-amber-500" : "bg-emerald-500"}`} />}</div></div>
+                    <div className="flex w-full items-center justify-between"><button type="button" aria-label={`Select date ${cell.key}`} onClick={() => { setSelectedDay(cell.key); if (!isAdmin) openLeaveForDate(cell.key); }} className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition hover:ring-2 hover:ring-indigo-200 ${isToday ? (isSunday || isHoliday ? "bg-rose-600 text-white" : "bg-indigo-600 text-white") : isSunday || isHoliday ? "bg-rose-100 text-rose-700" : cell.inMonth ? "text-slate-700" : "text-slate-400"}`}>{cell.day}</button><div className="flex items-center gap-2">{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}{dayRecords.length > 0 && <button type="button" title="View attendance details" aria-label={`View attendance details for ${cell.key}`} onClick={() => { setSelectedDay(cell.key); setShowDayDetails(true); }} className={`h-3.5 w-3.5 rounded-full ring-2 ring-white shadow-sm transition hover:scale-125 focus:outline-none focus:ring-4 focus:ring-indigo-200 ${statuses.includes("absent") ? "bg-rose-500" : statuses.includes("half-day") ? "bg-amber-500" : "bg-emerald-500"}`} />}</div></div>
                     <div className="mt-1.5 space-y-1">
                       {dayHoliday.slice(0, 1).map((holiday) => <div key={holiday._id} className="w-full truncate rounded-md bg-rose-50 px-1 py-1 text-[8px] font-bold text-rose-700 sm:text-[10px]">{holiday.name}</div>)}
+                      {companyEvents.filter((event) => event.status === "scheduled" && new Date(event.startAt) <= new Date(`${cell.key}T23:59:59.999`) && new Date(event.endAt) >= new Date(`${cell.key}T00:00:00`)).slice(0, 1).map((event) => <div key={event._id} title={event.title} className="w-full truncate rounded-md bg-violet-50 px-1 py-1 text-[8px] font-bold text-violet-700 sm:text-[10px]">{event.eventType === "meeting" ? "Meeting" : event.eventType === "training" ? "Training" : "Event"} · {event.title}</div>)}
                       {dayLeaves.slice(0, 1).map((leave) => <div key={leave._id} className={`w-full truncate rounded-md px-1 py-1 text-[8px] font-bold sm:text-[10px] ${leave.status === "approved" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{leave.status === "approved" ? "Approved leave" : "Pending leave"}</div>)}
                       {isWeeklyOff && <div className="w-full truncate rounded-md bg-slate-100 px-1 py-1 text-[8px] font-bold text-slate-600 sm:text-[10px]">Weekly Off</div>}
                       {statuses.slice(0, 2).map((status) => <div key={status} className={`w-full truncate rounded-md px-1 py-1 text-[8px] font-bold capitalize sm:text-[10px] ${status === "present" ? "bg-emerald-50 text-emerald-700" : status === "half-day" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"}`}>{status === "half-day" ? "Half day" : status}</div>)}
@@ -493,6 +516,7 @@ function AttendanceWorkspace() {
               })}
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 px-5 py-4 text-xs text-slate-600">
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-violet-500" />Company events / Meetings</span>
               <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Present</span>
               <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />Absent</span>
               <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-amber-500" />Half Day</span>
@@ -505,6 +529,16 @@ function AttendanceWorkspace() {
 
         </div>
 
+        {showDayDetails && <div className="fixed inset-0 z-[85] flex items-center justify-center overflow-y-auto bg-slate-950/40 px-4 py-8 backdrop-blur-md" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowDayDetails(false); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="attendance-details-title" className="my-auto w-full max-w-2xl rounded-[28px] border border-white/80 bg-white/95 p-5 shadow-[0_28px_90px_rgba(15,23,42,0.24)] sm:p-7">
+            <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-500">Daily attendance</p><h2 id="attendance-details-title" className="mt-1 text-2xl font-extrabold text-slate-950">Attendance Details</h2><p className="mt-1 text-sm text-slate-500">{selectedLabel}</p></div><button type="button" onClick={() => setShowDayDetails(false)} aria-label="Close attendance details" className="rounded-xl bg-slate-100 p-2.5 text-slate-500 hover:bg-slate-200"><X size={18} /></button></div>
+            {selectedRecords.length ? <div className="space-y-3">{selectedRecords.map((record) => <div key={record._id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-bold text-slate-900">{record.employee ? `${record.employee.firstName} ${record.employee.lastName}` : "My attendance"}</p><p className="text-xs text-slate-500">{record.employee?.employeeCode || ""}</p></div><span className={`rounded-full border px-3 py-1 text-xs font-bold capitalize ${statusClass[record.status]}`}>{record.status === "half-day" ? "Half day" : record.status}</span></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><div><p className="text-[10px] font-bold uppercase text-slate-400">Check-in</p><p className="mt-1 font-semibold text-slate-800">{formatTime(record.checkIn)}</p></div><div><p className="text-[10px] font-bold uppercase text-slate-400">Check-out</p><p className="mt-1 font-semibold text-slate-800">{formatTime(record.checkOut)}</p></div><div><p className="text-[10px] font-bold uppercase text-slate-400">Working time</p><p className="mt-1 font-semibold text-slate-800">{formatHours(record.workMinutes || 0)}</p></div><div><p className="text-[10px] font-bold uppercase text-slate-400">Flags</p><p className="mt-1 font-semibold text-slate-800">{record.isLate ? "Late" : "On time"}{record.isEarlyLeaving ? " · Early leave" : ""}</p></div></div>{record.notes && <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{record.notes}</p>}</div>)}</div> : <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">No attendance record for this date.</div>}
+            {selectedHoliday.length > 0 && <div className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-800"><strong>Holiday:</strong> {selectedHoliday.map((holiday) => holiday.name).join(", ")}</div>}
+            {selectedLeaves.length > 0 && <div className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800"><strong>Leave:</strong> {selectedLeaves.map((leave) => `${leave.leaveType} (${leave.status})`).join(", ")}</div>}
+            {selectedEvents.length > 0 && <div className="mt-3 space-y-2">{selectedEvents.map((event) => <div key={event._id} className="rounded-xl bg-violet-50 p-3 text-sm text-violet-900"><strong>{event.title}</strong><p className="mt-1 text-xs">{event.eventType.replace("_", " ")} · {event.allDay ? "All day" : `${formatTime(event.startAt)} – ${formatTime(event.endAt)}`}{event.location ? ` · ${event.location}` : ""}</p>{event.description && <p className="mt-2 text-violet-800">{event.description}</p>}</div>)}</div>}
+            <div className="mt-6 flex justify-end"><button type="button" onClick={() => setShowDayDetails(false)} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white">Close</button></div>
+          </section>
+        </div>}
         {showLeaveModal && <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/35 px-4 py-8 backdrop-blur-md" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowLeaveModal(false); }}>
           <section role="dialog" aria-modal="true" aria-labelledby="attendance-leave-title" className="my-auto w-full max-w-xl rounded-[28px] border border-white/80 bg-white/95 p-5 shadow-[0_28px_90px_rgba(15,23,42,0.22)] sm:p-7">
             <div className="mb-6 flex items-start justify-between gap-4"><div><p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-indigo-500">Leave request</p><h2 id="attendance-leave-title" className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950">Apply for leave</h2><p className="mt-1 text-sm text-slate-500">Your request will follow the existing HR approval process.</p></div><button type="button" onClick={() => setShowLeaveModal(false)} aria-label="Close leave application" className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"><X size={18} /></button></div>
