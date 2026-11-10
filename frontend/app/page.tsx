@@ -306,30 +306,32 @@ export default function Home() {
             <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-white/5" />
             <div className="pointer-events-none absolute right-24 top-16 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
             {role === "employee" ? (
-              <div className="relative z-10">
-                <div className="flex flex-wrap items-start justify-between gap-5">
-                  <div className="flex min-w-0 items-center gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-blue-100 shadow-inner"><UserCircle2 size={27} strokeWidth={1.5} /></div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-200">Employee profile</p>
-                      <h2 className="mt-0.5 truncate text-xl font-bold tracking-tight sm:text-2xl">{employeeProfileLoading ? "Loading your profile…" : employeeProfile ? `${employeeProfile.firstName} ${employeeProfile.lastName}` : "Your employee information"}</h2>
-                      <p className="mt-0.5 text-xs text-slate-300">{employeeProfile?.designation?.name || "Designation not assigned"}{employeeProfile?.department?.name ? ` · ${employeeProfile.department.name}` : ""}</p>
-                    </div>
-                  </div>
-                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold capitalize ${employeeProfile?.employmentStatus === "active" ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-200" : "border-white/15 bg-white/10 text-slate-200"}`}>{employeeProfileLoading ? "Loading" : employeeProfile?.employmentStatus || "Profile unavailable"}</span>
+              <div className="relative z-10 max-w-2xl">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="h-1 w-7 rounded-full bg-gradient-to-r from-sky-300 to-blue-500 shadow-[0_0_14px_rgba(96,165,250,0.55)]" />
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-blue-200">Employee profile</p>
+                </div>
+                <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl">
+                  {employeeProfileLoading ? "Loading your profile…" : employeeProfile ? `${employeeProfile.firstName} ${employeeProfile.lastName}` : "Your employee information"}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-blue-100">{employeeProfile?.designation?.name || "Designation not assigned"}{employeeProfile?.department?.name ? ` · ${employeeProfile.department.name}` : ""}</p>
+                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold capitalize tracking-wide ${employeeProfile?.employmentStatus === "active" ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-200" : "border-white/15 bg-white/10 text-slate-200"}`}>{employeeProfileLoading ? "Loading" : employeeProfile?.employmentStatus || "Profile unavailable"}</span>
                 </div>
                 {employeeProfile ? (
-                  <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-white/15 pt-3">
-                    <p className="text-xs"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Employee ID</span><span className="ml-2 font-semibold text-white">{employeeProfile.employeeCode}</span></p>
-                    <p className="text-xs"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Department</span><span className="ml-2 font-semibold text-white">{employeeProfile.department?.name || "Not assigned"}</span></p>
-                    <p className="text-xs"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Joining date</span><span className="ml-2 font-semibold text-white">{employeeProfile.joiningDate ? new Date(employeeProfile.joiningDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span></p>
-                    <p className="text-xs"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Reporting manager</span><span className="ml-2 font-semibold text-white">{employeeProfile.reportingManager ? `${employeeProfile.reportingManager.firstName} ${employeeProfile.reportingManager.lastName}` : "Not assigned"}</span></p>
+                  <div className="mt-5 max-w-xl border-l-2 border-blue-300/40 pl-4">
+                    <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+                      <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Employee ID</span><span className="ml-2 font-semibold text-white">{employeeProfile.employeeCode}</span></p>
+                      <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Department</span><span className="ml-2 font-semibold text-white">{employeeProfile.department?.name || "Not assigned"}</span></p>
+                      <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Joining date</span><span className="ml-2 font-semibold text-white">{employeeProfile.joiningDate ? new Date(employeeProfile.joiningDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span></p>
+                      <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Reporting manager</span><span className="ml-2 font-semibold text-white">{employeeProfile.reportingManager ? `${employeeProfile.reportingManager.firstName} ${employeeProfile.reportingManager.lastName}` : "Not assigned"}</span></p>
+                    </div>
                   </div>
                 ) : !employeeProfileLoading ? (
-                  <p className="mt-6 rounded-xl border border-white/10 bg-white/[0.06] p-4 text-sm text-slate-300">Employee details could not be loaded. Open your profile to review your information.</p>
+                  <p className="mt-4 text-sm text-slate-300">Employee details could not be loaded. Open your profile to review your information.</p>
                 ) : null}
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <Link href="/profile" className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-900 transition hover:bg-blue-50">View full profile <ArrowUpRight size={16} /></Link>
+                <div className="mt-4 flex flex-wrap items-center gap-4">
+                  <Link href="/profile" className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white px-3.5 py-2 text-xs font-bold text-slate-900 shadow-lg shadow-blue-950/20 transition hover:-translate-y-0.5 hover:bg-blue-50">View full profile <ArrowUpRight size={15} /></Link>
                   {employeeProfile?.shift?.name && <span className="text-[11px] text-slate-300">Shift: <strong className="text-white">{employeeProfile.shift.name}{employeeProfile.shift.startTime && employeeProfile.shift.endTime ? ` · ${employeeProfile.shift.startTime}–${employeeProfile.shift.endTime}` : ""}</strong></span>}
                 </div>
               </div>
