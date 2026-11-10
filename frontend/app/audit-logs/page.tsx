@@ -20,11 +20,11 @@ type AuditItem = {
   ipAddress?: string;
   createdAt: string;
 };
-type AuditResponse = { data: AuditItem[]; pagination: { page: number; limit: number; total: number; pages: number } };
 const MODULES = [
   ["all", "All modules"], ["employees", "Employees"], ["attendance", "Attendance"],
   ["leaves", "Leave"], ["payroll", "Payroll"], ["recruitment", "Recruitment"],
-  ["approvals", "Approvals"], ["performance", "Performance"], ["auth", "Security"]
+  ["approvals", "Approvals"], ["performance", "Performance"], ["auth", "Security"],
+  ["expenses", "Expenses"], ["helpdesk", "IT support"], ["holidays", "Holidays"], ["shifts", "Shifts"]
 ];
 const pretty = (value: string) => value.replace(/[._]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 const dateTime = (value: string) => new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -86,7 +86,7 @@ function AuditLogsContent() {
       <section className="mb-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total events</p><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{loading ? "…" : pagination.total.toLocaleString("en-IN")}</p></div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current page</p><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{pagination.pages ? `${pagination.page} / ${pagination.pages}` : "—"}</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Event coverage</p><p className="mt-2 text-sm font-semibold text-slate-900">Employees · Attendance · Leave · Payroll</p><p className="mt-1 text-xs text-slate-500">Plus recruitment, approvals and performance.</p></div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Event coverage</p><p className="mt-2 text-sm font-semibold text-slate-900">Employees · Attendance · Leave · Payroll · Expenses</p><p className="mt-1 text-xs text-slate-500">Plus recruitment, approvals, IT support, holidays and shifts.</p></div>
       </section>
 
       <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
