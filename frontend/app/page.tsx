@@ -234,9 +234,6 @@ export default function Home() {
             <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-white/5" />
             <div className="pointer-events-none absolute right-24 top-16 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
             <div className="relative z-10 max-w-2xl">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-blue-100">
-                <Sparkles size={14} /> People operations
-              </span>
               <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
                 {isAdmin ? <>People operations,<br className="hidden sm:block" /> made simpler.</> : isManager ? <>Your team,<br className="hidden sm:block" /> in one place.</> : <>Your work,<br className="hidden sm:block" /> in one place.</>}
               </h2>
