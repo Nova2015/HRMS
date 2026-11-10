@@ -320,7 +320,7 @@ export default function Home() {
                 </div>
                 {employeeProfile ? (
                   <div className="mt-5 max-w-xl border-l-2 border-blue-300/40 pl-4">
-                    <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+                    <div className="grid max-w-xl gap-y-2">
                       <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Employee ID</span><span className="ml-2 font-semibold text-white">{employeeProfile.employeeCode}</span></p>
                       <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Department</span><span className="ml-2 font-semibold text-white">{employeeProfile.department?.name || "Not assigned"}</span></p>
                       <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Joining date</span><span className="ml-2 font-semibold text-white">{employeeProfile.joiningDate ? new Date(employeeProfile.joiningDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span></p>
