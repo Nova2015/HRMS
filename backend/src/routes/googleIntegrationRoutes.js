@@ -234,7 +234,7 @@ router.get("/gmail/callback", async (req, res) => {
             { $set: update },
             { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
         );
-        return res.redirect(`${process.env.CLIENT_URL}/integrations/google-gmail?connected=1`);
+        return res.redirect(`${process.env.CLIENT_URL}/?google=connected`);
     } catch (error) {
         if (error.name === "JsonWebTokenError" || error.name === "TokenExpiredError") {
             return res.status(400).json({ success: false, message: "Google OAuth state is invalid or expired" });
