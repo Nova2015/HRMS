@@ -7,8 +7,10 @@ import { LogOut, LogIn, Clock3, X } from "lucide-react";
 
 export default function AuthGuard({
   children,
+  showLogout = true,
 }: {
   children: React.ReactNode;
+  showLogout?: boolean;
 }) {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
@@ -132,7 +134,7 @@ export default function AuthGuard({
 
   return (
     <>
-      <div className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6">
+      {showLogout && <div className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6">
         <button
           type="button"
           onClick={handleLogout}
@@ -145,7 +147,7 @@ export default function AuthGuard({
           </span>
           <span className="hidden sm:inline">Logout</span>
         </button>
-      </div>
+      </div>}
 
       {children}
       {showAttendancePrompt && (
