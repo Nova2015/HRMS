@@ -164,3 +164,83 @@ textarea:focus-visible {
   .hrms-premium-card { transition: none; }
   .hrms-premium-card:hover { transform: none; }
 }
+
+
+/* Focused 3D treatment for HR module navigation cards only. */
+.hrms-module-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  background: linear-gradient(145deg, #ffffff 0%, #f8faff 58%, #f1f5ff 100%);
+  box-shadow:
+    0 2px 3px rgba(15, 23, 42, 0.035),
+    0 8px 16px rgba(30, 41, 59, 0.055),
+    0 17px 28px -18px rgba(30, 41, 59, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+  transform: perspective(1000px) translateY(0) rotateX(0) scale(1);
+  transform-style: preserve-3d;
+  animation: hrms-module-enter 520ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  transition:
+    transform 360ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    box-shadow 360ms ease,
+    border-color 360ms ease,
+    background 360ms ease;
+}
+.hrms-module-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(112deg, transparent 18%, rgba(255,255,255,0.82) 45%, transparent 68%);
+  transform: translateX(-115%);
+  transition: transform 700ms ease, opacity 250ms ease;
+}
+.hrms-module-card:hover {
+  z-index: 2;
+  border-color: rgba(129, 140, 248, 0.58);
+  background: linear-gradient(145deg, #ffffff 0%, #f7f8ff 58%, #eef2ff 100%);
+  transform: perspective(1000px) translateY(-8px) rotateX(2deg) rotateY(-1deg) scale(1.012);
+  box-shadow:
+    0 5px 9px rgba(15, 23, 42, 0.045),
+    0 20px 34px rgba(49, 46, 129, 0.12),
+    0 30px 42px -24px rgba(30, 41, 59, 0.28),
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(99, 102, 241, 0.08);
+}
+.hrms-module-card:hover::before {
+  opacity: 1;
+  transform: translateX(115%);
+}
+.hrms-module-card:active {
+  transform: perspective(1000px) translateY(-2px) scale(0.99);
+}
+.hrms-module-icon {
+  position: relative;
+  box-shadow: 0 5px 10px rgba(30, 41, 59, 0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  transition: transform 360ms cubic-bezier(0.2, 0.75, 0.25, 1), box-shadow 360ms ease;
+}
+.hrms-module-card:hover .hrms-module-icon {
+  transform: translateY(-3px) rotate(-5deg) scale(1.07);
+  box-shadow: 0 10px 17px rgba(49, 46, 129, 0.14), inset 0 1px 0 rgba(255,255,255,0.95);
+}
+.hrms-module-arrow {
+  transition: transform 360ms cubic-bezier(0.2, 0.75, 0.25, 1), color 250ms ease, background 250ms ease;
+}
+.hrms-module-card:hover .hrms-module-arrow {
+  transform: translate3d(2px, -2px, 8px);
+  background: rgba(238, 242, 255, 0.9);
+}
+@keyframes hrms-module-enter {
+  from { opacity: 0; transform: perspective(1000px) translateY(16px) rotateX(-3deg); }
+  to { opacity: 1; transform: perspective(1000px) translateY(0) rotateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hrms-module-card { animation: none; transition: none; }
+  .hrms-module-card:hover,
+  .hrms-module-card:active,
+  .hrms-module-card:hover .hrms-module-icon,
+  .hrms-module-card:hover .hrms-module-arrow { transform: none; }
+}
