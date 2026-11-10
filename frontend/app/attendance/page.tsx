@@ -119,6 +119,16 @@ function AttendanceWorkspace() {
     checkIn: "", checkOut: "", notes: "",
   });
 
+  // Keep the document behind any calendar popup from scrolling.
+  useEffect(() => {
+    if (!showDayDetails && !showLeaveModal && !showEventForm) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showDayDetails, showLeaveModal, showEventForm]);
+
   const isAdmin = role === "admin" || role === "hr";
   const isManager = role === "manager";
   const canSeeTeam = isAdmin || isManager;
