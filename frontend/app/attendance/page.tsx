@@ -93,6 +93,12 @@ function AttendanceWorkspace() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [companyEvents, setCompanyEvents] = useState<CompanyEvent[]>([]);
   const [showDayDetails, setShowDayDetails] = useState(false);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [eventSaving, setEventSaving] = useState(false);
+  const [eventForm, setEventForm] = useState({
+    title: "", description: "", eventType: "company_event" as CompanyEvent["eventType"],
+    startAt: "", endAt: "", allDay: false, location: "",
+  });
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leaveSaving, setLeaveSaving] = useState(false);
   const [leaveForm, setLeaveForm] = useState({ leaveType: "earned", startDate: todayKey(), endDate: todayKey(), reason: "" });
@@ -255,6 +261,27 @@ function AttendanceWorkspace() {
     setLeaveForm({ leaveType: "earned", startDate: date, endDate: date, reason: "" });
     setShowLeaveModal(true);
     setError(""); setNotice("");
+  };
+
+  const submitCompanyEvent = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setEventSaving(true); setError(""); setNotice("");
+    try {
+      const result = await apiRequest("/calendar/events", {
+        method: "POST",
+        body: JSON.stringify({
+          ...eventForm,
+          startAt: new Date(eventForm.startAt).toISOString(),
+          endAt: new Date(eventForm.endAt).toISOString(),
+        }),
+      });
+      setNotice(result.message || "Calendar event created successfully.");
+      setShowEventForm(false);
+      setEventForm({ title: "", description: "", eventType: "company_event", startAt: "", endAt: "", allDay: false, location: "" });
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create calendar event.");
+    } finally { setEventSaving(false); }
   };
 
   const submitCorrection = async (event: FormEvent<HTMLFormElement>) => {
@@ -478,11 +505,25 @@ function AttendanceWorkspace() {
           </section>
         )}
 
+        {isAdmin && showEventForm && <section className="mb-4 rounded-2xl border border-violet-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-4"><h3 className="text-lg font-bold text-slate-900">Create company event or meeting</h3><p className="mt-1 text-sm text-slate-500">The event will appear directly on this Attendance Calendar.</p></div>
+          <form onSubmit={submitCompanyEvent} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Title *<input required maxLength={140} value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} placeholder="e.g. Monthly town hall" className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-100" /></label>
+            <label className="text-sm font-semibold text-slate-700">Type *<select value={eventForm.eventType} onChange={(e) => setEventForm({ ...eventForm, eventType: e.target.value as CompanyEvent["eventType"] })} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal"><option value="company_event">Company event</option><option value="meeting">Meeting</option><option value="training">Training</option><option value="other">Other</option></select></label>
+            <label className="text-sm font-semibold text-slate-700">Start *<input required type="datetime-local" value={eventForm.startAt} onChange={(e) => setEventForm({ ...eventForm, startAt: e.target.value, endAt: eventForm.endAt && eventForm.endAt <= e.target.value ? "" : eventForm.endAt })} className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+            <label className="text-sm font-semibold text-slate-700">End *<input required type="datetime-local" min={eventForm.startAt || undefined} value={eventForm.endAt} onChange={(e) => setEventForm({ ...eventForm, endAt: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+            <label className="text-sm font-semibold text-slate-700">Location<input maxLength={200} value={eventForm.location} onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })} placeholder="Meeting room / online" className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+            <label className="flex items-center gap-2 self-end rounded-xl bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-700"><input type="checkbox" checked={eventForm.allDay} onChange={(e) => setEventForm({ ...eventForm, allDay: e.target.checked })} />All-day event</label>
+            <label className="text-sm font-semibold text-slate-700 sm:col-span-2 lg:col-span-3">Description<textarea maxLength={2000} rows={2} value={eventForm.description} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })} placeholder="Optional details..." className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+            <div className="flex justify-end gap-2 sm:col-span-2 lg:col-span-3"><button type="button" onClick={() => setShowEventForm(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600">Cancel</button><button type="submit" disabled={eventSaving || !eventForm.startAt || !eventForm.endAt} className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{eventSaving ? "Saving..." : "Save event"}</button></div>
+          </form>
+        </section>}
         <div className="block">
           <section className="overflow-hidden rounded-[28px] border border-white/90 bg-white/80 shadow-[0_18px_55px_rgba(31,41,55,0.08)] backdrop-blur-2xl">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6">
               <div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Attendance Calendar</p><h2 className="mt-1 text-xl font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h2><p className="mt-1 text-sm text-slate-500">Select a date to inspect attendance details.</p></div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {isAdmin && <button type="button" onClick={() => setShowEventForm((value) => !value)} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:-translate-y-0.5"><CalendarDays size={15} /> {showEventForm ? "Close event form" : "Add event / meeting"}</button>}
                 <button type="button" aria-label="Previous month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() - 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronLeft size={18} /></button>
                 <button type="button" onClick={() => { setMonth(new Date()); setSelectedDay(todayKey()); }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Today</button>
                 <button type="button" aria-label="Next month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() + 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronRight size={18} /></button>
