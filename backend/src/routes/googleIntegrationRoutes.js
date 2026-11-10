@@ -511,17 +511,17 @@ const setCalendarMapping = (event, userId, remote) => {
 
 const inferCalendarEventType = (value) => {
     const text = String(value || "").normalize("NFKC").toLocaleLowerCase();
+    if (/\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite|appointment)\b/i.test(text)) return "meeting";
     if (/\b(seminar|workshop|training|conference)\b/i.test(text)) return "training";
     if (/\b(diwali|deepavali|padwa|gudi padwa|ganeshotsav|ganesh chaturthi|holi|eid|christmas|makar sankranti|navratri|dussehra|vijayadashami|raksha bandhan|onam|pongal|baisakhi|lohri|ugadi|mahashivratri|janmashtami|durga puja|utsav|mahotsav|festival)\b/i.test(text)) return "company_event";
     if (/\b(function|celebration|annual day|annual function|cultural program|cultural event|get together|gathering|ceremony|company event|office event|pooja|puja|prayer|inauguration|foundation day|family day|sports day|office party|team outing|festive)\b/i.test(text)) return "company_event";
-    if (/\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite|appointment)\b/i.test(text)) return "meeting";
     return "meeting";
 };
 
 const fromGoogleCalendarResource = (remote) => {
     const allDay = Boolean(remote.start?.date);
-    const startAt = allDay ? new Date(\`\${remote.start.date}T00:00:00.000Z\`) : new Date(remote.start?.dateTime);
-    const endAt = allDay ? new Date(\`\${remote.end?.date}T00:00:00.000Z\`) : new Date(remote.end?.dateTime);
+    const startAt = allDay ? new Date(remote.start.date + "T00:00:00.000Z") : new Date(remote.start?.dateTime);
+    const endAt = allDay ? new Date(remote.end?.date + "T00:00:00.000Z") : new Date(remote.end?.dateTime);
     if (!remote.id || Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) return null;
     const title = String(remote.summary || "Google Calendar event").slice(0, 140);
     const description = String(remote.description || "").slice(0, 2000);
