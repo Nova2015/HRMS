@@ -379,7 +379,7 @@ router.get("/gmail/calendar-candidates", protect, authorizeRoles("admin", "hr"),
             return res.status(404).json({ success: false, message: "Connect a Gmail account before scanning event emails" });
         }
 
-        const query = 'newer_than:90d {meeting meet invite invitation agenda "calendar event" "company event" seminar workshop training conference function celebration festival Diwali Deepavali Padwa Gudi Padwa Ganeshotsav Ganesh Chaturthi Holi Eid Christmas} -flight -train -railway -bus -hotel -cinema -movie -airline';
+        const query = 'newer_than:90d {meeting meet invite invitation agenda "calendar event" "company event" seminar workshop training conference function "annual function" "annual day" "cultural program" "cultural event" "get together" gathering ceremony celebration inauguration "foundation day" "family day" "sports day" pooja puja prayer utsav mahotsav festival festive Diwali Deepavali Padwa "Gudi Padwa" Ganeshotsav "Ganesh Chaturthi" Holi Eid Christmas Navratri Dussehra "Raksha Bandhan" Onam Pongal Baisakhi "Makar Sankranti"} -flight -"boarding pass" -train -railway -"bus ticket" -hotel -cinema -"movie ticket" -"show ticket" -airline';
         const accessToken = await getGmailAccessToken(integration);
         const listUrl = new URL(`${GMAIL_API_URL}/messages`);
         listUrl.searchParams.set("q", query);
@@ -394,11 +394,13 @@ router.get("/gmail/calendar-candidates", protect, authorizeRoles("admin", "hr"),
             if (/\b(flight|boarding pass|airline|train|railway|bus ticket|hotel reservation|hotel booking|movie ticket|cinema ticket|show ticket)\b/i.test(text)) return null;
             const cancellation = /\b(cancelled|canceled|cancellation|called off|postponed indefinitely)\b/i.test(text);
             const reschedule = /\b(rescheduled|reschedule|new time|time changed|date changed|updated schedule)\b/i.test(text);
-            const meeting = /\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite)\b/i.test(text);
-            const festival = /\b(diwali|deepavali|padwa|gudi padwa|ganeshotsav|ganesh chaturthi|holi|eid|christmas|makar sankranti|navratri|dussehra|raksha bandhan)\b/i.test(text);
-            const functionEvent = /\b(function|celebration|annual day|gathering|ceremony|company event|office event|seminar|workshop|training|festival)\b/i.test(text);
+            const meeting = /\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite|appointment)\b/i.test(text);
+            const festival = /\b(diwali|deepavali|padwa|gudi padwa|ganeshotsav|ganesh chaturthi|holi|eid|christmas|makar sankranti|navratri|dussehra|vijayadashami|raksha bandhan|onam|pongal|baisakhi|lohri|ugadi|mahashivratri|janmashtami|durga puja|eid al fitr|eid ul fitr|eid al adha)\b/i.test(text);
+            const training = /\b(seminar|workshop|training|conference)\b/i.test(text);
+            const functionEvent = /\b(function|celebration|annual day|annual function|cultural program|cultural event|get together|gathering|ceremony|company event|office event|pooja|puja|prayer|inauguration|foundation day|family day|sports day|office party|team outing|festive|utsav|mahotsav)\b/i.test(text);
             if (meeting) return { category: "meeting", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "invitation" };
             if (festival) return { category: "festival", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "event" };
+            if (training) return { category: "company_event", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "event" };
             if (functionEvent) return { category: "company_event", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "event" };
             return null;
         };
@@ -507,15 +509,26 @@ const setCalendarMapping = (event, userId, remote) => {
     else event.googleCalendarMappings.push(values);
 };
 
+const inferCalendarEventType = (value) => {
+    const text = String(value || "").normalize("NFKC").toLocaleLowerCase();
+    if (/\b(seminar|workshop|training|conference)\b/i.test(text)) return "training";
+    if (/\b(diwali|deepavali|padwa|gudi padwa|ganeshotsav|ganesh chaturthi|holi|eid|christmas|makar sankranti|navratri|dussehra|vijayadashami|raksha bandhan|onam|pongal|baisakhi|lohri|ugadi|mahashivratri|janmashtami|durga puja|utsav|mahotsav|festival)\b/i.test(text)) return "company_event";
+    if (/\b(function|celebration|annual day|annual function|cultural program|cultural event|get together|gathering|ceremony|company event|office event|pooja|puja|prayer|inauguration|foundation day|family day|sports day|office party|team outing|festive)\b/i.test(text)) return "company_event";
+    if (/\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite|appointment)\b/i.test(text)) return "meeting";
+    return "meeting";
+};
+
 const fromGoogleCalendarResource = (remote) => {
     const allDay = Boolean(remote.start?.date);
-    const startAt = allDay ? new Date(`${remote.start.date}T00:00:00.000Z`) : new Date(remote.start?.dateTime);
-    const endAt = allDay ? new Date(`${remote.end?.date}T00:00:00.000Z`) : new Date(remote.end?.dateTime);
+    const startAt = allDay ? new Date(\`\${remote.start.date}T00:00:00.000Z\`) : new Date(remote.start?.dateTime);
+    const endAt = allDay ? new Date(\`\${remote.end?.date}T00:00:00.000Z\`) : new Date(remote.end?.dateTime);
     if (!remote.id || Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) return null;
+    const title = String(remote.summary || "Google Calendar event").slice(0, 140);
+    const description = String(remote.description || "").slice(0, 2000);
     return {
-        title: String(remote.summary || "Google Calendar event").slice(0, 140),
-        description: String(remote.description || "").slice(0, 2000),
-        eventType: "meeting",
+        title,
+        description,
+        eventType: inferCalendarEventType(title + "\n" + description),
         startAt,
         endAt,
         allDay,
