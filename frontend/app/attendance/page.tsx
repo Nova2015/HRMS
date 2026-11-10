@@ -173,6 +173,39 @@ function AttendanceWorkspace() {
     return result;
   }, [router]);
 
+  const loadWorkspace = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const range = `from=${monthStart}&to=${monthEnd}`;
+      const attendancePath = canSeeTeam
+        ? `/attendance?${range}${employeeFilter ? `&employeeId=${encodeURIComponent(employeeFilter)}` : ""}`
+        : `/attendance/me?${range}`;
+      const requests: Promise<ApiResponse>[] = [
+        apiRequest("/attendance/today"),
+        apiRequest(attendancePath),
+        apiRequest(`/holidays?${range}`),
+        apiRequest("/auth/me"),
+        apiRequest("/leaves"),
+        apiRequest(`/calendar/events?from=${encodeURIComponent(new Date(`${monthStart}T00:00:00`).toISOString())}&to=${encodeURIComponent(new Date(`${monthEnd}T23:59:59.999`).toISOString())}`),
+      ];
+      if (canSeeTeam) requests.push(apiRequest("/attendance/team"));
+      const results = await Promise.all(requests);
+      setToday((results[0].data as AttendanceRecord | null | undefined) || null);
+      setRecords((results[1].data as AttendanceRecord[] | undefined) || []);
+      setHolidays((results[2].data as Holiday[] | undefined) || []);
+      setLeaves((results[4].data as LeaveRequest[] | undefined) || []);
+      setCompanyEvents((results[5].data as CompanyEvent[] | undefined) || []);
+      const authData = results[3].data as { employee?: { shift?: { weeklyOffDays?: number[] } | null } } | undefined;
+      setOwnWeeklyOffDays(authData?.employee?.shift?.weeklyOffDays || []);
+      if (canSeeTeam) setEmployees((results[6].data as Employee[] | undefined) || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load attendance workspace");
+    } finally {
+      setLoading(false);
+    }
+  }, [apiRequest, canSeeTeam, employeeFilter, monthStart, monthEnd]);
+
   const importCalendarRows = useCallback(async (rows: Array<{ category: "holiday" | "event"; date: string; name: string; type: string; description: string; startAt: string; endAt: string; location: string; allDay: boolean }>) => {
     const dates = rows.map((row) => row.category === "holiday" ? row.date : row.startAt.slice(0, 10));
     const from = `${dates.reduce((a, b) => a < b ? a : b)}T00:00:00`;
@@ -214,39 +247,6 @@ function AttendanceWorkspace() {
     await loadWorkspace();
     return { created, updated, skipped };
   }, [apiRequest, loadWorkspace]);
-
-  const loadWorkspace = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const range = `from=${monthStart}&to=${monthEnd}`;
-      const attendancePath = canSeeTeam
-        ? `/attendance?${range}${employeeFilter ? `&employeeId=${encodeURIComponent(employeeFilter)}` : ""}`
-        : `/attendance/me?${range}`;
-      const requests: Promise<ApiResponse>[] = [
-        apiRequest("/attendance/today"),
-        apiRequest(attendancePath),
-        apiRequest(`/holidays?${range}`),
-        apiRequest("/auth/me"),
-        apiRequest("/leaves"),
-        apiRequest(`/calendar/events?from=${encodeURIComponent(new Date(`${monthStart}T00:00:00`).toISOString())}&to=${encodeURIComponent(new Date(`${monthEnd}T23:59:59.999`).toISOString())}`),
-      ];
-      if (canSeeTeam) requests.push(apiRequest("/attendance/team"));
-      const results = await Promise.all(requests);
-      setToday((results[0].data as AttendanceRecord | null | undefined) || null);
-      setRecords((results[1].data as AttendanceRecord[] | undefined) || []);
-      setHolidays((results[2].data as Holiday[] | undefined) || []);
-      setLeaves((results[4].data as LeaveRequest[] | undefined) || []);
-      setCompanyEvents((results[5].data as CompanyEvent[] | undefined) || []);
-      const authData = results[3].data as { employee?: { shift?: { weeklyOffDays?: number[] } | null } } | undefined;
-      setOwnWeeklyOffDays(authData?.employee?.shift?.weeklyOffDays || []);
-      if (canSeeTeam) setEmployees((results[6].data as Employee[] | undefined) || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load attendance workspace");
-    } finally {
-      setLoading(false);
-    }
-  }, [apiRequest, canSeeTeam, employeeFilter, monthStart, monthEnd]);
 
   useEffect(() => {
     let nextRole: Role = "employee";
