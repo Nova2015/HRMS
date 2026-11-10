@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, ShieldCheck,
-  CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
-  Settings2, UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound, Headset,
+  CalendarCheck, BriefcaseBusiness, ChevronRight,
+  UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound, Headset,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -220,17 +220,10 @@ export default function Home() {
         <div className="mx-auto max-w-[1440px]">
           <header className="mb-7 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" /> HRMS
-              </p>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{dashboardTitle}</h1>
               <p className="mt-1.5 text-sm text-slate-500">{dashboardDescription}</p>
             </div>
             <div className="flex items-center gap-2">
-              <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 shadow-sm sm:flex">
-                <LayoutGrid size={17} className="text-blue-600" />
-                HRMS workspace
-              </div>
               <Link href="/profile" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
                 <UserRound size={17} /> Profile
               </Link>
