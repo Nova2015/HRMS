@@ -87,10 +87,14 @@ function ApprovalQueue() {
   useEffect(() => { void loadRequests(); }, [loadRequests]);
 
   useEffect(() => {
-    const savedMode = window.localStorage.getItem("hrms_approval_animation_mode");
-    if (savedMode === "cinematic" || savedMode === "flip" || savedMode === "hologram" || savedMode === "slide") {
-      setAnimationMode(savedMode);
-    }
+    const applyMode = (value: string | null) => {
+      if (value === "cinematic" || value === "flip" || value === "hologram" || value === "slide") setAnimationMode(value);
+    };
+    applyMode(window.localStorage.getItem("hrms_approval_animation_mode"));
+    const changed = (event: Event) => applyMode((event as CustomEvent<string>).detail);
+    window.addEventListener("hrms-animation-mode-changed", changed);
+    window.addEventListener("storage", event => { if (event.key === "hrms_approval_animation_mode") applyMode(event.newValue); });
+    return () => window.removeEventListener("hrms-animation-mode-changed", changed);
   }, []);
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
