@@ -302,11 +302,11 @@ export default function Home() {
             </div>
           </header>
 
-          <section className="relative mb-7 overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-5 py-5 text-white shadow-lg shadow-slate-900/10 sm:px-7 sm:py-6">
+          <section className={`relative mb-7 overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-5 py-5 text-white shadow-lg shadow-slate-900/10 sm:px-7 sm:py-6 ${role === "employee" ? "hrms-employee-hero" : ""}`}>
             <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-white/5" />
             <div className="pointer-events-none absolute right-24 top-16 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
             {role === "employee" ? (
-              <div className="relative z-10 max-w-2xl">
+              <div className="hrms-employee-hero-content relative z-10 max-w-2xl">
                 <div className="mb-3 flex items-center gap-2">
                   <span className="h-1 w-7 rounded-full bg-gradient-to-r from-sky-300 to-blue-500 shadow-[0_0_14px_rgba(96,165,250,0.55)]" />
                   <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-blue-200">Employee profile</p>
