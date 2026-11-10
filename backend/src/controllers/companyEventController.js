@@ -127,9 +127,11 @@ export const deleteCompanyEvent = async (req, res) => {
         if (!mongoose.isValidObjectId(req.params.id)) {
             return res.status(400).json({ success: false, message: "Invalid event ID" });
         }
-        const data = await CompanyEvent.findByIdAndDelete(req.params.id);
+        const data = await CompanyEvent.findById(req.params.id);
         if (!data) return res.status(404).json({ success: false, message: "Calendar event not found" });
-        return res.status(200).json({ success: true, message: "Calendar event deleted successfully" });
+        data.status = "cancelled";
+        await data.save();
+        return res.status(200).json({ success: true, message: "Calendar event cancelled successfully" });
     } catch (error) {
         console.error("Delete company event error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to delete calendar event" });
