@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Bell, Check, CheckCircle2, Settings2, X, RotateCcw, Sparkles, Layers3, ScanFace, Zap, Eye, EyeOff, Mail } from "lucide-react";
 
 type AnimationMode = "cinematic" | "flip" | "hologram" | "slide";
@@ -54,6 +55,7 @@ function playNotificationSound(kind: "success" | "error") {
 }
 
 export default function NotificationEffects() {
+  const pathname = usePathname();
   const [mode, setMode] = useState<AnimationMode>("cinematic");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMounted, setSettingsMounted] = useState(false);
@@ -192,6 +194,9 @@ export default function NotificationEffects() {
     window.dispatchEvent(new CustomEvent("hrms-animation-mode-changed", { detail: next }));
   };
   const clearNotifications = () => { setItems([]); setUnread(0); };
+
+  // Gmail Integration is a focused standalone workspace; suppress the global floating dock and toast UI there.
+  if (pathname?.startsWith("/integrations/google-gmail")) return null;
 
   return (
     <>
