@@ -104,7 +104,6 @@ function AttendanceWorkspace() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [companyEvents, setCompanyEvents] = useState<CompanyEvent[]>([]);
   const [showDayDetails, setShowDayDetails] = useState(false);
-  const [selectedEventDetails, setSelectedEventDetails] = useState<CompanyEvent | null>(null);
   const [showEventForm, setShowEventForm] = useState(false);
   const [eventEditId, setEventEditId] = useState<string | null>(null);
   const [eventSaving, setEventSaving] = useState(false);
@@ -135,13 +134,13 @@ function AttendanceWorkspace() {
 
   // Keep the document behind any calendar popup from scrolling.
   useEffect(() => {
-    if (!showDayDetails && !selectedEventDetails && !showLeaveModal && !showEventForm && !showHolidayModal) return;
+    if (!showDayDetails && !showLeaveModal && !showEventForm && !showHolidayModal) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [showDayDetails, selectedEventDetails, showLeaveModal, showEventForm, showHolidayModal]);
+  }, [showDayDetails, showLeaveModal, showEventForm, showHolidayModal]);
 
   const isAdmin = role === "admin" || role === "hr";
   const isManager = role === "manager";
@@ -696,10 +695,10 @@ function AttendanceWorkspace() {
             </form>
           </section>
         </div>}
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <section className="min-w-0 overflow-hidden rounded-[28px] border border-white/90 bg-white/80 shadow-[0_18px_55px_rgba(31,41,55,0.08)] backdrop-blur-2xl">
+        <div className="block">
+          <section className="overflow-hidden rounded-[28px] border border-white/90 bg-white/80 shadow-[0_18px_55px_rgba(31,41,55,0.08)] backdrop-blur-2xl">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6">
-              <div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Attendance Calendar</p><h2 className="mt-1 text-xl font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h2><p className="mt-1 text-sm text-slate-500">Select a date to inspect attendance details.</p></div>
+              <div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Attendance Calendar</p><h2 className="mt-1 text-xl font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h2></div>
               <div className="flex flex-wrap items-center gap-2">
                 <CalendarExportActions month={month} selectedDay={selectedDay} records={records} holidays={holidays} leaves={leaves} events={companyEvents} />
                 {isAdmin && <CalendarImportActions onImport={importCalendarRows} />}
@@ -715,8 +714,6 @@ function AttendanceWorkspace() {
             <div className="mt-2 grid grid-cols-7 gap-1.5 p-2 sm:gap-2 sm:p-3">
               {calendarCells.map((cell) => {
                 const dayRecords = records.filter((record) => record.dateKey === cell.key);
-                const dayHoliday = holidays.filter((holiday) => holiday.dateKey === cell.key);
-                const statuses = [...new Set(dayRecords.map((record) => record.status))];
                 const isToday = cell.key === currentDateKey;
                 const isSunday = new Date(`${cell.key}T00:00:00`).getDay() === 0;
                 const isHoliday = dayHoliday.length > 0;
@@ -724,8 +721,8 @@ function AttendanceWorkspace() {
                 return (
                   <div key={cell.key} className={`relative flex min-h-[78px] flex-col items-start rounded-2xl border p-1.5 text-left sm:min-h-[112px] sm:p-2.5 ${!cell.inMonth ? "border-transparent bg-slate-50/50 text-slate-300" : isSunday || isHoliday ? "border-rose-100 bg-rose-50/60 text-slate-700" : "border-slate-100/90 bg-white/70 text-slate-700 hover:border-indigo-200"} ${isSelected ? "border-indigo-300 bg-indigo-50/90 shadow-[0_5px_18px_rgba(99,102,241,0.12)] ring-1 ring-indigo-200" : ""} ${!isAdmin ? "cursor-pointer" : ""}`} onClick={() => { if (!isAdmin) openLeaveForDate(cell.key); }}>
                     <div className="flex w-full items-center justify-between"><button type="button" aria-label={`Select date ${cell.key}`} onClick={(event) => { event.stopPropagation(); if (isAdmin) setSelectedDay(cell.key); else openLeaveForDate(cell.key); }} className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition hover:ring-2 hover:ring-indigo-200 ${isToday ? (isSunday || isHoliday ? "bg-rose-600 text-white" : "bg-indigo-600 text-white") : isSunday || isHoliday ? "bg-rose-100 text-rose-700" : cell.inMonth ? "text-slate-700" : "text-slate-400"}`}>{cell.day}</button><div className="flex items-center gap-2">{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}{dayRecords.length > 0 && <button type="button" title="View attendance details" aria-label={`View attendance details for ${cell.key}`} onClick={(event) => { event.stopPropagation(); setSelectedDay(cell.key); setShowDayDetails(true); }} className={`h-3.5 w-3.5 rounded-full ring-2 ring-white shadow-sm transition hover:scale-125 focus:outline-none focus:ring-4 focus:ring-indigo-200 ${statuses.includes("absent") ? "bg-rose-500" : statuses.includes("half-day") ? "bg-amber-500" : "bg-emerald-500"}`} />}</div></div>
-                    <div className="mt-1.5 min-h-5 w-full">
-                      {companyEvents.filter((event) => event.status === "scheduled" && event.eventType === "company_event" && new Date(event.startAt) <= new Date(`${cell.key}T23:59:59.999`) && new Date(event.endAt) >= new Date(`${cell.key}T00:00:00`)).slice(0, 1).map((event) => <span key={event._id} title={event.title} className="block w-full min-w-0 truncate rounded-md border border-violet-100 bg-violet-50 px-1.5 py-1 text-left text-[9px] font-bold text-violet-700 sm:text-[10px]">{event.title}</span>)}
+                    <div className="mt-1.5 w-full space-y-1">
+                      {companyEvents.filter((event) => event.status === "scheduled" && event.eventType === "company_event" && new Date(event.startAt) <= new Date(`${cell.key}T23:59:59.999`) && new Date(event.endAt) >= new Date(`${cell.key}T00:00:00`)).slice(0, 1).map((event) => isAdmin ? <button type="button" key={event._id} title="Edit function" aria-label={`Edit function ${event.title}`} onClick={(clickEvent) => { clickEvent.stopPropagation(); openEventEditor(event); }} className="w-full min-w-0 truncate rounded-lg border border-violet-100 bg-violet-50 px-1.5 py-1.5 text-left text-[9px] font-bold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100 sm:text-[10px]">{event.title}</button> : <div key={event._id} title={event.title} className="w-full min-w-0 truncate rounded-lg border border-violet-100 bg-violet-50 px-1.5 py-1.5 text-[9px] font-bold text-violet-700 sm:text-[10px]">{event.title}</div>)}
                     </div>
                   </div>
                 );
@@ -741,43 +738,10 @@ function AttendanceWorkspace() {
               <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-slate-400" />Weekly Off</span>
             </div>
           </section>
-          <aside className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/90 shadow-[0_12px_36px_rgba(31,41,55,0.07)] xl:sticky xl:top-5">
-            <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-4">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-500">Selected day · Daily overview</p>
-              <h3 className="mt-1 text-lg font-extrabold text-slate-900">{selectedLabel}</h3>
-            </div>
-            <div className="max-h-[620px] space-y-4 overflow-y-auto p-4">
-              <div>
-                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Functions / Events / Meetings</p>
-                {selectedEvents.length ? <div className="space-y-2">{selectedEvents.map((event) => <div key={event._id} className="rounded-xl border border-violet-100 bg-violet-50/70 p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="break-words text-sm font-bold text-violet-950">{event.title}</p><p className="mt-1 text-[11px] capitalize text-violet-700">{event.eventType.replace("_", " ")} · {event.allDay ? "All day" : `${formatTime(event.startAt)} – ${formatTime(event.endAt)}`}</p></div><div className="flex shrink-0 flex-col gap-1"><button type="button" onClick={() => setSelectedEventDetails(event)} className="rounded-lg border border-violet-200 bg-white px-2 py-1 text-[10px] font-bold text-violet-700 hover:bg-violet-100">View Details</button>{isAdmin && <button type="button" onClick={() => openEventEditor(event)} className="rounded-lg border border-violet-200 bg-white px-2 py-1 text-[10px] font-bold text-violet-700 hover:bg-violet-100">Edit</button>}</div></div></div>)}</div> : <p className="rounded-xl border border-dashed border-slate-200 p-3 text-xs text-slate-400">या दिवशी कोणताही function / event नाही.</p>}
-              </div>
-              <div className="border-t border-slate-100 pt-3">
-                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Other day information</p>
-                <div className="space-y-2 text-xs">
-                  {selectedHoliday.map((holiday) => <div key={holiday._id} className="rounded-lg bg-rose-50 px-3 py-2 text-rose-800"><strong>Holiday:</strong> {holiday.name}{holiday.description && <p className="mt-1">{holiday.description}</p>}</div>)}
-                  {selectedLeaves.map((leave) => <div key={leave._id} className="rounded-lg bg-amber-50 px-3 py-2 text-amber-800"><strong>Leave:</strong> {leave.employee ? `${leave.employee.firstName} ${leave.employee.lastName} · ` : ""}{leave.leaveType} ({leave.status})</div>)}
-                  {selectedRecords.map((record) => <div key={record._id} className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800"><strong>{record.employee ? `${record.employee.firstName} ${record.employee.lastName}` : "Attendance"}:</strong> {record.status === "half-day" ? "Half day" : record.status}{record.isLate ? " · Late" : ""}<p className="mt-1">In {formatTime(record.checkIn)} · Out {formatTime(record.checkOut)} · {formatHours(record.workMinutes || 0)}</p></div>)}
-                  {selectedWeeklyOff && <div className="rounded-lg bg-slate-100 px-3 py-2 text-slate-700">Weekly Off</div>}
-                  {selectedIsSunday && <div className="rounded-lg bg-slate-100 px-3 py-2 text-slate-700">Sunday</div>}
-                  {!selectedHoliday.length && !selectedLeaves.length && !selectedRecords.length && !selectedWeeklyOff && !selectedIsSunday && <p className="rounded-xl border border-dashed border-slate-200 p-3 text-slate-400">या दिवसासाठी इतर नोंद उपलब्ध नाही.</p>}
-                </div>
-              </div>
-            </div>
-          </aside>
+
+
         </div>
 
-        {selectedEventDetails && <div className="fixed inset-0 z-[86] grid place-items-center overflow-hidden bg-slate-950/40 p-4 backdrop-blur-md" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedEventDetails(null); }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="calendar-event-details-title" className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-[28px] border border-white/80 bg-white/95 p-5 shadow-[0_28px_90px_rgba(15,23,42,0.24)] sm:p-7">
-            <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-violet-500">Function / Event details</p><h2 id="calendar-event-details-title" className="mt-1 text-2xl font-extrabold text-slate-950">{selectedEventDetails.title}</h2></div><button type="button" onClick={() => setSelectedEventDetails(null)} aria-label="Close event details" className="rounded-xl bg-slate-100 p-2.5 text-slate-500 hover:bg-slate-200"><X size={18} /></button></div>
-            <div className="space-y-3 text-sm">
-              <div className="rounded-xl bg-violet-50 p-3 text-violet-900"><p className="text-[10px] font-bold uppercase tracking-wider text-violet-500">Type</p><p className="mt-1 font-semibold capitalize">{selectedEventDetails.eventType.replace("_", " ")}</p></div>
-              <div className="rounded-xl bg-slate-50 p-3 text-slate-800"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Date & time</p><p className="mt-1 font-semibold">{new Date(selectedEventDetails.startAt).toLocaleString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p><p className="mt-1">{selectedEventDetails.allDay ? "All day" : `${formatTime(selectedEventDetails.startAt)} – ${formatTime(selectedEventDetails.endAt)}`}</p></div>
-              {selectedEventDetails.location && <div className="rounded-xl bg-slate-50 p-3 text-slate-800"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Location</p><p className="mt-1 font-medium">{selectedEventDetails.location}</p></div>}
-              {selectedEventDetails.description && <div className="rounded-xl bg-slate-50 p-3 text-slate-700"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Description</p><p className="mt-1 whitespace-pre-wrap break-words leading-6">{selectedEventDetails.description}</p></div>}
-            </div>
-            <div className="mt-6 flex justify-end"><button type="button" onClick={() => setSelectedEventDetails(null)} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white">Close</button></div>
-          </section>
-        </div>}
         {showDayDetails && <div className="fixed inset-0 z-[85] grid place-items-center overflow-hidden bg-slate-950/40 p-4 backdrop-blur-md" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowDayDetails(false); }}>
           <section role="dialog" aria-modal="true" aria-labelledby="attendance-details-title" className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-[28px] border border-white/80 bg-white/95 p-5 shadow-[0_28px_90px_rgba(15,23,42,0.24)] sm:p-7">
             <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-indigo-500">Daily attendance</p><h2 id="attendance-details-title" className="mt-1 text-2xl font-extrabold text-slate-950">Attendance Details</h2><p className="mt-1 text-sm text-slate-500">{selectedLabel}</p></div><button type="button" onClick={() => setShowDayDetails(false)} aria-label="Close attendance details" className="rounded-xl bg-slate-100 p-2.5 text-slate-500 hover:bg-slate-200"><X size={18} /></button></div>
