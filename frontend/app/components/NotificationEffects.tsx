@@ -86,12 +86,19 @@ export default function NotificationEffects() {
       const next = (event as CustomEvent<string>).detail;
       if (next === "cinematic" || next === "flip" || next === "hologram" || next === "slide") setMode(next);
     };
+    const storageChanged = (event: StorageEvent) => {
+      if (event.key !== "hrms_approval_animation_mode") return;
+      const next = event.newValue;
+      if (next === "cinematic" || next === "flip" || next === "hologram" || next === "slide") setMode(next);
+    };
     window.addEventListener("hrms-animation-mode-changed", modeChanged);
+    window.addEventListener("storage", storageChanged);
     return () => {
       observer.disconnect();
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
       window.removeEventListener("hrms-animation-mode-changed", modeChanged);
+      window.removeEventListener("storage", storageChanged);
     };
   }, []);
 
