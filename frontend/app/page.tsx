@@ -11,6 +11,15 @@ import AuthGuard from "./components/AuthGuard";
 
 const modules = [
   {
+    title: "Appearance & Animation Settings",
+    description: "Choose and save the confirmation animation style used across approval decisions.",
+    href: "/settings/appearance",
+    action: "Customize appearance",
+    icon: Settings2,
+    iconStyle: "bg-indigo-50 text-indigo-700",
+    accent: "group-hover:border-indigo-200",
+  },
+  {
     title: "Employee Update Approvals",
     description: "Review and decide employee data update proposals from Gmail and documents.",
     href: "/employee-update-approvals",
@@ -195,7 +204,7 @@ export default function Home() {
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expense & Reimbursement", "IT Helpdesk & Support", "Holiday Calendar"].includes(item.title));
+    : modules.filter((item) => ["Appearance & Animation Settings", "Employee Documents", "Attendance", "Leave Management", "Payroll", "Expense & Reimbursement", "IT Helpdesk & Support", "Holiday Calendar"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
