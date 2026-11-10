@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, ShieldCheck, Award,
   CalendarCheck, BriefcaseBusiness, ChevronRight,
-  UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound, Headset,
+  UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound, Headset, UserCircle2,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -153,6 +153,18 @@ const quickActions = [
   { title: "Payroll processing", href: "/payroll", icon: Wallet },
 ];
 
+type DashboardEmployee = {
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  joiningDate?: string;
+  employmentStatus: string;
+  department?: { name: string } | null;
+  designation?: { name: string } | null;
+  shift?: { name: string; startTime?: string; endTime?: string } | null;
+  reportingManager?: { firstName: string; lastName: string; employeeCode?: string } | null;
+};
+
 type DashboardAttendance = {
   _id: string;
   dateKey: string;
@@ -170,6 +182,8 @@ export default function Home() {
   const [attendanceRecords, setAttendanceRecords] = useState<DashboardAttendance[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState("");
+  const [employeeProfile, setEmployeeProfile] = useState<DashboardEmployee | null>(null);
+  const [employeeProfileLoading, setEmployeeProfileLoading] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("hrms_user");
@@ -183,6 +197,37 @@ export default function Home() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (role !== "employee") return;
+    let cancelled = false;
+    const loadEmployeeProfile = async () => {
+      setEmployeeProfileLoading(true);
+      try {
+        const token = sessionStorage.getItem("hrms_token");
+        if (!token) return;
+        const response = await fetch("http://localhost:5000/api/auth/me", {
+          headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+        });
+        const result = await response.json();
+        if (response.status === 401) {
+          sessionStorage.removeItem("hrms_token");
+          sessionStorage.removeItem("hrms_user");
+          window.location.href = "/login";
+          return;
+        }
+        if (!response.ok || !result.success || !result.data?.employee) throw new Error(result.message || "Unable to load employee information");
+        if (!cancelled) setEmployeeProfile(result.data.employee);
+      } catch (error) {
+        console.error("Employee dashboard profile load failed:", error);
+        if (!cancelled) setEmployeeProfile(null);
+      } finally {
+        if (!cancelled) setEmployeeProfileLoading(false);
+      }
+    };
+    void loadEmployeeProfile();
+    return () => { cancelled = true; };
+  }, [role]);
 
   useEffect(() => {
     if (role !== "admin" && role !== "hr") return;
@@ -257,24 +302,56 @@ export default function Home() {
             </div>
           </header>
 
-          <section className="relative mb-7 overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-9 sm:py-10">
+          <section className="relative mb-7 overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-9 sm:py-9">
             <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-white/5" />
             <div className="pointer-events-none absolute right-24 top-16 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
-            <div className="relative z-10 max-w-2xl">
-              <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
-                {isAdmin ? <>People operations,<br className="hidden sm:block" /> made simpler.</> : isManager ? <>Your team,<br className="hidden sm:block" /> in one place.</> : <>Your work,<br className="hidden sm:block" /> in one place.</>}
-              </h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">{isAdmin ? "Employees, attendance, leave and payroll." : isManager ? "Team leave and your HR records." : "Your attendance, leave and payslips."}</p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href={isAdmin ? "/employees" : "/leaves"} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-blue-50">{isAdmin ? "View employees" : isManager ? "Review team leaves" : "Apply for leave"} <ArrowUpRight size={16} /></Link>
-                <Link href="/attendance" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15">{isAdmin ? "Open attendance register" : "My attendance"} <ChevronRight size={16} /></Link>
+            {role === "employee" ? (
+              <div className="relative z-10">
+                <div className="flex flex-wrap items-start justify-between gap-5">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-blue-100 shadow-inner"><UserCircle2 size={36} strokeWidth={1.5} /></div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">Employee profile</p>
+                      <h2 className="mt-1 truncate text-2xl font-bold tracking-tight sm:text-3xl">{employeeProfileLoading ? "Loading your profile…" : employeeProfile ? `${employeeProfile.firstName} ${employeeProfile.lastName}` : "Your employee information"}</h2>
+                      <p className="mt-1 text-sm text-slate-300">{employeeProfile?.designation?.name || "Designation not assigned"}{employeeProfile?.department?.name ? ` · ${employeeProfile.department.name}` : ""}</p>
+                    </div>
+                  </div>
+                  <span className={`rounded-full border px-3 py-1.5 text-xs font-bold capitalize ${employeeProfile?.employmentStatus === "active" ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-200" : "border-white/15 bg-white/10 text-slate-200"}`}>{employeeProfileLoading ? "Loading" : employeeProfile?.employmentStatus || "Profile unavailable"}</span>
+                </div>
+                {employeeProfile ? (
+                  <div className="mt-7 grid gap-3 border-t border-white/15 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-xl border border-white/10 bg-white/[0.06] p-3.5"><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Employee ID</p><p className="mt-1.5 text-sm font-bold text-white">{employeeProfile.employeeCode}</p></div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.06] p-3.5"><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Department</p><p className="mt-1.5 truncate text-sm font-bold text-white">{employeeProfile.department?.name || "Not assigned"}</p></div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.06] p-3.5"><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Joining date</p><p className="mt-1.5 text-sm font-bold text-white">{employeeProfile.joiningDate ? new Date(employeeProfile.joiningDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</p></div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.06] p-3.5"><p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Reporting manager</p><p className="mt-1.5 truncate text-sm font-bold text-white">{employeeProfile.reportingManager ? `${employeeProfile.reportingManager.firstName} ${employeeProfile.reportingManager.lastName}` : "Not assigned"}</p></div>
+                  </div>
+                ) : !employeeProfileLoading ? (
+                  <p className="mt-6 rounded-xl border border-white/10 bg-white/[0.06] p-4 text-sm text-slate-300">Employee details could not be loaded. Open your profile to review your information.</p>
+                ) : null}
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <Link href="/profile" className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-900 transition hover:bg-blue-50">View full profile <ArrowUpRight size={16} /></Link>
+                  {employeeProfile?.shift?.name && <span className="text-xs text-slate-300">Shift: <strong className="text-white">{employeeProfile.shift.name}{employeeProfile.shift.startTime && employeeProfile.shift.endTime ? ` · ${employeeProfile.shift.startTime}–${employeeProfile.shift.endTime}` : ""}</strong></span>}
+                </div>
               </div>
-            </div>
-            <div className="relative z-10 mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/15 pt-5 sm:absolute sm:bottom-8 sm:right-9 sm:mt-0 sm:w-[390px] sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
-              <div><p className="text-xs text-slate-400">Available modules</p><p className="mt-1 text-2xl font-bold">{visibleModules.length.toString().padStart(2, "0")}</p></div>
-              <div><p className="text-xs text-slate-400">Workspace</p><p className="mt-1 text-sm font-semibold">Centralized</p></div>
-              <div><p className="text-xs text-slate-400">Access</p><p className="mt-1 text-sm font-semibold">Role-based</p></div>
-            </div>
+            ) : (
+              <>
+                <div className="relative z-10 max-w-2xl">
+                  <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+                    {isAdmin ? <>People operations,<br className="hidden sm:block" /> made simpler.</> : <>Your team,<br className="hidden sm:block" /> in one place.</>}
+                  </h2>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">{isAdmin ? "Employees, attendance, leave and payroll." : "Team leave and your HR records."}</p>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Link href={isAdmin ? "/employees" : "/leaves"} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-blue-50">{isAdmin ? "View employees" : "Review team leaves"} <ArrowUpRight size={16} /></Link>
+                    <Link href="/attendance" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15">{isAdmin ? "Open attendance register" : "My attendance"} <ChevronRight size={16} /></Link>
+                  </div>
+                </div>
+                <div className="relative z-10 mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/15 pt-5 sm:absolute sm:bottom-8 sm:right-9 sm:mt-0 sm:w-[390px] sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
+                  <div><p className="text-xs text-slate-400">Available modules</p><p className="mt-1 text-2xl font-bold">{visibleModules.length.toString().padStart(2, "0")}</p></div>
+                  <div><p className="text-xs text-slate-400">Workspace</p><p className="mt-1 text-sm font-semibold">Centralized</p></div>
+                  <div><p className="text-xs text-slate-400">Access</p><p className="mt-1 text-sm font-semibold">Role-based</p></div>
+                </div>
+              </>
+            )}
           </section>
 
           {isAdmin && (
