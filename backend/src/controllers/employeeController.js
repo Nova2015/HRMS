@@ -239,7 +239,7 @@ export const createEmployee = async (req, res) => {
 export const getEmployees = async (req, res) => {
     try {
         const employees = await populateEmployee(
-            Employee.find().sort({ createdAt: -1 })
+            Employee.find({ isTestRecord: { $ne: true } }).sort({ createdAt: -1 })
         );
 
         const employeeIds = employees.map((employee) => employee._id);
@@ -287,7 +287,7 @@ export const getEmployeeById = async (req, res) => {
             });
         }
 
-        const employee = await populateEmployee(Employee.findById(id));
+        const employee = await populateEmployee(Employee.findOne({ _id: id, isTestRecord: { $ne: true } }));
 
         if (!employee) {
             return res.status(404).json({
