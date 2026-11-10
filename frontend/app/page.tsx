@@ -3,22 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, ShieldCheck, Mail,
+  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, ShieldCheck,
   CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
   Settings2, UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound, Headset,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
 const modules = [
-  {
-    title: "Google Gmail Integration",
-    description: "Connect the company Gmail account and review recent employee-related messages.",
-    href: "/integrations/google-gmail",
-    action: "Manage Gmail connection",
-    icon: Mail,
-    iconStyle: "bg-red-50 text-red-700",
-    accent: "group-hover:border-red-200",
-  },
   {
     title: "Employee Update Approvals",
     description: "Review and decide employee data update proposals from Gmail and documents.",
