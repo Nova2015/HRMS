@@ -56,6 +56,7 @@ function playNotificationSound(kind: "success" | "error") {
 export default function NotificationEffects() {
   const [mode, setMode] = useState<AnimationMode>("cinematic");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsMounted, setSettingsMounted] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [items, setItems] = useState<ToastItem[]>([]);
   const [unread, setUnread] = useState(0);
@@ -65,6 +66,16 @@ export default function NotificationEffects() {
   const [settingsTab, setSettingsTab] = useState<"appearance" | "integrations">("appearance");
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (settingsOpen) {
+      setSettingsMounted(true);
+      return;
+    }
+    if (!settingsMounted) return;
+    const closeTimer = window.setTimeout(() => setSettingsMounted(false), 190);
+    return () => window.clearTimeout(closeTimer);
+  }, [settingsOpen, settingsMounted]);
 
   useEffect(() => {
     if (!settingsOpen) return;
@@ -172,7 +183,7 @@ export default function NotificationEffects() {
         </div>
       )}
 
-      {settingsOpen && <div ref={settingsPanelRef} className="fixed bottom-[5.25rem] right-4 z-[101] w-[min(410px,calc(100vw-2rem))] overflow-hidden rounded-[26px] border border-white/20 bg-[#080d1c]/95 text-white shadow-[0_30px_100px_-24px_rgba(2,6,23,.85)] backdrop-blur-3xl animate-in slide-in-from-bottom-4 fade-in zoom-in-95 duration-300">
+      {settingsMounted && <div ref={settingsPanelRef} style={{ opacity: settingsOpen ? 1 : 0, transform: settingsOpen ? "translateY(0) scale(1)" : "translateY(12px) scale(.97)", transition: "opacity 180ms ease, transform 180ms ease", pointerEvents: settingsOpen ? "auto" : "none" }} className="fixed bottom-[5.25rem] right-4 z-[101] w-[min(410px,calc(100vw-2rem))] overflow-hidden rounded-[26px] border border-white/20 bg-[#080d1c]/95 text-white shadow-[0_30px_100px_-24px_rgba(2,6,23,.85)] backdrop-blur-3xl animate-in slide-in-from-bottom-4 fade-in zoom-in-95 duration-300">
         <div className="pointer-events-none absolute inset-0 overflow-hidden"><div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl" /><div className="absolute -left-20 top-36 h-48 w-48 rounded-full bg-violet-500/15 blur-3xl" /><div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,.07),transparent_38%,rgba(99,102,241,.06))]" /></div>
         <div className="relative border-b border-white/10 bg-gradient-to-r from-indigo-500/15 via-violet-500/10 to-cyan-500/10 px-5 pb-4 pt-5">
           <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-indigo-200 shadow-[inset_0_1px_0_rgba(255,255,255,.18)]"><Settings2 size={20} /></span><div><p className="text-[10px] font-extrabold uppercase tracking-[.22em] text-indigo-200/80">Workspace control</p><h2 className="mt-0.5 text-lg font-black tracking-tight text-white">Settings Center</h2><p className="mt-0.5 text-[11px] text-slate-400">Personalize your HRMS experience</p></div></div><button type="button" aria-label="Close settings" onClick={() => setSettingsOpen(false)} className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:border-white/25 hover:bg-white/15 hover:text-white"><X size={16} /></button></div>
