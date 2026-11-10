@@ -26,18 +26,30 @@ function prepareAudio() {
 function playNotificationSound(kind: "success" | "error") {
   const audio = (window as SoundWindow).__hrmsAudioContext;
   if (!audio || audio.state !== "running") return;
-  const notes = kind === "error" ? [330, 247] : [660, 880];
-  notes.forEach((frequency, index) => {
+  // Short, layered UI chime; synthesized locally so no external audio asset is required.
+  const notes = kind === "error"
+    ? [{ frequency: 392, offset: 0, duration: 0.16 }, { frequency: 311, offset: 0.13, duration: 0.2 }, { frequency: 247, offset: 0.28, duration: 0.24 }]
+    : [{ frequency: 523.25, offset: 0, duration: 0.15 }, { frequency: 659.25, offset: 0.09, duration: 0.18 }, { frequency: 783.99, offset: 0.19, duration: 0.26 }];
+  notes.forEach(({ frequency, offset, duration }, index) => {
+    const at = audio.currentTime + offset;
     const oscillator = audio.createOscillator();
+    const overtone = audio.createOscillator();
     const gain = audio.createGain();
-    const at = audio.currentTime + index * 0.12;
+    const overtoneGain = audio.createGain();
     oscillator.type = "sine";
+    overtone.type = "triangle";
     oscillator.frequency.setValueAtTime(frequency, at);
+    overtone.frequency.setValueAtTime(frequency * 2.01, at);
     gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.exponentialRampToValueAtTime(0.035, at + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.18);
+    gain.gain.exponentialRampToValueAtTime(kind === "error" ? 0.022 : 0.026, at + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
+    overtoneGain.gain.setValueAtTime(0.0001, at);
+    overtoneGain.gain.exponentialRampToValueAtTime(0.006, at + 0.025);
+    overtoneGain.gain.exponentialRampToValueAtTime(0.0001, at + duration * 0.8);
     oscillator.connect(gain); gain.connect(audio.destination);
-    oscillator.start(at); oscillator.stop(at + 0.19);
+    overtone.connect(overtoneGain); overtoneGain.connect(audio.destination);
+    oscillator.start(at); overtone.start(at);
+    oscillator.stop(at + duration + 0.02); overtone.stop(at + duration + 0.02);
   });
 }
 
@@ -190,8 +202,9 @@ export default function NotificationEffects() {
           <div className="mt-3 flex items-center justify-between rounded-xl border border-cyan-200/10 bg-cyan-300/[.06] px-3 py-2"><span className="flex items-center gap-2 text-[10px] font-semibold text-cyan-100/90"><span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(103,232,249,.8)]" /> Live activity feed</span><span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Latest first</span></div>
         </div>
         <div className="relative max-h-[min(55vh,420px)] min-h-[150px] space-y-2 overflow-y-auto overscroll-contain p-3">
-          {items.length === 0 ? <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[.025] px-5 py-7 text-center"><span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/15 bg-emerald-300/[.08] text-emerald-200 shadow-[0_0_28px_-12px_rgba(52,211,153,.45)]"><CheckCircle2 size={23} /></span><p className="mt-3 text-sm font-bold text-white">You’re all caught up</p><p className="mt-1 max-w-[220px] text-[10px] leading-5 text-slate-400">New HRMS updates and important activity will appear here</p><span className="mt-3 rounded-full border border-emerald-300/15 bg-emerald-300/[.06] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-emerald-200/80">All clear</span></div> : items.map(item => <div key={item.id} className="group flex gap-3 rounded-2xl border border-white/[.09] bg-gradient-to-br from-white/[.075] to-white/[.025] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.05)] transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[.08]">
-            <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${item.kind === "success" ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-200" : "border-rose-300/20 bg-rose-300/10 text-rose-200"}`}>{item.kind === "success" ? <CheckCircle2 size={17} /> : <X size={17} />}</span>
+          {items.length === 0 ? <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[.025] px-5 py-7 text-center"><span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/15 bg-emerald-300/[.08] text-emerald-200 shadow-[0_0_28px_-12px_rgba(52,211,153,.45)]"><CheckCircle2 size={23} /></span><p className="mt-3 text-sm font-bold text-white">You’re all caught up</p><p className="mt-1 max-w-[220px] text-[10px] leading-5 text-slate-400">New HRMS updates and important activity will appear here</p><span className="mt-3 rounded-full border border-emerald-300/15 bg-emerald-300/[.06] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-emerald-200/80">All clear</span></div> : items.map((item, index) => <div key={item.id} style={{ animationDelay: `${Math.min(index, 4) * 75}ms` }} className="group relative flex gap-3 overflow-hidden rounded-2xl border border-white/[.09] bg-gradient-to-br from-white/[.075] to-white/[.025] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.05)] animate-in slide-in-from-right-3 fade-in zoom-in-95 duration-500 fill-mode-both transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[.08]">
+            <span className={`pointer-events-none absolute inset-y-0 left-0 w-1 ${item.kind === "success" ? "bg-gradient-to-b from-emerald-300/80 to-emerald-500/10" : "bg-gradient-to-b from-rose-300/80 to-rose-500/10"}`} />
+            <span className={`relative mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${item.kind === "success" ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-200" : "border-rose-300/20 bg-rose-300/10 text-rose-200"}`}><span className={`pointer-events-none absolute inset-0 rounded-xl animate-ping opacity-20 ${item.kind === "success" ? "bg-emerald-300" : "bg-rose-300"}`} />{item.kind === "success" ? <CheckCircle2 size={17} className="relative" /> : <X size={17} className="relative" />}</span>
             <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><span className={`text-[9px] font-extrabold uppercase tracking-[.16em] ${item.kind === "success" ? "text-emerald-200/80" : "text-rose-200/80"}`}>{item.kind === "success" ? "Successful update" : "Action required"}</span><span className="shrink-0 text-[9px] font-medium tabular-nums text-slate-500">{item.time}</span></div><p className="mt-1.5 break-words text-[11px] font-semibold leading-5 text-slate-100">{item.message}</p></div>
           </div>)}
         </div>
