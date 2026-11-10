@@ -222,13 +222,31 @@ router.get("/gmail/callback", async (req, res) => {
             { $set: update },
             { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
         );
-        return res.status(200).json({ success: true, message: "Gmail account connected successfully", googleEmail: profile.emailAddress });
+        return res.redirect(`${process.env.CLIENT_URL}/integrations/google-gmail?connected=1`);
     } catch (error) {
         if (error.name === "JsonWebTokenError" || error.name === "TokenExpiredError") {
             return res.status(400).json({ success: false, message: "Google OAuth state is invalid or expired" });
         }
         console.error("Google Gmail OAuth callback failed:", error.message);
         return res.status(500).json({ success: false, message: "Google Gmail connection failed" });
+    }
+});
+
+// Connection status for the signed-in Admin/HR user. Never expose stored OAuth tokens.
+router.get("/gmail/status", protect, authorizeRoles("admin", "hr"), async (req, res) => {
+    try {
+        const integration = await GoogleGmailIntegration.findOne({ userId: req.user.userId })
+            .select("googleEmail connectedAt lastUsedAt");
+        return res.status(200).json({
+            success: true,
+            connected: Boolean(integration),
+            googleEmail: integration?.googleEmail || null,
+            connectedAt: integration?.connectedAt || null,
+            lastUsedAt: integration?.lastUsedAt || null
+        });
+    } catch (error) {
+        console.error("Google Gmail status lookup failed:", error.message);
+        return res.status(500).json({ success: false, message: "Could not load Gmail connection status" });
     }
 });
 
