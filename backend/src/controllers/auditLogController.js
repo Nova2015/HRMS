@@ -14,7 +14,7 @@ export const getAuditLogs = async (req, res) => {
             filter.module = req.query.module;
         }
         if (req.query.action && typeof req.query.action === "string") {
-            const escapedAction = req.query.action.slice(0, 80).replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\filter.action = { $regex: req.query.action.slice(0, 80), $options: "i" };");
+            const escapedAction = req.query.action.slice(0, 80).replace(/[.*+?^$(){}|[\]\\]/g, "\\$&");
             filter.action = { $regex: escapedAction, $options: "i" };
         }
         if (req.query.from || req.query.to) {
@@ -29,6 +29,9 @@ export const getAuditLogs = async (req, res) => {
                 if (Number.isNaN(to.getTime())) return res.status(400).json({ success: false, message: "Invalid to date" });
                 to.setHours(23, 59, 59, 999);
                 range.$lte = to;
+            }
+            if (range.$gte && range.$lte && range.$gte > range.$lte) {
+                return res.status(400).json({ success: false, message: "From date must be on or before to date" });
             }
             filter.createdAt = range;
         }
