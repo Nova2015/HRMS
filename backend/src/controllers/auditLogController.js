@@ -7,7 +7,7 @@ export const getAuditLogs = async (req, res) => {
         const filter = {};
 
         if (req.query.module && req.query.module !== "all") {
-            const allowed = ["employees", "attendance", "leaves", "payroll", "recruitment", "approvals", "performance", "auth", "expenses", "helpdesk", "holidays", "shifts"];
+            const allowed = ["employees", "attendance", "leaves", "payroll", "recruitment", "approvals", "performance", "auth", "expenses", "helpdesk", "holidays", "shifts", "calendar"];
             if (!allowed.includes(req.query.module)) {
                 return res.status(400).json({ success: false, message: "Invalid module filter" });
             }
