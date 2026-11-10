@@ -715,11 +715,9 @@ function AttendanceWorkspace() {
               {calendarCells.map((cell) => {
                 const dayRecords = records.filter((record) => record.dateKey === cell.key);
                 const dayHoliday = holidays.filter((holiday) => holiday.dateKey === cell.key);
-                const dayLeaves = leaves.filter((leave) => (leave.status === "pending" || leave.status === "approved") && leave.startDate <= cell.key && leave.endDate >= cell.key);
                 const statuses = [...new Set(dayRecords.map((record) => record.status))];
                 const isToday = cell.key === currentDateKey;
                 const isSunday = new Date(`${cell.key}T00:00:00`).getDay() === 0;
-                const isWeeklyOff = isWeeklyOffDate(cell.key);
                 const isHoliday = dayHoliday.length > 0;
                 const isSelected = cell.key === selectedDay;
                 return (
