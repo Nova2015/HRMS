@@ -486,10 +486,8 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
         } while (pageToken);
 
         let imported = 0, pulledUpdates = 0, pushed = 0, cancelled = 0;
-        const processedRemoteIds = new Set();
         for (const remote of remoteEvents) {
             if (!remote.id) continue;
-            processedRemoteIds.add(remote.id);
             if (remote.status === "cancelled") {
                 const cancelledLocal = await CompanyEvent.findOne({ googleEventId: remote.id });
                 if (cancelledLocal && cancelledLocal.status !== "cancelled") {
@@ -506,8 +504,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
             if (!local && remote.status !== "cancelled") {
                 local = await CompanyEvent.findOne({
                     title: mapped.title,
-                    startAt: mapped.startAt,
-                    endAt: mapped.endAt
+                    startAt: mapped.startAt
                 });
             }
             if (!local) {
@@ -534,6 +531,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
         }).sort({ startAt: 1, _id: 1 });
 
         for (const local of localEvents) {
+            if (local.status === "cancelled" && !local.googleEventId) continue;
             const resource = toGoogleCalendarResource(local);
             if (local.googleEventId) {
                 const remote = remoteEvents.find((item) => item.id === local.googleEventId);
