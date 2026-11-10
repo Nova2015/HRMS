@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { ArrowLeft, CheckCircle2, CircleAlert, ExternalLink, Mail, RefreshCw, ShieldCheck, Unplug } from "lucide-react";
 import AuthGuard from "../../components/AuthGuard";
 
@@ -25,7 +24,6 @@ type GmailMessage = {
 };
 
 function GmailIntegrationContent() {
-  const searchParams = useSearchParams();
   const [role, setRole] = useState("");
   const [status, setStatus] = useState<GmailStatus | null>(null);
   const [messages, setMessages] = useState<GmailMessage[]>([]);
@@ -66,9 +64,9 @@ function GmailIntegrationContent() {
       const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
       setRole(user.role || "employee");
     } catch { setRole("employee"); }
-    if (searchParams.get("connected") === "1") setNotice("Gmail account connected successfully.");
+    if (new URLSearchParams(window.location.search).get("connected") === "1") setNotice("Gmail account connected successfully.");
     void loadStatus();
-  }, [loadStatus, searchParams]);
+  }, [loadStatus]);
 
   const connectGmail = async () => {
     const authToken = token();
