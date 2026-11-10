@@ -150,7 +150,7 @@ function GmailIntegrationContent() {
             <section className="rounded-2xl border border-white/[.09] bg-[#10182a] p-4">
               <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-emerald-300" /><h3 className="text-xs font-bold text-white">Access & privacy</h3></div>
               <p className="mt-2 text-[10px] leading-5 text-slate-400">Gmail message access remains read-only. Google Calendar sync can create, update and cancel calendar events in both directions. OAuth tokens are encrypted by the backend. Only Admin and HR can manage this connection.</p>
-              <div className="mt-3 flex flex-wrap gap-2"><span className="rounded-lg border border-emerald-300/15 bg-emerald-300/[.06] px-2.5 py-1.5 text-[9px] font-semibold text-emerald-200">Read-only access</span><span className="rounded-lg border border-white/10 bg-white/[.04] px-2.5 py-1.5 text-[9px] font-semibold text-slate-300">Admin / HR only</span></div>
+              <div className="mt-3 flex flex-wrap gap-2"><span className="rounded-lg border border-emerald-300/15 bg-emerald-300/[.06] px-2.5 py-1.5 text-[9px] font-semibold text-emerald-200">Gmail read-only</span><span className="rounded-lg border border-sky-300/15 bg-sky-300/[.06] px-2.5 py-1.5 text-[9px] font-semibold text-sky-200">Calendar two-way sync</span><span className="rounded-lg border border-white/10 bg-white/[.04] px-2.5 py-1.5 text-[9px] font-semibold text-slate-300">Admin / HR only</span></div>
             </section>
             <section className="rounded-2xl border border-white/[.09] bg-[#10182a] p-4">
               <div className="flex items-center gap-2"><Inbox size={16} className="text-violet-300" /><h3 className="text-xs font-bold text-white">Mailbox overview</h3></div>
