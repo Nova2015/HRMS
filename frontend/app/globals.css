@@ -136,3 +136,31 @@ textarea:focus-visible {
   width: 0;
   height: 0;
 }
+
+
+/* Premium depth for primary dashboard surfaces: restrained 3D lift, layered highlights and soft edge. */
+.hrms-premium-card {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  background: linear-gradient(145deg, rgba(255,255,255,0.99), rgba(248,250,255,0.96));
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.035), 0 10px 24px rgba(30, 41, 59, 0.055), inset 0 1px 0 rgba(255,255,255,0.95);
+  transition: transform 240ms cubic-bezier(0.2, 0.75, 0.25, 1), box-shadow 240ms ease, border-color 240ms ease;
+}
+.hrms-premium-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.98), transparent);
+  pointer-events: none;
+}
+.hrms-premium-card:hover {
+  transform: perspective(900px) translateY(-4px) rotateX(0.35deg);
+  border-color: rgba(165, 180, 252, 0.78);
+  box-shadow: 0 5px 10px rgba(15, 23, 42, 0.045), 0 20px 38px rgba(30, 41, 59, 0.11), inset 0 1px 0 rgba(255,255,255,1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hrms-premium-card { transition: none; }
+  .hrms-premium-card:hover { transform: none; }
+}
