@@ -321,34 +321,35 @@ export default function Home() {
               <span className="text-xs font-medium text-slate-400">{visibleModules.length} modules available</span>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {visibleModules.map((item) => {
-                const roleDescription = item.title === "IT support"
-                  ? (isAdmin ? "View, assign and resolve company-wide IT support tickets." : "Submit IT support requests and track your own ticket status.")
-                  : item.title === "Leave Management"
-                  ? (isAdmin ? "Company-wide leave requests, approvals and calendar." : isManager ? "Review leave requests from your assigned team." : "Apply for leave and track your own requests.")
-                  : item.title === "Attendance"
-                    ? (isAdmin ? "Company-wide attendance register and monthly calendar." : isManager ? "View your assigned team's attendance calendar and daily records." : "View your personal attendance calendar and daily records.")
-                    : item.title === "Payroll" && !isAdmin
-                      ? "View your own monthly payroll and payslips."
-                      : item.description;
-                const roleAction = item.title === "IT support"
-                  ? (isAdmin ? "Manage support tickets" : "Submit a support ticket")
-                  : item.title === "Leave Management"
-                  ? (isAdmin ? "Manage company leaves" : isManager ? "Review team leaves" : "Apply for leave")
-                  : item.title === "Attendance" && !isAdmin
-                    ? (isManager ? "View team attendance calendar" : "View my attendance calendar")
-                    : item.title === "Payroll" && !isAdmin
-                      ? "View my payslips"
-                      : item.action;
+              {visibleModules.map((item, index) => {
                 const Icon = item.icon;
+                const compactTitle = ({
+                  "Update approvals": "Approvals",
+                  "Employee Documents": "Documents",
+                  "Leave Management": "Leave",
+                  "Shift Management": "Shifts",
+                  "Holiday Calendar": "Holidays",
+                  "IT support": "IT Support",
+                } as Record<string, string>)[item.title] || item.title;
                 return (
-                  <Link key={item.href} href={item.href} className={`group hrms-premium-card flex min-h-[190px] flex-col rounded-2xl p-5 transition duration-300 ${item.accent}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className={`rounded-xl p-3 ${item.iconStyle}`}><Icon size={21} /></div>
-                      <span className="rounded-lg p-2 text-slate-300 transition group-hover:bg-slate-50 group-hover:text-slate-700"><ArrowUpRight size={18} /></span>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    style={{ animationDelay: `${index * 55}ms` }}
+                    className={`group hrms-module-card flex min-h-[132px] items-center gap-4 rounded-2xl p-5 ${item.accent}`}
+                  >
+                    <div className={`hrms-module-icon shrink-0 rounded-2xl p-3.5 ${item.iconStyle}`}>
+                      <Icon size={23} strokeWidth={1.9} />
                     </div>
-                    <div className="mt-5"><h3 className="font-bold text-slate-900">{item.title}</h3><p className="mt-1.5 min-h-10 text-sm leading-5 text-slate-500">{roleDescription}</p></div>
-                    <div className="mt-auto flex items-center gap-1.5 pt-4 text-sm font-semibold text-blue-700">{roleAction}<ChevronRight size={15} className="transition group-hover:translate-x-1" /></div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-base font-bold tracking-tight text-slate-900">{compactTitle}</h3>
+                      <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-blue-700">
+                        Open <ChevronRight size={13} className="transition-transform duration-300 group-hover:translate-x-1" />
+                      </span>
+                    </div>
+                    <span className="hrms-module-arrow shrink-0 rounded-xl p-2 text-slate-300 transition-colors group-hover:text-blue-700">
+                      <ArrowUpRight size={19} />
+                    </span>
                   </Link>
                 );
               })}
