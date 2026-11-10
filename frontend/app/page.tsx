@@ -47,6 +47,15 @@ const modules = [
     accent: "group-hover:border-violet-200",
   },
   {
+    title: "Company Calendar",
+    description: "View company events, holidays, leave and attendance together.",
+    href: "/calendar",
+    action: "Open company calendar",
+    icon: CalendarDays,
+    iconStyle: "bg-indigo-50 text-indigo-700",
+    accent: "group-hover:border-indigo-200",
+  },
+  {
     title: "Leave Management",
     description: "Review leave requests and manage employee leave.",
     href: "/leaves",
@@ -267,7 +276,7 @@ export default function Home() {
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expenses", "IT support", "Holiday Calendar", "Performance"].includes(item.title));
+    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expenses", "IT support", "Holiday Calendar", "Company Calendar", "Performance"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
