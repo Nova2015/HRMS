@@ -26,6 +26,8 @@ function GmailIntegrationContent() {
   const [role, setRole] = useState("");
   const [status, setStatus] = useState<GmailStatus | null>(null);
   const [messages, setMessages] = useState<GmailMessage[]>([]);
+  const [eventCandidates, setEventCandidates] = useState<Array<{ messageId: string; from: string; subject: string; date: string; snippet: string; textPreview: string; category: string; detectedAction: string; reviewRequired: boolean }>>([]);
+  const [scanningEvents, setScanningEvents] = useState(false);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -104,6 +106,23 @@ function GmailIntegrationContent() {
     } finally { setSyncing(false); }
   };
 
+  const scanCalendarEmails = async () => {
+    const authToken = token();
+    if (!authToken) { setError("Your session has expired. Please sign in again."); return; }
+    setScanningEvents(true); setError("");
+    try {
+      const response = await fetch(`${API_URL}/integrations/google/gmail/calendar-candidates`, {
+        headers: { Authorization: `Bearer ${authToken}` }, cache: "no-store"
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to scan meeting and event emails");
+      setEventCandidates(Array.isArray(result.candidates) ? result.candidates : []);
+      setNotice(`Scanned ${result.totalScanned || 0} emails and found ${result.totalCandidates || 0} meeting/event candidates. Review before making Calendar changes.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to scan event emails");
+    } finally { setScanningEvents(false); }
+  };
+
   const isAuthorized = role === "admin" || role === "hr";
   const dateLabel = (value: string | null) => value
     ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
@@ -158,6 +177,14 @@ function GmailIntegrationContent() {
               <div className="mt-3 flex items-end justify-between"><div><p className="text-2xl font-black tabular-nums text-white">{messages.length.toString().padStart(2, "0")}</p><p className="text-[9px] uppercase tracking-wider text-slate-500">Messages loaded</p></div><span className="mb-1 text-[9px] text-slate-500">Last 30 days · max 20</span></div>
             </section>
           </div>
+
+          <section className="mt-4 overflow-hidden rounded-2xl border border-sky-300/15 bg-[#10182a]">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[.08] px-4 py-3.5">
+              <div><h2 className="text-xs font-bold text-white">Meetings, company events & festivals</h2><p className="mt-0.5 text-[9px] text-slate-500">Only relevant event emails · Travel and ticket emails excluded</p></div>
+              <button type="button" onClick={scanCalendarEmails} disabled={!status?.connected || scanningEvents} className="inline-flex items-center gap-2 rounded-lg border border-sky-300/20 bg-sky-400/10 px-3 py-2 text-[10px] font-bold text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-40"><RefreshCw size={12} className={scanningEvents ? "animate-spin" : ""} />{scanningEvents ? "Scanning..." : "Scan event emails"}</button>
+            </div>
+            {eventCandidates.length === 0 ? <p className="px-4 py-6 text-center text-[10px] text-slate-500">No event scan results yet. Scan Gmail to find meeting invitations, company functions and festivals such as Diwali or Padwa.</p> : <div className="max-h-[36vh] divide-y divide-white/[.06] overflow-y-auto">{eventCandidates.map((candidate) => <article key={candidate.messageId} className="px-4 py-3"><div className="flex flex-wrap items-center gap-2"><span className="rounded-full border border-sky-300/20 bg-sky-300/[.08] px-2 py-1 text-[9px] font-bold uppercase text-sky-200">{candidate.category.replace("_", " ")}</span><span className="rounded-full border border-amber-300/20 bg-amber-300/[.07] px-2 py-1 text-[9px] font-bold text-amber-200">{candidate.detectedAction}</span><span className="text-[9px] text-slate-500">{candidate.date}</span></div><h3 className="mt-2 text-[11px] font-bold text-slate-100">{candidate.subject || "(No subject)"}</h3><p className="mt-1 text-[9px] text-slate-500">{candidate.from}</p><p className="mt-2 text-[10px] leading-4 text-slate-400">{candidate.snippet || candidate.textPreview || "No preview available."}</p><p className="mt-2 text-[9px] font-semibold text-amber-200/80">Review required · No Calendar changes made</p></article>)}</div>}
+          </section>
 
           <section className="mt-4 overflow-hidden rounded-2xl border border-white/[.09] bg-[#10182a]">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[.08] px-4 py-3.5">
