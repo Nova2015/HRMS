@@ -388,21 +388,31 @@ router.get("/gmail/calendar-candidates", protect, authorizeRoles("admin", "hr"),
         const ids = (list.messages || []).map((message) => message.id).filter(Boolean);
         const candidates = [];
 
-        const classify = (value) => {
-            const text = String(value || "").normalize("NFKC").toLocaleLowerCase();
+        const classify = (value, subjectValue = "") => {
+            const normalize = (input) => String(input || "").normalize("NFKC").toLocaleLowerCase()
+                .replace(/[\u2010-\u2015]/g, " ").replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim();
+            const text = normalize(value);
+            const subject = normalize(subjectValue);
             // Explicitly reject travel, lodging and entertainment-ticket content.
             if (/\b(flight|boarding pass|airline|train|railway|bus ticket|hotel reservation|hotel booking|movie ticket|cinema ticket|show ticket)\b/i.test(text)) return null;
             const cancellation = /\b(cancelled|canceled|cancellation|called off|postponed indefinitely)\b/i.test(text);
             const reschedule = /\b(rescheduled|reschedule|new time|time changed|date changed|updated schedule)\b/i.test(text);
-            const meeting = /\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite|appointment)\b/i.test(text);
-            const festival = /\b(diwali|deepavali|padwa|gudi padwa|ganeshotsav|ganesh chaturthi|holi|eid|christmas|makar sankranti|navratri|dussehra|vijayadashami|raksha bandhan|onam|pongal|baisakhi|lohri|ugadi|mahashivratri|janmashtami|durga puja|eid al fitr|eid ul fitr|eid al adha)\b/i.test(text);
-            const training = /\b(seminar|workshop|training|conference)\b/i.test(text);
-            const functionEvent = /\b(function|celebration|annual day|annual function|cultural program|cultural event|get together|gathering|ceremony|company event|office event|pooja|puja|prayer|inauguration|foundation day|family day|sports day|office party|team outing|festive|utsav|mahotsav)\b/i.test(text);
-            if (meeting) return { category: "meeting", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "invitation" };
-            if (festival) return { category: "festival", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "event" };
-            if (training) return { category: "company_event", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "event" };
-            if (functionEvent) return { category: "company_event", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "event" };
-            return null;
+            const festivalPattern = /\b(diwali|deepavali|padwa|gudi padwa|gudhi padwa|ganeshotsav|ganesh chaturthi|ganpati|holi|eid|christmas|new year|makar sankranti|navratri|dussehra|vijayadashami|raksha bandhan|onam|pongal|baisakhi|lohri|ugadi|mahashivratri|janmashtami|durga puja|eid al fitr|eid ul fitr|eid al adha|bhaubeej|bhai dooj|independence day|republic day|holi milan|eid milan|lakshmi pujan)\b/i;
+            const functionPattern = /\b(function|celebration|annual day|annual function|cultural program|cultural event|get together|gathering|ceremony|company event|office event|pooja|puja|prayer|inauguration|foundation day|family day|sports day|office party|team outing|festive|utsav|mahotsav|festival|fest)\b/i;
+            const meetingPattern = /\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite|appointment)\b/i;
+            const trainingPattern = /\b(seminar|workshop|training|conference)\b/i;
+            // Prefer the email subject so incidental body text cannot turn a function into a meeting.
+            const category = festivalPattern.test(subject) ? "festival"
+                : functionPattern.test(subject) ? "company_event"
+                : trainingPattern.test(subject) ? "company_event"
+                : meetingPattern.test(subject) ? "meeting"
+                : festivalPattern.test(text) ? "festival"
+                : functionPattern.test(text) ? "company_event"
+                : trainingPattern.test(text) ? "company_event"
+                : meetingPattern.test(text) ? "meeting"
+                : null;
+            if (!category) return null;
+            return { category, action: cancellation ? "cancellation" : reschedule ? "reschedule" : category === "meeting" ? "invitation" : "event" };
         };
 
         for (let offset = 0; offset < ids.length; offset += 5) {
@@ -414,7 +424,7 @@ router.get("/gmail/calendar-candidates", protect, authorizeRoles("admin", "hr"),
                 const header = (name) => headers.find((item) => item.name?.toLowerCase() === name)?.value || "";
                 const bodyText = collectPlainText(message.payload).join("\n").trim();
                 const subject = header("subject");
-                const classification = classify(subject + "\n" + (message.snippet || "") + "\n" + bodyText);
+                const classification = classify(subject + "\n" + (message.snippet || "") + "\n" + bodyText, subject);
                 if (!classification) return null;
                 return {
                     messageId: message.id,
@@ -509,12 +519,22 @@ const setCalendarMapping = (event, userId, remote) => {
     else event.googleCalendarMappings.push(values);
 };
 
-const inferCalendarEventType = (value) => {
-    const text = String(value || "").normalize("NFKC").toLocaleLowerCase();
-    if (/\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite|appointment)\b/i.test(text)) return "meeting";
-    if (/\b(seminar|workshop|training|conference)\b/i.test(text)) return "training";
-    if (/\b(diwali|deepavali|padwa|gudi padwa|ganeshotsav|ganesh chaturthi|holi|eid|christmas|makar sankranti|navratri|dussehra|vijayadashami|raksha bandhan|onam|pongal|baisakhi|lohri|ugadi|mahashivratri|janmashtami|durga puja|utsav|mahotsav|festival)\b/i.test(text)) return "company_event";
-    if (/\b(function|celebration|annual day|annual function|cultural program|cultural event|get together|gathering|ceremony|company event|office event|pooja|puja|prayer|inauguration|foundation day|family day|sports day|office party|team outing|festive)\b/i.test(text)) return "company_event";
+const inferCalendarEventType = (title, description = "") => {
+    const normalize = (value) => String(value || "").normalize("NFKC").toLocaleLowerCase()
+        .replace(/[\u2010-\u2015]/g, " ").replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim();
+    const titleText = normalize(title);
+    const fullText = normalize(title + " " + description);
+    const festivalPattern = /\b(diwali|deepavali|padwa|gudi padwa|gudhi padwa|ganeshotsav|ganesh chaturthi|ganpati|holi|eid|christmas|new year|makar sankranti|navratri|dussehra|vijayadashami|raksha bandhan|onam|pongal|baisakhi|lohri|ugadi|mahashivratri|janmashtami|durga puja|utsav|mahotsav|festival|bhaubeej|bhai dooj|independence day|republic day|holi milan|eid milan|lakshmi pujan)\b/i;
+    const functionPattern = /\b(function|celebration|annual day|annual function|cultural program|cultural event|get together|gathering|ceremony|company event|office event|pooja|puja|prayer|inauguration|foundation day|family day|sports day|office party|team outing|festive|fest)\b/i;
+    const trainingPattern = /\b(seminar|workshop|training|conference)\b/i;
+    const meetingPattern = /\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite|appointment)\b/i;
+    // Prefer the event title; incidental description text must not override a function/festival.
+    if (festivalPattern.test(titleText) || functionPattern.test(titleText)) return "company_event";
+    if (trainingPattern.test(titleText)) return "training";
+    if (meetingPattern.test(titleText)) return "meeting";
+    if (festivalPattern.test(fullText) || functionPattern.test(fullText)) return "company_event";
+    if (trainingPattern.test(fullText)) return "training";
+    if (meetingPattern.test(fullText)) return "meeting";
     return "meeting";
 };
 
@@ -528,7 +548,7 @@ const fromGoogleCalendarResource = (remote) => {
     return {
         title,
         description,
-        eventType: inferCalendarEventType(title + "\n" + description),
+        eventType: inferCalendarEventType(title, description),
         startAt,
         endAt,
         allDay,
@@ -618,6 +638,10 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
                     title: mapped.title,
                     startAt: mapped.startAt
                 });
+            }
+            // Correct the type when an existing HRMS event is first linked to this Google event.
+            if (local && !getCalendarMapping(local, req.user.userId)) {
+                local.eventType = mapped.eventType;
             }
             if (!local) {
                 if (mapped.status === "cancelled") continue;
