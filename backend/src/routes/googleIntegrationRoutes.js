@@ -369,6 +369,86 @@ router.get("/gmail/messages", protect, authorizeRoles("admin", "hr"), async (req
 });
 
 
+// Focused discovery for meetings, company events and cultural functions only.
+// This endpoint is read-only: it never creates or changes Calendar records.
+router.get("/gmail/calendar-candidates", protect, authorizeRoles("admin", "hr"), async (req, res) => {
+    try {
+        const integration = await GoogleGmailIntegration.findOne({ userId: req.user.userId })
+            .select("+accessTokenEncrypted +refreshTokenEncrypted");
+        if (!integration) {
+            return res.status(404).json({ success: false, message: "Connect a Gmail account before scanning event emails" });
+        }
+
+        const query = 'newer_than:90d {meeting meet invite invitation agenda "calendar event" "company event" seminar workshop training conference function celebration festival Diwali Deepavali Padwa Gudi Padwa Ganeshotsav Ganesh Chaturthi Holi Eid Christmas} -flight -train -railway -bus -hotel -cinema -movie -airline';
+        const accessToken = await getGmailAccessToken(integration);
+        const listUrl = new URL(`${GMAIL_API_URL}/messages`);
+        listUrl.searchParams.set("q", query);
+        listUrl.searchParams.set("maxResults", "50");
+        const list = await gmailApiFetch(listUrl, accessToken);
+        const ids = (list.messages || []).map((message) => message.id).filter(Boolean);
+        const candidates = [];
+
+        const classify = (value) => {
+            const text = String(value || "").normalize("NFKC").toLocaleLowerCase();
+            // Explicitly reject travel, lodging and entertainment-ticket content.
+            if (/\\b(flight|boarding pass|airline|train|railway|bus ticket|hotel reservation|hotel booking|movie ticket|cinema ticket|show ticket)\\b/i.test(text)) return null;
+            const cancellation = /\\b(cancelled|canceled|cancellation|called off|postponed indefinitely)\\b/i.test(text);
+            const reschedule = /\\b(rescheduled|reschedule|new time|time changed|date changed|updated schedule)\\b/i.test(text);
+            const meeting = /\\b(meeting|meet invite|invitation|agenda|conference call|webinar|calendar invite)\\b/i.test(text);
+            const festival = /\\b(diwali|deepavali|padwa|gudi padwa|ganeshotsav|ganesh chaturthi|holi|eid|christmas|makar sankranti|navratri|dussehra|raksha bandhan)\\b/i.test(text);
+            const functionEvent = /\\b(function|celebration|annual day|gathering|ceremony|company event|office event|seminar|workshop|training|festival)\\b/i.test(text);
+            if (meeting) return { category: "meeting", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "invitation" };
+            if (festival) return { category: "festival", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "event" };
+            if (functionEvent) return { category: "company_event", action: cancellation ? "cancellation" : reschedule ? "reschedule" : "event" };
+            return null;
+        };
+
+        for (let offset = 0; offset < ids.length; offset += 5) {
+            const batch = await Promise.all(ids.slice(offset, offset + 5).map(async (messageId) => {
+                const detailUrl = new URL(`${GMAIL_API_URL}/messages/${encodeURIComponent(messageId)}`);
+                detailUrl.searchParams.set("format", "full");
+                const message = await gmailApiFetch(detailUrl, accessToken);
+                const headers = message.payload?.headers || [];
+                const header = (name) => headers.find((item) => item.name?.toLowerCase() === name)?.value || "";
+                const bodyText = collectPlainText(message.payload).join("\\n").trim();
+                const subject = header("subject");
+                const classification = classify(subject + "\\n" + (message.snippet || "") + "\\n" + bodyText);
+                if (!classification) return null;
+                return {
+                    messageId: message.id,
+                    threadId: message.threadId,
+                    from: header("from"),
+                    subject,
+                    date: header("date"),
+                    snippet: message.snippet || "",
+                    textPreview: bodyText.slice(0, 3000),
+                    category: classification.category,
+                    detectedAction: classification.action,
+                    reviewRequired: true
+                };
+            }));
+            candidates.push(...batch.filter(Boolean));
+        }
+
+        integration.lastUsedAt = new Date();
+        await integration.save();
+        return res.status(200).json({
+            success: true,
+            query,
+            totalScanned: ids.length,
+            totalCandidates: candidates.length,
+            candidates
+        });
+    } catch (error) {
+        console.error("Gmail calendar candidate scan failed:", error.message);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || "Could not scan Gmail event messages"
+        });
+    }
+});
+
+
 const calendarApiRequest = async (url, accessToken, options = {}) => {
     const response = await fetch(url, {
         ...options,
