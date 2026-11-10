@@ -128,6 +128,15 @@ const modules = [
     accent: "group-hover:border-indigo-200",
   },
   {
+    title: "Audit Logs",
+    description: "Trace successful account, employee and HR workflow changes.",
+    href: "/audit-logs",
+    action: "View audit activity",
+    icon: ShieldCheck,
+    iconStyle: "bg-slate-100 text-slate-700",
+    accent: "group-hover:border-slate-300",
+  },
+  {
     title: "Recruitment",
     description: "Manage job openings, candidate selection and employee onboarding.",
     href: "/recruitment",
