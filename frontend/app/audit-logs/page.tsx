@@ -33,6 +33,7 @@ function AuditLogsContent() {
   const [items, setItems] = useState<AuditItem[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, pages: 0 });
   const [module, setModule] = useState("all");
+  const [actionInput, setActionInput] = useState("");
   const [action, setAction] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -65,7 +66,7 @@ function AuditLogsContent() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const applyFilters = () => setPage(1);
+  const applyFilters = () => { setAction(actionInput.trim()); setPage(1); };
   const start = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
   const end = Math.min(pagination.page * pagination.limit, pagination.total);
 
@@ -92,7 +93,7 @@ function AuditLogsContent() {
         <div className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-800"><Filter size={16}/>Filter activity</div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <select value={module} onChange={(event) => { setModule(event.target.value); setPage(1); }} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100">{MODULES.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>
-          <input value={action} onChange={(event) => setAction(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyFilters(); }} placeholder="Search action…" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"/>
+          <input value={actionInput} onChange={(event) => setActionInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyFilters(); }} placeholder="Search action…" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"/>
           <input type="date" value={from} onChange={(event) => { setFrom(event.target.value); setPage(1); }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-400"/>
           <input type="date" value={to} min={from || undefined} onChange={(event) => { setTo(event.target.value); setPage(1); }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-400"/>
           <button onClick={applyFilters} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700"><Search size={16}/>Apply filters</button>
