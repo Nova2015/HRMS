@@ -38,6 +38,31 @@ function ApprovalQueue() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [confirmTarget, setConfirmTarget] = useState<{ request: ApprovalRequest; decision: "approve" | "reject" } | null>(null);
+
+  const playUiSound = (kind: "open" | "approve" | "reject" | "error") => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audio = new AudioContextClass();
+      const now = audio.currentTime;
+      const tones = kind === "open" ? [660, 880] : kind === "approve" ? [660, 880, 1100] : kind === "reject" ? [440, 330] : [220, 180];
+      tones.forEach((frequency, index) => {
+        const oscillator = audio.createOscillator();
+        const gain = audio.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(frequency, now + index * 0.095);
+        gain.gain.setValueAtTime(0.0001, now + index * 0.095);
+        gain.gain.exponentialRampToValueAtTime(0.075, now + index * 0.095 + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.095 + 0.12);
+        oscillator.connect(gain);
+        gain.connect(audio.destination);
+        oscillator.start(now + index * 0.095);
+        oscillator.stop(now + index * 0.095 + 0.13);
+      });
+      window.setTimeout(() => { void audio.close(); }, 700);
+    } catch { /* Audio is an enhancement; decisions must work without it. */ }
+  };
 
   const loadRequests = useCallback(async () => {
     setLoading(true); setError("");
@@ -69,14 +94,21 @@ function ApprovalQueue() {
     );
   }, [requests, search]);
 
-  const decide = async (request: ApprovalRequest, decision: "approve" | "reject") => {
+  const openDecisionConfirm = (request: ApprovalRequest, decision: "approve" | "reject") => {
     if (decision === "reject" && !notes[request._id]?.trim()) {
       setError("Enter a rejection reason in the decision note field."); return;
     }
-    const confirmed = window.confirm(decision === "approve"
-      ? "Approve this proposal and apply the proposed values to the employee record?"
-      : "Reject this employee update proposal?");
-    if (!confirmed) return;
+    setError("");
+    setConfirmTarget({ request, decision });
+    playUiSound("open");
+  };
+
+  const decide = async () => {
+    if (!confirmTarget) return;
+    const { request, decision } = confirmTarget;
+    if (decision === "reject" && !notes[request._id]?.trim()) {
+      setError("Enter a rejection reason in the decision note field."); return;
+    }
     setBusyId(request._id); setError(""); setNotice("");
     try {
       const token = sessionStorage.getItem("hrms_token");
@@ -88,8 +120,10 @@ function ApprovalQueue() {
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.message || "Unable to process decision");
       setNotice(result.message || "Decision saved.");
+      setConfirmTarget(null);
+      playUiSound(decision);
       await loadRequests();
-    } catch (err) { setError(err instanceof Error ? err.message : "Unable to process decision"); }
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to process decision"); playUiSound("error"); }
     finally { setBusyId(""); }
   };
 
@@ -134,10 +168,47 @@ function ApprovalQueue() {
                 <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Field</th><th className="px-4 py-3">Current value</th><th className="px-4 py-3">Proposed value</th></tr></thead><tbody className="divide-y divide-slate-100">{Object.entries(r.proposedChanges || {}).map(([field, value]) => <tr key={field}><td className="px-4 py-3 font-semibold text-slate-700">{LABELS[field] || field}</td><td className="px-4 py-3 text-slate-500">{r.oldValues && field in r.oldValues ? showValue(r.oldValues[field]) : "Not captured"}</td><td className="px-4 py-3 font-semibold text-blue-700">{showValue(value)}</td></tr>)}</tbody></table></div>
                 {r.requestedBy?.email && <p className="mt-3 text-xs text-slate-500">Submitted by {r.requestedBy.email}</p>}
                 {!pending && <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600"><p>Decision: <strong className="capitalize">{r.status}</strong>{r.decidedBy?.email ? " by " + r.decidedBy.email : ""}{r.decidedAt ? " · " + new Date(r.decidedAt).toLocaleString("en-IN") : ""}</p>{r.decisionNote && <p className="mt-1">Note: {r.decisionNote}</p>}</div>}
-                {pending && <div className="mt-4 border-t border-slate-100 pt-4"><label htmlFor={"note-" + r._id} className="mb-1.5 block text-xs font-semibold text-slate-600">Decision note (required for rejection)</label><textarea id={"note-" + r._id} value={notes[r._id] || ""} onChange={(e) => setNotes((current) => ({ ...current, [r._id]: e.target.value }))} rows={2} maxLength={1000} placeholder="Add context for this decision…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /><div className="mt-3 flex flex-wrap justify-end gap-2"><button type="button" disabled={busyId === r._id} onClick={() => decide(r, "reject")} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"><X size={16} /> Reject</button><button type="button" disabled={busyId === r._id} onClick={() => decide(r, "approve")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"><Check size={16} /> Approve & Apply</button></div></div>}
+                {pending && <div className="mt-4 border-t border-slate-100 pt-4"><label htmlFor={"note-" + r._id} className="mb-1.5 block text-xs font-semibold text-slate-600">Decision note (required for rejection)</label><textarea id={"note-" + r._id} value={notes[r._id] || ""} onChange={(e) => setNotes((current) => ({ ...current, [r._id]: e.target.value }))} rows={2} maxLength={1000} placeholder="Add context for this decision…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /><div className="mt-3 flex flex-wrap justify-end gap-2"><button type="button" disabled={busyId === r._id} onClick={() => openDecisionConfirm(r, "reject")} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"><X size={16} /> Reject</button><button type="button" disabled={busyId === r._id} onClick={() => openDecisionConfirm(r, "approve")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"><Check size={16} /> Approve & Apply</button></div></div>}
               </article>;
             })}</div>}
         </section>
+        {confirmTarget && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setConfirmTarget(null); }}>
+          <style>{`
+            @keyframes approvalBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes approvalDialogIn { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+            @keyframes approvalIconPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+          `}</style>
+          <section role="dialog" aria-modal="true" aria-labelledby="approval-confirm-title" className="w-full max-w-md overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl" style={{ animation: "approvalDialogIn .28s cubic-bezier(.2,.8,.2,1) both" }}>
+            <div className={`relative overflow-hidden px-6 pb-6 pt-7 text-white ${confirmTarget.decision === "approve" ? "bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700" : "bg-gradient-to-br from-rose-600 via-red-600 to-orange-600"}`}>
+              <div className="absolute -right-8 -top-10 h-36 w-36 rounded-full border-[22px] border-white/10" />
+              <div className="relative flex items-center gap-4">
+                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white/15 shadow-inner" style={{ animation: "approvalIconPulse 1.8s ease-in-out infinite" }}>
+                  {confirmTarget.decision === "approve" ? <ShieldCheck size={30} /> : <X size={30} />}
+                </div>
+                <div><p className="text-xs font-bold uppercase tracking-[.18em] text-white/75">Final confirmation</p><h2 id="approval-confirm-title" className="mt-1 text-2xl font-extrabold">{confirmTarget.decision === "approve" ? "Approve update?" : "Reject update?"}</h2></div>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-sm leading-6 text-slate-600">{confirmTarget.decision === "approve" ? "This will apply the proposed values to the employee record. Review the change before continuing." : "This will mark the proposal as rejected. The employee record will remain unchanged."}</p>
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employee</p>
+                <p className="mt-1 font-bold text-slate-900">{confirmTarget.request.employee ? confirmTarget.request.employee.firstName + " " + confirmTarget.request.employee.lastName : "Employee record"}</p>
+                <p className="text-xs text-slate-500">{confirmTarget.request.employeeCode}</p>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Proposal</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{confirmTarget.request.sourceSubject || "Employee update"}</p>
+              </div>
+              {confirmTarget.decision === "reject" && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">Reason: {notes[confirmTarget.request._id]}</p>}
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" disabled={!!busyId} onClick={() => setConfirmTarget(null)} className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">Go back</button>
+                <button type="button" disabled={!!busyId} onClick={() => void decide()} className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 ${confirmTarget.decision === "approve" ? "bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700" : "bg-rose-600 shadow-rose-600/20 hover:bg-rose-700"}`}>
+                  {busyId ? <RefreshCw size={16} className="animate-spin" /> : confirmTarget.decision === "approve" ? <Check size={16} /> : <X size={16} />}
+                  {busyId ? "Processing…" : confirmTarget.decision === "approve" ? "Yes, approve" : "Yes, reject"}
+                </button>
+              </div>
+              <p className="mt-4 text-center text-[11px] text-slate-400">A short confirmation sound plays when supported by your browser.</p>
+            </div>
+          </section>
+        </div>}
         <p className="mt-4 text-xs text-slate-400">Sensitive identifiers and login credentials are excluded from external update approvals.</p>
       </div>
     </main>
