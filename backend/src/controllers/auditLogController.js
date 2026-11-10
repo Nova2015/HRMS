@@ -7,14 +7,15 @@ export const getAuditLogs = async (req, res) => {
         const filter = {};
 
         if (req.query.module && req.query.module !== "all") {
-            const allowed = ["employees", "attendance", "leaves", "payroll", "recruitment", "approvals", "performance", "auth"];
+            const allowed = ["employees", "attendance", "leaves", "payroll", "recruitment", "approvals", "performance", "auth", "expenses", "helpdesk", "holidays", "shifts"];
             if (!allowed.includes(req.query.module)) {
                 return res.status(400).json({ success: false, message: "Invalid module filter" });
             }
             filter.module = req.query.module;
         }
         if (req.query.action && typeof req.query.action === "string") {
-            filter.action = { $regex: req.query.action.slice(0, 80), $options: "i" };
+            const escapedAction = req.query.action.slice(0, 80).replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\filter.action = { $regex: req.query.action.slice(0, 80), $options: "i" };");
+            filter.action = { $regex: escapedAction, $options: "i" };
         }
         if (req.query.from || req.query.to) {
             const range = {};
