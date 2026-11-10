@@ -114,6 +114,18 @@ textarea:focus-visible {
 }
 
 
+/* Hide native scrollbars consistently across the entire HRMS UI while preserving scrolling. */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Keep dark floating panels clean: scrolling remains enabled without a legacy white scrollbar. */
 .hrms-scrollbar-hidden {
   scrollbar-width: none;
