@@ -8,11 +8,12 @@ import {
 
 import { protect } from "../middleware/authMiddleware.js";
 import { loginRateLimit } from "../middleware/loginRateLimit.js";
+import { auditAction } from "../middleware/auditLogMiddleware.js";
 
 const router = express.Router();
 
 router.post("/login", loginRateLimit, login);
 router.get("/me", protect, getMe);
-router.put("/change-password", protect, changePassword);
+router.put("/change-password", protect, auditAction("auth", "password.changed"), changePassword);
 
 export default router;
