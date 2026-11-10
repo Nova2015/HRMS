@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import GoogleGmailIntegration from "../models/GoogleGmailIntegration.js";
 import Employee from "../models/Employee.js";
 import User from "../models/User.js";
+import CompanyEvent from "../models/CompanyEvent.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 
@@ -14,6 +15,8 @@ const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GMAIL_API_URL = "https://gmail.googleapis.com/gmail/v1/users/me";
 const GMAIL_PROFILE_URL = `${GMAIL_API_URL}/profile`;
 const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+const GOOGLE_CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const GOOGLE_CALENDAR_API_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 
 const getOAuthConfig = () => {
     const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_GMAIL_REDIRECT_URI, JWT_SECRET } = process.env;
@@ -122,7 +125,7 @@ router.get("/gmail/connect", protect, authorizeRoles("admin", "hr"), (req, res) 
             client_id: config.clientId,
             redirect_uri: config.redirectUri,
             response_type: "code",
-            scope: `openid email profile ${GMAIL_READONLY_SCOPE}`,
+            scope: `openid email profile ${GMAIL_READONLY_SCOPE} ${GOOGLE_CALENDAR_EVENTS_SCOPE}`,
             access_type: "offline",
             prompt: "consent",
             include_granted_scopes: "true",
@@ -361,6 +364,211 @@ router.get("/gmail/messages", protect, authorizeRoles("admin", "hr"), async (req
         return res.status(error.status || 500).json({
             success: false,
             message: error.message || "Could not read Gmail messages"
+        });
+    }
+});
+
+
+const calendarApiRequest = async (url, accessToken, options = {}) => {
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            ...(options.body ? { "Content-Type": "application/json" } : {}),
+            ...options.headers
+        }
+    });
+    const payload = response.status === 204 ? {} : await response.json().catch(() => ({}));
+    if (!response.ok) {
+        console.error("Google Calendar API request failed:", payload.error?.status || response.status);
+        const error = new Error(payload.error?.message || "Google Calendar request failed");
+        error.status = response.status === 401 ? 401 : response.status === 403 ? 403 : 502;
+        throw error;
+    }
+    return payload;
+};
+
+const toGoogleCalendarResource = (event) => {
+    const resource = {
+        summary: event.title,
+        description: event.description || "",
+        location: event.location || "",
+        status: event.status === "cancelled" ? "cancelled" : "confirmed"
+    };
+    if (event.allDay) {
+        const startDate = new Date(event.startAt).toISOString().slice(0, 10);
+        let endDate = new Date(event.endAt).toISOString().slice(0, 10);
+        if (endDate <= startDate) {
+            const next = new Date(`${startDate}T00:00:00.000Z`);
+            next.setUTCDate(next.getUTCDate() + 1);
+            endDate = next.toISOString().slice(0, 10);
+        }
+        resource.start = { date: startDate };
+        resource.end = { date: endDate };
+    } else {
+        resource.start = { dateTime: new Date(event.startAt).toISOString() };
+        resource.end = { dateTime: new Date(event.endAt).toISOString() };
+    }
+    return resource;
+};
+
+const fromGoogleCalendarResource = (remote) => {
+    const allDay = Boolean(remote.start?.date);
+    const startAt = allDay ? new Date(`${remote.start.date}T00:00:00.000Z`) : new Date(remote.start?.dateTime);
+    const endAt = allDay ? new Date(`${remote.end?.date}T00:00:00.000Z`) : new Date(remote.end?.dateTime);
+    if (!remote.id || Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) return null;
+    return {
+        title: String(remote.summary || "Google Calendar event").slice(0, 140),
+        description: String(remote.description || "").slice(0, 2000),
+        eventType: "meeting",
+        startAt,
+        endAt,
+        allDay,
+        location: String(remote.location || "").slice(0, 200),
+        status: remote.status === "cancelled" ? "cancelled" : "scheduled",
+        googleEventId: remote.id
+    };
+};
+
+// Calendar connection is considered active only when the granted OAuth scopes include event access.
+router.get("/calendar/status", protect, authorizeRoles("admin", "hr"), async (req, res) => {
+    try {
+        const integration = await GoogleGmailIntegration.findOne({ userId: req.user.userId })
+            .select("googleEmail scopes connectedAt");
+        const connected = Boolean(integration?.scopes?.includes(GOOGLE_CALENDAR_EVENTS_SCOPE));
+        return res.status(200).json({
+            success: true,
+            connected,
+            googleEmail: integration?.googleEmail || null,
+            connectedAt: integration?.connectedAt || null,
+            needsConsent: Boolean(integration) && !connected
+        });
+    } catch (error) {
+        console.error("Google Calendar status lookup failed:", error.message);
+        return res.status(500).json({ success: false, message: "Could not load Google Calendar connection status" });
+    }
+});
+
+// Two-way sync for the currently visible HRMS calendar date range.
+router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req, res) => {
+    try {
+        const { from, to } = req.body || {};
+        if (typeof from !== "string" || typeof to !== "string" ||
+            Number.isNaN(Date.parse(from)) || Number.isNaN(Date.parse(to)) ||
+            new Date(to) <= new Date(from) || new Date(to) - new Date(from) > 366 * 86400000) {
+            return res.status(400).json({ success: false, message: "Provide a valid calendar date range of no more than 366 days" });
+        }
+        const integration = await GoogleGmailIntegration.findOne({ userId: req.user.userId })
+            .select("+accessTokenEncrypted +refreshTokenEncrypted");
+        if (!integration) {
+            return res.status(409).json({ success: false, message: "Connect your Google account before syncing Calendar" });
+        }
+        if (!integration.scopes?.includes(GOOGLE_CALENDAR_EVENTS_SCOPE)) {
+            return res.status(409).json({ success: false, message: "Google Calendar permission is required. Reconnect your Google account to grant Calendar access." });
+        }
+
+        const accessToken = await getGmailAccessToken(integration);
+        const timeMin = new Date(from).toISOString();
+        const timeMax = new Date(to).toISOString();
+        const remoteEvents = [];
+        let pageToken = "";
+        do {
+            const listUrl = new URL(GOOGLE_CALENDAR_API_URL);
+            listUrl.searchParams.set("timeMin", timeMin);
+            listUrl.searchParams.set("timeMax", timeMax);
+            listUrl.searchParams.set("singleEvents", "true");
+            listUrl.searchParams.set("showDeleted", "true");
+            listUrl.searchParams.set("maxResults", "2500");
+            if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
+            const page = await calendarApiRequest(listUrl, accessToken);
+            remoteEvents.push(...(page.items || []));
+            pageToken = page.nextPageToken || "";
+        } while (pageToken);
+
+        let imported = 0, pulledUpdates = 0, pushed = 0, cancelled = 0;
+        const processedRemoteIds = new Set();
+        for (const remote of remoteEvents) {
+            if (!remote.id) continue;
+            processedRemoteIds.add(remote.id);
+            const mapped = fromGoogleCalendarResource(remote);
+            if (!mapped) continue;
+            let local = await CompanyEvent.findOne({ googleEventId: remote.id });
+            if (!local && remote.status !== "cancelled") {
+                local = await CompanyEvent.findOne({
+                    title: mapped.title,
+                    startAt: mapped.startAt,
+                    endAt: mapped.endAt
+                });
+            }
+            if (!local) {
+                if (mapped.status === "cancelled") continue;
+                local = await CompanyEvent.create({ ...mapped, createdBy: req.user.userId });
+                imported++;
+                continue;
+            }
+            const remoteUpdatedAt = remote.updated ? new Date(remote.updated) : new Date(0);
+            const localUpdatedAt = local.updatedAt || local.createdAt || new Date(0);
+            if (remote.status === "cancelled") {
+                if (local.status !== "cancelled") {
+                    local.status = "cancelled";
+                    local.googleEventId = remote.id;
+                    await local.save();
+                    pulledUpdates++;
+                    cancelled++;
+                }
+            } else if (remoteUpdatedAt > localUpdatedAt) {
+                Object.assign(local, mapped);
+                await local.save();
+                pulledUpdates++;
+            } else if (!local.googleEventId) {
+                local.googleEventId = remote.id;
+                await local.save();
+            }
+        }
+
+        const localEvents = await CompanyEvent.find({
+            startAt: { $lte: new Date(timeMax) },
+            endAt: { $gte: new Date(timeMin) }
+        }).sort({ startAt: 1, _id: 1 });
+
+        for (const local of localEvents) {
+            const resource = toGoogleCalendarResource(local);
+            if (local.googleEventId) {
+                const remote = remoteEvents.find((item) => item.id === local.googleEventId);
+                if (remote?.status === "cancelled" && local.status !== "cancelled") continue;
+                const remoteUpdatedAt = remote?.updated ? new Date(remote.updated) : new Date(0);
+                const localUpdatedAt = local.updatedAt || local.createdAt || new Date(0);
+                if (remote && remoteUpdatedAt > localUpdatedAt) continue;
+                await calendarApiRequest(`${GOOGLE_CALENDAR_API_URL}/${encodeURIComponent(local.googleEventId)}`, accessToken, {
+                    method: "PATCH",
+                    body: JSON.stringify(resource)
+                });
+                pushed++;
+            } else {
+                const created = await calendarApiRequest(GOOGLE_CALENDAR_API_URL, accessToken, {
+                    method: "POST",
+                    body: JSON.stringify(resource)
+                });
+                if (created.id) {
+                    local.googleEventId = created.id;
+                    await local.save();
+                    pushed++;
+                }
+            }
+        }
+
+        integration.lastUsedAt = new Date();
+        await integration.save();
+        return res.status(200).json({
+            success: true,
+            message: "Google Calendar two-way sync completed",
+            data: { imported, pulledUpdates, pushed, cancelled, googleEventsSeen: remoteEvents.length }
+        });
+    } catch (error) {
+        console.error("Google Calendar two-way sync failed:", error.message);
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.message || "Google Calendar sync failed"
         });
     }
 });
