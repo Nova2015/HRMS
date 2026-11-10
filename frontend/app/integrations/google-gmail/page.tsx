@@ -149,7 +149,7 @@ function GmailIntegrationContent() {
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1.2fr_.8fr]">
             <section className="rounded-2xl border border-white/[.09] bg-[#10182a] p-4">
               <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-emerald-300" /><h3 className="text-xs font-bold text-white">Access & privacy</h3></div>
-              <p className="mt-2 text-[10px] leading-5 text-slate-400">Gmail access is read-only. OAuth tokens are encrypted by the backend. Only Admin and HR can manage this connection, and messages do not automatically change employee records.</p>
+              <p className="mt-2 text-[10px] leading-5 text-slate-400">Gmail message access remains read-only. Google Calendar sync can create, update and cancel calendar events in both directions. OAuth tokens are encrypted by the backend. Only Admin and HR can manage this connection.</p>
               <div className="mt-3 flex flex-wrap gap-2"><span className="rounded-lg border border-emerald-300/15 bg-emerald-300/[.06] px-2.5 py-1.5 text-[9px] font-semibold text-emerald-200">Read-only access</span><span className="rounded-lg border border-white/10 bg-white/[.04] px-2.5 py-1.5 text-[9px] font-semibold text-slate-300">Admin / HR only</span></div>
             </section>
             <section className="rounded-2xl border border-white/[.09] bg-[#10182a] p-4">
