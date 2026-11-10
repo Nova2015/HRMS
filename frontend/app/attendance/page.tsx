@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 import CalendarExportActions from "./CalendarExportActions";
+import CalendarImportActions from "./CalendarImportActions";
 
 const API_URL = "http://localhost:5000/api";
 
@@ -171,6 +172,48 @@ function AttendanceWorkspace() {
     if (!response.ok || !result.success) throw new Error(result.message || "Request failed");
     return result;
   }, [router]);
+
+  const importCalendarRows = useCallback(async (rows: Array<{ category: "holiday" | "event"; date: string; name: string; type: string; description: string; startAt: string; endAt: string; location: string; allDay: boolean }>) => {
+    const dates = rows.map((row) => row.category === "holiday" ? row.date : row.startAt.slice(0, 10));
+    const from = `${dates.reduce((a, b) => a < b ? a : b)}T00:00:00`;
+    const toDate = new Date(`${dates.reduce((a, b) => a > b ? a : b)}T00:00:00`);
+    toDate.setDate(toDate.getDate() + 1);
+    const to = toDate.toISOString();
+    const [holidayResult, eventResult] = await Promise.all([
+      apiRequest(`/holidays?from=${from.slice(0, 10)}&to=${to.slice(0, 10)}`),
+      apiRequest(`/calendar/events?from=${encodeURIComponent(new Date(from).toISOString())}&to=${encodeURIComponent(to)}`),
+    ]);
+    const existingHolidays = (holidayResult.data || []) as Holiday[];
+    const existingEvents = (eventResult.data || []) as CompanyEvent[];
+    let created = 0, updated = 0, skipped = 0;
+    for (const row of rows) {
+      if (row.category === "holiday") {
+        const match = existingHolidays.find((item) => item.dateKey === row.date && item.name.trim().toLowerCase() === row.name.trim().toLowerCase());
+        const payload = { name: row.name, dateKey: row.date, type: row.type, description: row.description };
+        if (match?._id) {
+          await apiRequest(`/holidays/${match._id}`, { method: "PUT", body: JSON.stringify(payload) });
+          updated++;
+        } else {
+          await apiRequest("/holidays", { method: "POST", body: JSON.stringify(payload) });
+          created++;
+        }
+      } else {
+        const startAt = new Date(row.startAt).toISOString();
+        const endAt = new Date(row.endAt).toISOString();
+        const match = existingEvents.find((item) => item.title.trim().toLowerCase() === row.name.trim().toLowerCase() && new Date(item.startAt).toISOString() === startAt);
+        const payload = { title: row.name, eventType: row.type, description: row.description, startAt, endAt, allDay: row.allDay, location: row.location, status: "scheduled" };
+        if (match?._id) {
+          await apiRequest(`/calendar/events/${match._id}`, { method: "PUT", body: JSON.stringify(payload) });
+          updated++;
+        } else {
+          await apiRequest("/calendar/events", { method: "POST", body: JSON.stringify(payload) });
+          created++;
+        }
+      }
+    }
+    await loadWorkspace();
+    return { created, updated, skipped };
+  }, [apiRequest, loadWorkspace]);
 
   const loadWorkspace = useCallback(async () => {
     setLoading(true);
@@ -629,6 +672,7 @@ function AttendanceWorkspace() {
               <div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Attendance Calendar</p><h2 className="mt-1 text-xl font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h2><p className="mt-1 text-sm text-slate-500">Select a date to inspect attendance details.</p></div>
               <div className="flex flex-wrap items-center gap-2">
                 <CalendarExportActions month={month} selectedDay={selectedDay} records={records} holidays={holidays} leaves={leaves} events={companyEvents} />
+                {isAdmin && <CalendarImportActions onImport={importCalendarRows} />}
                 {isAdmin && <><button type="button" onClick={() => { setHolidayEditId(null); setHolidayForm({ name: "", dateKey: selectedDay, type: "public", description: "" }); setShowHolidayModal(true); }} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-50">Manage holidays</button><button type="button" onClick={() => { setEventEditId(null); setEventForm({ title: "", description: "", eventType: "company_event", startAt: "", endAt: "", allDay: false, location: "" }); setShowEventForm(true); }} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:-translate-y-0.5"><CalendarDays size={15} /> Add event / meeting</button></>}
                 <button type="button" aria-label="Previous month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() - 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronLeft size={18} /></button>
                 <button type="button" onClick={() => { setMonth(new Date()); setSelectedDay(todayKey()); }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Today</button>
