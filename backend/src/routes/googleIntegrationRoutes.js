@@ -684,7 +684,7 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
                 await local.save();
                 pulledUpdates++;
             } else {
-                setCalendarMapping(local, req.user.userId, remote);
+                setCalendarMapping(local, req.user.userId, remote, remote._calendarId || "primary");
                 await local.save();
             }
         }
@@ -695,22 +695,22 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req
         }).sort({ startAt: 1, _id: 1 });
 
         for (const local of localEvents) {
-            const mapping = getCalendarMapping(local, req.user.userId);
+            const mapping = getCalendarMapping(local, req.user.userId, "primary");
             if (local.status === "cancelled" && !mapping) continue;
             const resource = toGoogleCalendarResource(local);
             if (mapping?.googleEventId) {
-                const remote = remoteEvents.find((item) => item.id === mapping.googleEventId);
+                const remote = remoteEvents.find((item) => item.id === mapping.googleEventId && (item._calendarId || "primary") === mapping.calendarId);
                 if (remote?.status === "cancelled" && local.status !== "cancelled") continue;
                 const remoteUpdatedAt = remote?.updated ? new Date(remote.updated) : new Date(0);
                 const localUpdatedAt = local.updatedAt || local.createdAt || new Date(0);
                 if (remote && remoteUpdatedAt > localUpdatedAt) continue;
-                await calendarApiRequest(`${GOOGLE_CALENDAR_API_URL}/${encodeURIComponent(mapping.googleEventId)}`, accessToken, {
+                await calendarApiRequest(`${GOOGLE_CALENDAR_API_URL}/${encodeURIComponent(mapping.calendarId || "primary")}/events/${encodeURIComponent(mapping.googleEventId)}`, accessToken, {
                     method: "PATCH",
                     body: JSON.stringify(resource)
                 });
                 pushed++;
             } else {
-                const created = await calendarApiRequest(GOOGLE_CALENDAR_API_URL, accessToken, {
+                const created = await calendarApiRequest(`${GOOGLE_CALENDAR_API_URL}/primary/events`, accessToken, {
                     method: "POST",
                     body: JSON.stringify(resource)
                 });
