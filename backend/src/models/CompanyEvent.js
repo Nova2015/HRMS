@@ -14,7 +14,12 @@ const companyEventSchema = new mongoose.Schema({
     allDay: { type: Boolean, default: false },
     location: { type: String, trim: true, maxlength: 200, default: "" },
     status: { type: String, enum: ["scheduled", "cancelled"], default: "scheduled", index: true },
-    googleEventId: { type: String, default: undefined, index: { sparse: true } },
+    googleCalendarMappings: [{
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        calendarId: { type: String, default: "primary" },
+        googleEventId: { type: String, required: true },
+        googleUpdatedAt: { type: Date, default: null }
+    }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
 }, { timestamps: true });
 
