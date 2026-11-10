@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Check, CheckCircle2, Settings2, X, RotateCcw, Sparkles, Layers3, ScanFace, Zap, Eye, EyeOff } from "lucide-react";
+import { Bell, Check, CheckCircle2, Settings2, X, RotateCcw, Sparkles, Layers3, ScanFace, Zap, Eye, EyeOff, Mail } from "lucide-react";
 
 type AnimationMode = "cinematic" | "flip" | "hologram" | "slide";
 type ToastItem = { id: number; message: string; kind: "success" | "error"; time: string };
@@ -48,8 +48,14 @@ export default function NotificationEffects() {
   const [items, setItems] = useState<ToastItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [dockHidden, setDockHidden] = useState(false);
+  const [gmailOpen, setGmailOpen] = useState(false);
+  const [canManageGmail, setCanManageGmail] = useState(false);
 
   useEffect(() => {
+    try {
+      const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
+      setCanManageGmail(user.role === "admin" || user.role === "hr");
+    } catch { setCanManageGmail(false); }
     const saved = localStorage.getItem("hrms_approval_animation_mode");
     if (saved === "cinematic" || saved === "flip" || saved === "hologram" || saved === "slide") setMode(saved);
     const unlock = () => prepareAudio();
@@ -136,8 +142,16 @@ export default function NotificationEffects() {
         <div className="flex items-center justify-between bg-gradient-to-r from-slate-950/80 via-indigo-950/75 to-violet-900/75 px-4 py-3.5 text-white"><div className="flex items-center gap-2.5"><span className="rounded-lg bg-white/10 p-2"><Sparkles size={17} /></span><div><p className="text-sm font-bold">Quick appearance</p><p className="text-[10px] text-indigo-200">Confirmation animation</p></div></div><button type="button" aria-label="Close settings" onClick={() => setSettingsOpen(false)} className="rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white"><X size={17} /></button></div>
         <div className="p-3">
           {MODES.map(item => { const Icon = item.icon; const active = mode === item.id; return <button key={item.id} type="button" aria-pressed={active} onClick={() => selectMode(item.id)} className={`mb-1 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition last:mb-0 ${active ? "border-indigo-200 bg-indigo-50 shadow-sm" : "border-transparent hover:border-slate-200 hover:bg-slate-50"}`}><span className={`flex h-9 w-9 items-center justify-center rounded-lg ${active ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25" : "bg-slate-100 text-slate-500"}`}><Icon size={17} /></span><span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800">{item.label}</span><span className="mt-0.5 block text-[10px] text-slate-500">{item.hint}</span></span>{active && <Check size={17} className="text-indigo-600" />}</button>; })}
+          {canManageGmail && <button type="button" onClick={() => { setSettingsOpen(false); setGmailOpen(true); }} className="mb-2 flex w-full items-center gap-3 rounded-xl border border-red-100 bg-gradient-to-r from-white to-red-50/70 px-3 py-3 text-left shadow-sm transition hover:border-red-200 hover:shadow-md"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100 text-red-700"><Mail size={17} /></span><span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800">Google Gmail Integration</span><span className="mt-0.5 block text-[10px] text-slate-500">Connect account and review messages</span></span><span className="text-xs font-semibold text-red-700">Open ↗</span></button>}
           <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2"><span className="text-[10px] text-slate-400">Saved automatically on this browser</span><button type="button" onClick={() => selectMode("cinematic")} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-500 hover:bg-slate-100"><RotateCcw size={12} /> Reset</button></div>
         </div>
+      </div>}
+
+      {gmailOpen && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/65 p-3 backdrop-blur-md sm:p-6" onClick={(event) => { if (event.target === event.currentTarget) setGmailOpen(false); }}>
+        <section role="dialog" aria-modal="true" aria-label="Google Gmail Integration" className="flex h-[min(900px,94vh)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/30 bg-white shadow-[0_30px_100px_-20px_rgba(0,0,0,.55)] animate-in zoom-in-95 fade-in duration-200">
+          <header className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-red-950 px-4 py-3 text-white sm:px-5"><div className="flex items-center gap-3"><span className="rounded-xl bg-white/10 p-2"><Mail size={18} /></span><div><h2 className="text-sm font-bold">Google Gmail Integration</h2><p className="text-[10px] text-slate-300">Company account settings</p></div></div><button type="button" aria-label="Close Gmail integration" onClick={() => setGmailOpen(false)} className="rounded-lg p-2 text-white/70 transition hover:bg-white/15 hover:text-white"><X size={18} /></button></header>
+          <iframe title="Google Gmail Integration settings" src="/integrations/google-gmail?popup=1" className="min-h-0 w-full flex-1 border-0 bg-slate-50" />
+        </section>
       </div>}
 
       {notificationsOpen && <div className="fixed bottom-[5.25rem] right-[4.5rem] z-[101] w-[min(360px,calc(100vw-2.5rem))] overflow-hidden rounded-2xl border border-white/80 bg-white/95 shadow-[0_24px_70px_-18px_rgba(15,23,42,.42)] backdrop-blur-2xl animate-in slide-in-from-bottom-3 fade-in duration-200">
