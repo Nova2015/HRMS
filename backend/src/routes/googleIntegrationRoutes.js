@@ -1,8 +1,10 @@
 import express from "express";
+import mongoose from "mongoose";
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import GoogleGmailIntegration from "../models/GoogleGmailIntegration.js";
 import Employee from "../models/Employee.js";
+import User from "../models/User.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 
@@ -148,6 +150,31 @@ router.get("/gmail/callback", async (req, res) => {
         });
         if (decoded.purpose !== "google-gmail-oauth" || !decoded.userId) {
             return res.status(400).json({ success: false, message: "Invalid Google OAuth state" });
+        }
+
+        // Revalidate the initiating account because its role or active status may
+        // have changed while the user was completing Google's consent screen.
+        if (!mongoose.isValidObjectId(decoded.userId)) {
+            return res.status(400).json({ success: false, message: "Invalid Google OAuth user" });
+        }
+        const initiatingUser = await User.findById(decoded.userId)
+            .select("_id employee role isActive");
+        if (!initiatingUser || !initiatingUser.isActive ||
+            !["admin", "hr"].includes(initiatingUser.role)) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account is no longer authorized to connect Gmail"
+            });
+        }
+        const activeEmployee = await Employee.exists({
+            _id: initiatingUser.employee,
+            employmentStatus: "active"
+        });
+        if (!activeEmployee) {
+            return res.status(403).json({
+                success: false,
+                message: "An active employee account is required to connect Gmail"
+            });
         }
 
         const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
