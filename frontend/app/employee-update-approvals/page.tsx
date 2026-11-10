@@ -39,6 +39,7 @@ function ApprovalQueue() {
   const [notice, setNotice] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [confirmTarget, setConfirmTarget] = useState<{ request: ApprovalRequest; decision: "approve" | "reject" } | null>(null);
+  const [animationMode, setAnimationMode] = useState<"cinematic" | "flip" | "hologram" | "slide">("cinematic");
 
   const playUiSound = (kind: "open" | "approve" | "reject" | "error") => {
     try {
@@ -181,6 +182,9 @@ function ApprovalQueue() {
             @keyframes approvalFloat { 0%, 100% { transform: translate3d(0,0,0) rotate(0deg); } 50% { transform: translate3d(0,-13px,18px) rotate(8deg); } }
             @keyframes approvalShine { 0% { transform: translateX(-160%) skewX(-20deg); } 100% { transform: translateX(260%) skewX(-20deg); } }
             @keyframes approvalGlow { 0%,100% { opacity:.42; transform:scale(.94); } 50% { opacity:.9; transform:scale(1.08); } }
+            @keyframes approvalFlipIn { 0% { opacity:0; transform:perspective(1400px) rotateY(88deg) scale(.82); } 70% { opacity:1; transform:perspective(1400px) rotateY(-8deg) scale(1.02); } 100% { opacity:1; transform:perspective(1400px) rotateY(0) scale(1); } }
+            @keyframes approvalHoloIn { 0% { opacity:0; filter:blur(16px) hue-rotate(90deg); transform:perspective(1400px) rotateX(24deg) rotateY(-18deg) scale(.86); } 65% { opacity:1; filter:blur(0) hue-rotate(-12deg); transform:perspective(1400px) rotateX(-5deg) rotateY(5deg) scale(1.025); } 100% { opacity:1; filter:blur(0) hue-rotate(0); transform:perspective(1400px) rotateX(0) rotateY(0) scale(1); } }
+            @keyframes approvalSlideIn { 0% { opacity:0; transform:perspective(1200px) translate3d(100px,35px,-120px) rotateY(-16deg) scale(.9); } 70% { opacity:1; transform:perspective(1200px) translate3d(-8px,-4px,12px) rotateY(2deg) scale(1.01); } 100% { opacity:1; transform:perspective(1200px) translate3d(0,0,0) rotateY(0) scale(1); } }
             .approval-3d-scene { perspective: 1600px; perspective-origin: 50% 42%; }
             .approval-3d-card { position:relative; transform-style:preserve-3d; will-change:transform; box-shadow:0 45px 100px -28px rgba(2,6,23,.72),0 18px 35px -18px rgba(2,6,23,.5),inset 0 1px 0 rgba(255,255,255,.85); }
             .approval-3d-card:before { content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(255,255,255,.12),rgba(148,163,184,.55));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none; }
@@ -189,7 +193,7 @@ function ApprovalQueue() {
             @media (prefers-reduced-motion: reduce) { .approval-3d-card,.approval-3d-shine { animation:none !important; } }
           `}</style>
           <div className="approval-3d-scene w-full max-w-lg">
-          <section role="dialog" aria-modal="true" aria-labelledby="approval-confirm-title" className="approval-3d-card w-full overflow-hidden rounded-[30px] border border-white/70 bg-white" style={{ animation: "approval3DEntrance .72s cubic-bezier(.16,1,.3,1) both" }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="approval-confirm-title" className="approval-3d-card w-full overflow-hidden rounded-[30px] border border-white/70 bg-white" style={{ animation: (animationMode === "cinematic" ? "approval3DEntrance .82s cubic-bezier(.16,1,.3,1)" : animationMode === "flip" ? "approvalFlipIn .78s cubic-bezier(.16,1,.3,1)" : animationMode === "hologram" ? "approvalHoloIn .95s cubic-bezier(.16,1,.3,1)" : "approvalSlideIn .78s cubic-bezier(.16,1,.3,1)") + " both" }}>
             <div className={`relative isolate overflow-hidden px-6 pb-8 pt-8 text-white ${confirmTarget.decision === "approve" ? "bg-gradient-to-br from-[#052e2b] via-emerald-700 to-cyan-700" : "bg-gradient-to-br from-[#3b0714] via-rose-700 to-orange-700"}`}>
               <div className="absolute -right-16 -top-24 h-72 w-72 rounded-full border border-white/10" style={{ transform: "translateZ(-24px)", animation: "approvalFloat 7s ease-in-out infinite" }} />
               <div className="absolute -right-5 -top-14 h-52 w-52 rounded-full border-[24px] border-white/[0.06]" style={{ animation: "approvalGlow 4s ease-in-out infinite" }} />
@@ -205,6 +209,12 @@ function ApprovalQueue() {
               </div>
             </div>
             <div className="relative p-6 sm:p-7" style={{ transform: "translateZ(16px)" }}>
+              <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2"><p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-slate-500">Animation mode</p><span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-600">Live preview</span></div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {([{ id: "cinematic", label: "Cinematic", hint: "3D depth" }, { id: "flip", label: "3D Flip", hint: "Card rotation" }, { id: "hologram", label: "Hologram", hint: "Neon reveal" }, { id: "slide", label: "Dynamic", hint: "Motion slide" }] as const).map((mode) => <button key={mode.id} type="button" onClick={() => setAnimationMode(mode.id)} className={`rounded-xl border px-2 py-2 text-left transition-all duration-200 ${animationMode === mode.id ? "border-indigo-500 bg-indigo-50 shadow-[0_5px_18px_-8px_rgba(79,70,229,.55)] ring-1 ring-indigo-400" : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-400"}`}><span className="block text-xs font-bold text-slate-800">{mode.label}</span><span className="mt-0.5 block text-[10px] text-slate-500">{mode.hint}</span></button>)}
+                </div>
+              </div>
               <p className="text-sm leading-6 text-slate-600">{confirmTarget.decision === "approve" ? "This will apply the proposed values to the employee record. Review the change before continuing." : "This will mark the proposal as rejected. The employee record will remain unchanged."}</p>
               <div className="mt-4 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-4 shadow-[inset_0_1px_3px_rgba(15,23,42,.05),0_8px_20px_-15px_rgba(15,23,42,.3)]" style={{ transform: "translateZ(12px)" }}>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employee</p>
