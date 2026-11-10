@@ -46,7 +46,8 @@ export default function NotificationEffects() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [items, setItems] = useState<ToastItem[]>([]);
-  const [unread, setUnread] = useState(0);\n  const [dockHidden, setDockHidden] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [dockHidden, setDockHidden] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("hrms_approval_animation_mode");
