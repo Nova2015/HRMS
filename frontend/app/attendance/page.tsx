@@ -714,6 +714,8 @@ function AttendanceWorkspace() {
             <div className="mt-2 grid grid-cols-7 gap-1.5 p-2 sm:gap-2 sm:p-3">
               {calendarCells.map((cell) => {
                 const dayRecords = records.filter((record) => record.dateKey === cell.key);
+                const dayHoliday = holidays.filter((holiday) => holiday.dateKey === cell.key);
+                const statuses = dayRecords.map((record) => record.status);
                 const isToday = cell.key === currentDateKey;
                 const isSunday = new Date(`${cell.key}T00:00:00`).getDay() === 0;
                 const isHoliday = dayHoliday.length > 0;
