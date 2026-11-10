@@ -58,6 +58,7 @@ export default function NotificationEffects() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMounted, setSettingsMounted] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsMounted, setNotificationsMounted] = useState(false);
   const [items, setItems] = useState<ToastItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [dockHidden, setDockHidden] = useState(false);
@@ -66,6 +67,8 @@ export default function NotificationEffects() {
   const [settingsTab, setSettingsTab] = useState<"appearance" | "integrations">("appearance");
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const notificationsPanelRef = useRef<HTMLDivElement>(null);
+  const notificationsButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (settingsOpen) {
@@ -76,6 +79,35 @@ export default function NotificationEffects() {
     const closeTimer = window.setTimeout(() => setSettingsMounted(false), 190);
     return () => window.clearTimeout(closeTimer);
   }, [settingsOpen, settingsMounted]);
+
+  useEffect(() => {
+    if (notificationsOpen) {
+      setNotificationsMounted(true);
+      return;
+    }
+    if (!notificationsMounted) return;
+    const closeTimer = window.setTimeout(() => setNotificationsMounted(false), 190);
+    return () => window.clearTimeout(closeTimer);
+  }, [notificationsOpen, notificationsMounted]);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (notificationsPanelRef.current?.contains(target) || notificationsButtonRef.current?.contains(target)) return;
+      setNotificationsOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNotificationsOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [notificationsOpen]);
 
   useEffect(() => {
     if (!settingsOpen) return;
@@ -169,7 +201,7 @@ export default function NotificationEffects() {
         </button>
       ) : (
         <div className="fixed bottom-4 right-4 z-[100] flex items-center gap-1 rounded-xl border border-white/25 bg-slate-900/35 p-1 shadow-[0_10px_35px_-14px_rgba(15,23,42,.55)] backdrop-blur-2xl">
-          <button type="button" aria-label="Notifications" title="Notifications" onClick={() => { setNotificationsOpen(v => !v); setSettingsOpen(false); setUnread(0); }} className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-white/15 ${notificationsOpen ? "bg-white/20 text-white" : "text-white/75"}`}>
+          <button ref={notificationsButtonRef} type="button" aria-label="Notifications" title="Notifications" onClick={() => { setNotificationsOpen(v => !v); setSettingsOpen(false); setUnread(0); }} className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-white/15 ${notificationsOpen ? "bg-white/20 text-white" : "text-white/75"}`}>
             <Bell size={15} />
             {unread > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-slate-900/50 bg-rose-500 px-1 text-[9px] font-bold text-white">{unread > 9 ? "9+" : unread}</span>}
           </button>
@@ -218,29 +250,29 @@ export default function NotificationEffects() {
         </section>
       </div>}
 
-      {notificationsOpen && <div className="fixed bottom-[5.25rem] right-[4.5rem] z-[101] w-[min(390px,calc(100vw-2.5rem))] overflow-hidden rounded-[26px] border border-white/20 bg-[#080d1c]/95 text-white shadow-[0_30px_100px_-24px_rgba(2,6,23,.85)] backdrop-blur-3xl animate-in slide-in-from-bottom-4 fade-in zoom-in-95 duration-300">
+      {notificationsMounted && <div ref={notificationsPanelRef} style={{ opacity: notificationsOpen ? 1 : 0, transform: notificationsOpen ? "translateY(0) scale(1)" : "translateY(10px) scale(.97)", transition: "opacity 180ms ease, transform 180ms ease", pointerEvents: notificationsOpen ? "auto" : "none" }} className="fixed bottom-[5.25rem] right-[4.5rem] z-[101] w-[min(340px,calc(100vw-2.5rem))] overflow-hidden rounded-[26px] border border-white/20 bg-[#080d1c]/95 text-white shadow-[0_30px_100px_-24px_rgba(2,6,23,.85)] backdrop-blur-3xl animate-in slide-in-from-bottom-4 fade-in zoom-in-95 duration-300">
         <div className="pointer-events-none absolute inset-0 overflow-hidden"><div className="absolute -right-20 -top-24 h-56 w-56 rounded-full bg-cyan-500/15 blur-3xl" /><div className="absolute -left-20 top-24 h-48 w-48 rounded-full bg-indigo-500/15 blur-3xl" /><div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,.06),transparent_42%,rgba(34,211,238,.05))]" /></div>
-        <div className="relative border-b border-white/10 bg-gradient-to-r from-cyan-500/10 via-indigo-500/10 to-violet-500/10 px-4 pb-4 pt-4">
-          <div className="flex items-start justify-between gap-3">
+        <div className="relative border-b border-white/10 bg-gradient-to-r from-cyan-500/10 via-indigo-500/10 to-violet-500/10 px-3.5 pb-3 pt-3">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3">
-              <span className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-200/20 bg-cyan-300/10 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,.15)]"><Bell size={19} /><span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#080d1c] bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,.9)]" /></span>
-              <div><p className="text-[10px] font-extrabold uppercase tracking-[.2em] text-cyan-200/75">Activity center</p><h2 className="mt-0.5 text-lg font-black tracking-tight text-white">Notifications</h2><p className="mt-0.5 text-[11px] text-slate-400">{items.length} recent {items.length === 1 ? "update" : "updates"}</p></div>
+              <span className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-200/20 bg-cyan-300/10 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,.15)]"><Bell size={16} /><span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#080d1c] bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,.9)]" /></span>
+              <div><p className="text-[10px] font-extrabold uppercase tracking-[.2em] text-cyan-200/75">Activity center</p><h2 className="mt-0.5 text-base font-black tracking-tight text-white">Notifications</h2><p className="mt-0.5 text-[11px] text-slate-400">{items.length} recent {items.length === 1 ? "update" : "updates"}</p></div>
             </div>
             <div className="flex items-center gap-1">
               <button type="button" onClick={clearNotifications} disabled={items.length === 0} className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-[10px] font-bold text-slate-300 transition hover:border-cyan-200/25 hover:bg-cyan-300/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35">Clear all</button>
               <button type="button" aria-label="Close notifications" onClick={() => setNotificationsOpen(false)} className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:border-white/25 hover:bg-white/15 hover:text-white"><X size={15} /></button>
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between rounded-xl border border-cyan-200/10 bg-cyan-300/[.06] px-3 py-2"><span className="flex items-center gap-2 text-[10px] font-semibold text-cyan-100/90"><span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(103,232,249,.8)]" /> Live activity feed</span><span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Latest first</span></div>
+          <div className="mt-2.5 flex items-center justify-between rounded-xl border border-cyan-200/10 bg-cyan-300/[.06] px-3 py-2"><span className="flex items-center gap-2 text-[10px] font-semibold text-cyan-100/90"><span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(103,232,249,.8)]" /> Live activity feed</span><span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Latest first</span></div>
         </div>
-        <div className="relative max-h-[min(55vh,420px)] min-h-[150px] space-y-2 overflow-y-auto overscroll-contain p-3">
-          {items.length === 0 ? <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[.025] px-5 py-7 text-center"><span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/15 bg-emerald-300/[.08] text-emerald-200 shadow-[0_0_28px_-12px_rgba(52,211,153,.45)]"><CheckCircle2 size={23} /></span><p className="mt-3 text-sm font-bold text-white">You’re all caught up</p><p className="mt-1 max-w-[220px] text-[10px] leading-5 text-slate-400">New HRMS updates and important activity will appear here</p><span className="mt-3 rounded-full border border-emerald-300/15 bg-emerald-300/[.06] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-emerald-200/80">All clear</span></div> : items.map((item, index) => <div key={item.id} style={{ animationDelay: `${Math.min(index, 4) * 75}ms` }} className="group relative flex gap-3 overflow-hidden rounded-2xl border border-white/[.09] bg-gradient-to-br from-white/[.075] to-white/[.025] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.05)] animate-in slide-in-from-right-3 fade-in zoom-in-95 duration-500 fill-mode-both transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[.08]">
+        <div className="relative max-h-[min(42vh,320px)] min-h-[110px] space-y-1.5 overflow-y-auto overscroll-contain p-2.5">
+          {items.length === 0 ? <div className="flex min-h-[135px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[.025] px-4 py-4 text-center"><span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/15 bg-emerald-300/[.08] text-emerald-200 shadow-[0_0_28px_-12px_rgba(52,211,153,.45)]"><CheckCircle2 size={23} /></span><p className="mt-3 text-sm font-bold text-white">You’re all caught up</p><p className="mt-1 max-w-[220px] text-[10px] leading-5 text-slate-400">New HRMS updates and important activity will appear here</p><span className="mt-3 rounded-full border border-emerald-300/15 bg-emerald-300/[.06] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-emerald-200/80">All clear</span></div> : items.map((item, index) => <div key={item.id} style={{ animationDelay: `${Math.min(index, 4) * 75}ms` }} className="group relative flex gap-3 overflow-hidden rounded-2xl border border-white/[.09] bg-gradient-to-br from-white/[.075] to-white/[.025] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,.05)] animate-in slide-in-from-right-3 fade-in zoom-in-95 duration-500 fill-mode-both transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[.08]">
             <span className={`pointer-events-none absolute inset-y-0 left-0 w-1 ${item.kind === "success" ? "bg-gradient-to-b from-emerald-300/80 to-emerald-500/10" : "bg-gradient-to-b from-rose-300/80 to-rose-500/10"}`} />
             <span className={`relative mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${item.kind === "success" ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-200" : "border-rose-300/20 bg-rose-300/10 text-rose-200"}`}><span className={`pointer-events-none absolute inset-0 rounded-xl animate-ping opacity-20 ${item.kind === "success" ? "bg-emerald-300" : "bg-rose-300"}`} />{item.kind === "success" ? <CheckCircle2 size={17} className="relative" /> : <X size={17} className="relative" />}</span>
-            <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><span className={`text-[9px] font-extrabold uppercase tracking-[.16em] ${item.kind === "success" ? "text-emerald-200/80" : "text-rose-200/80"}`}>{item.kind === "success" ? "Successful update" : "Action required"}</span><span className="shrink-0 text-[9px] font-medium tabular-nums text-slate-500">{item.time}</span></div><p className="mt-1.5 break-words text-[11px] font-semibold leading-5 text-slate-100">{item.message}</p></div>
+            <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><span className={`text-[9px] font-extrabold uppercase tracking-[.16em] ${item.kind === "success" ? "text-emerald-200/80" : "text-rose-200/80"}`}>{item.kind === "success" ? "Successful update" : "Action required"}</span><span className="shrink-0 text-[9px] font-medium tabular-nums text-slate-500">{item.time}</span></div><p className="mt-1.5 break-words text-[10px] font-semibold leading-4 text-slate-100">{item.message}</p></div>
           </div>)}
         </div>
-        <div className="relative flex items-center justify-between border-t border-white/10 bg-black/15 px-4 py-2.5"><span className="text-[9px] text-slate-500">HRMS workspace activity</span><span className="text-[9px] font-semibold text-slate-500">Auto-updating</span></div>
+        <div className="relative flex items-center justify-between border-t border-white/10 bg-black/15 px-3.5 py-2"><span className="text-[9px] text-slate-500">HRMS workspace activity</span><span className="text-[9px] font-semibold text-slate-500">Auto-updating</span></div>
       </div>}
 
       <div className="pointer-events-none fixed bottom-[5.25rem] right-5 z-[99] flex w-[min(360px,calc(100vw-2.5rem))] flex-col gap-2">
