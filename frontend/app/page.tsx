@@ -1,6 +1,5 @@
 "use client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -10,6 +9,8 @@ import {
   UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, Headset, UserCircle2,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 const modules = [
   {
