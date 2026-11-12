@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity, Award, BarChart3, BriefcaseBusiness, Building2, CalendarDays,
-  CalendarCheck, ClipboardList, FileText, Headset, LayoutDashboard,
+  ClipboardList, FileText, Headset, LayoutDashboard,
   LogOut, Menu, ReceiptText, Settings, ShieldCheck, Users, Wallet, UserCircle2,
 } from "lucide-react";
 
