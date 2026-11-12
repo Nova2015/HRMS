@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft,
   Users,
   Search,
   RefreshCw,
@@ -162,104 +161,112 @@ function EmployeeList() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <Link
-              href="/"
-              className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              <ArrowLeft size={16} />
-              Back to Dashboard
-            </Link>
-            <h1 className="text-3xl font-bold text-slate-900">
-              Employee Management
-            </h1>
-            <p className="mt-2 text-slate-500">
-              Manage and view all employee records.
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={loadEmployees}
-              disabled={loading}
-              className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <RefreshCw size={17} />
-              Refresh
-            </button>
-
-            <Link
-              href="/employees/new"
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              <UserPlus size={17} />
-              Add Employee
-            </Link>
-          </div>
-        </header>
-
-        <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="rounded-lg bg-blue-100 p-3">
-              <Users className="text-blue-600" size={25} />
+    <main className="min-h-full px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1600px] space-y-6">
+        <section className="rounded-3xl border border-white/80 bg-white/75 p-5 shadow-[0_18px_55px_rgba(31,41,55,0.07)] backdrop-blur-xl sm:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-200">
+                <Users size={23} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500">People directory</p>
+                <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Employee Management</h2>
+                <p className="mt-1 text-sm text-slate-500">Manage employee records, departments and account access.</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-slate-500">Total Employees</p>
-              <h2 className="text-2xl font-bold text-slate-900">
-                {employees.length}
-              </h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={loadEmployees}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+                Refresh
+              </button>
+              <Link
+                href="/employees/new"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-xl"
+              >
+                <UserPlus size={17} />
+                Add Employee
+              </Link>
             </div>
           </div>
         </section>
 
-        <section className="rounded-xl bg-white p-5 shadow-sm">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-xl font-semibold text-slate-900">
-              Employee List
-            </h2>
-            <p className="text-sm text-slate-500">
-              Showing {filteredEmployees.length} of {employees.length}
-            </p>
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-white/80 bg-white/80 p-5 shadow-[0_10px_30px_rgba(31,41,55,0.05)] backdrop-blur-lg">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-500">Total employees</p>
+              <span className="rounded-xl bg-indigo-50 p-2.5 text-indigo-600"><Users size={19} /></span>
+            </div>
+            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">{employees.length}</p>
+            <p className="mt-1 text-xs text-slate-400">All employee records</p>
+          </div>
+          <div className="rounded-2xl border border-white/80 bg-white/80 p-5 shadow-[0_10px_30px_rgba(31,41,55,0.05)] backdrop-blur-lg">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-500">Active employees</p>
+              <span className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600"><Users size={19} /></span>
+            </div>
+            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">{employees.filter((employee) => employee.employmentStatus === "active").length}</p>
+            <p className="mt-1 text-xs text-slate-400">Currently employed</p>
+          </div>
+          <div className="rounded-2xl border border-white/80 bg-white/80 p-5 shadow-[0_10px_30px_rgba(31,41,55,0.05)] backdrop-blur-lg">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-500">Inactive accounts</p>
+              <span className="rounded-xl bg-amber-50 p-2.5 text-amber-600"><Users size={19} /></span>
+            </div>
+            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">{employees.filter((employee) => employee.account && !employee.account.isActive).length}</p>
+            <p className="mt-1 text-xs text-slate-400">Login access disabled</p>
+          </div>
+          <div className="rounded-2xl border border-white/80 bg-white/80 p-5 shadow-[0_10px_30px_rgba(31,41,55,0.05)] backdrop-blur-lg">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-500">Unlinked accounts</p>
+              <span className="rounded-xl bg-rose-50 p-2.5 text-rose-600"><Users size={19} /></span>
+            </div>
+            <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">{employees.filter((employee) => !employee.account).length}</p>
+            <p className="mt-1 text-xs text-slate-400">Employee without login</p>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-3xl border border-white/80 bg-white/80 shadow-[0_18px_55px_rgba(31,41,55,0.06)] backdrop-blur-xl">
+          <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Employee directory</h3>
+              <p className="mt-1 text-xs text-slate-500">Search, filter and manage your workforce.</p>
+            </div>
+            <p className="text-sm font-medium text-slate-500">Showing <span className="font-bold text-slate-800">{filteredEmployees.length}</span> of {employees.length}</p>
           </div>
 
-          <div className="mb-5 grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 border-b border-slate-100 bg-slate-50/60 p-5 sm:grid-cols-2 lg:grid-cols-3 sm:px-6">
             <div className="relative">
-              <Search
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
+              <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search name, code or email..."
-                className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
               />
             </div>
-
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
             >
               <option value="all">All Departments</option>
               {departments.map((department) => (
-                <option key={department._id} value={department._id}>
-                  {department.name}
-                </option>
+                <option key={department._id} value={department._id}>{department.name}</option>
               ))}
             </select>
-
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
             >
-              <option value="all">All Status</option>
+              <option value="all">All Employment Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="resigned">Resigned</option>
@@ -268,120 +275,72 @@ function EmployeeList() {
           </div>
 
           {loading ? (
-            <div className="py-12 text-center text-slate-500">
-              Loading employees...
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-sm text-slate-500">
+              <RefreshCw size={22} className="animate-spin text-indigo-500" />
+              Loading employee records...
             </div>
           ) : error ? (
-            <div className="rounded-lg bg-red-50 p-5 text-center text-red-700">
+            <div className="m-5 rounded-2xl border border-rose-100 bg-rose-50 p-6 text-center text-sm text-rose-700">
               <p>{error}</p>
-              <button
-                type="button"
-                onClick={loadEmployees}
-                className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
-              >
-                Try Again
-              </button>
+              <button type="button" onClick={loadEmployees} className="mt-3 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700">Try Again</button>
             </div>
           ) : filteredEmployees.length === 0 ? (
-            <div className="py-12 text-center text-slate-500">
-              No employees found.
+            <div className="px-5 py-16 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400"><Users size={25} /></div>
+              <p className="mt-4 font-semibold text-slate-700">No employees found</p>
+              <p className="mt-1 text-sm text-slate-400">Try changing your search or filter criteria.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px] text-left text-sm">
-                <thead className="border-b bg-slate-50 text-slate-600">
+              <table className="w-full min-w-[1120px] text-left text-sm">
+                <thead className="bg-slate-50/90 text-[11px] uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Employee</th>
-                    <th className="px-4 py-3 font-semibold">Department</th>
-                    <th className="px-4 py-3 font-semibold">Designation</th>
-                    <th className="px-4 py-3 font-semibold">Reporting Manager</th>
-                    <th className="px-4 py-3 font-semibold">Joining Date</th>
-                    <th className="px-4 py-3 font-semibold">Employment</th>
-                    <th className="px-4 py-3 font-semibold">Account Role</th>
-                    <th className="px-4 py-3 font-semibold">Login Account</th>
-                    <th className="px-4 py-3 text-center font-semibold">Actions</th>
+                    <th className="px-5 py-4 font-bold">Employee</th>
+                    <th className="px-4 py-4 font-bold">Department</th>
+                    <th className="px-4 py-4 font-bold">Designation</th>
+                    <th className="px-4 py-4 font-bold">Reporting Manager</th>
+                    <th className="px-4 py-4 font-bold">Joining Date</th>
+                    <th className="px-4 py-4 font-bold">Employment</th>
+                    <th className="px-4 py-4 font-bold">Account Role</th>
+                    <th className="px-4 py-4 font-bold">Login Account</th>
+                    <th className="px-5 py-4 text-center font-bold">Actions</th>
                   </tr>
                 </thead>
-
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100/90">
                   {filteredEmployees.map((employee) => (
-                    <tr key={employee._id} className="hover:bg-slate-50">
+                    <tr key={employee._id} className="group transition-colors hover:bg-indigo-50/40">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 text-xs font-bold uppercase text-indigo-700">
+                            {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-slate-800">{employee.firstName} {employee.lastName}</p>
+                            <p className="mt-0.5 text-xs text-slate-400">{employee.employeeCode}</p>
+                            <p className="max-w-[210px] truncate text-xs text-slate-500">{employee.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-slate-600">{employee.department?.name || "-"}</td>
+                      <td className="px-4 py-4 text-slate-600">{employee.designation?.name || "-"}</td>
+                      <td className="px-4 py-4 text-slate-600">{employee.reportingManager ? `${employee.reportingManager.firstName} ${employee.reportingManager.lastName}` : <span className="text-slate-400">Not assigned</span>}</td>
+                      <td className="whitespace-nowrap px-4 py-4 text-slate-600">{formatDate(employee.joiningDate)}</td>
                       <td className="px-4 py-4">
-                        <p className="font-semibold text-slate-900">
-                          {employee.firstName} {employee.lastName}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {employee.employeeCode}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {employee.email}
-                        </p>
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(employee.employmentStatus)}`}>{employee.employmentStatus}</span>
                       </td>
-
-                      <td className="px-4 py-4 text-slate-700">
-                        {employee.department?.name || "-"}
-                      </td>
-
-                      <td className="px-4 py-4 text-slate-700">
-                        {employee.designation?.name || "-"}
-                      </td>
-
-                      <td className="px-4 py-4 text-slate-700">
-                        {employee.reportingManager
-                          ? `${employee.reportingManager.firstName} ${employee.reportingManager.lastName}`
-                          : <span className="text-slate-400">Not assigned</span>}
-                      </td>
-
-                      <td className="px-4 py-4 text-slate-700">
-                        {formatDate(employee.joiningDate)}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(employee.employmentStatus)}`}>
-                          {employee.employmentStatus}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <span className="text-sm font-medium capitalize text-slate-700">
-                          {employee.account?.role || "No account"}
-                        </span>
-                      </td>
-
+                      <td className="px-4 py-4 font-medium capitalize text-slate-600">{employee.account?.role || "No account"}</td>
                       <td className="px-4 py-4">
                         {employee.account ? (
-                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                            employee.account.isActive
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
-                          }`}>
-                            {employee.account.isActive ? "Active" : "Inactive"}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-orange-600">
-                            Not linked
-                          </span>
-                        )}
+                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${employee.account.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{employee.account.isActive ? "Active" : "Inactive"}</span>
+                        ) : <span className="text-xs font-medium text-amber-600">Not linked</span>}
                       </td>
-
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-center gap-3">
-                          <button
-                            type="button"
-                            title="View Employee"
-                            onClick={() => router.push(`/employees/${employee._id}`)}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            <Eye size={18} />
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button type="button" title="View Employee" aria-label={`View ${employee.firstName} ${employee.lastName}`} onClick={() => router.push(`/employees/${employee._id}`)} className="rounded-lg border border-transparent p-2 text-indigo-600 transition hover:border-indigo-100 hover:bg-white hover:shadow-sm">
+                            <Eye size={17} />
                           </button>
-
-                          <button
-                            type="button"
-                            title="Edit Employee"
-                            onClick={() => router.push(`/employees/${employee._id}/edit`)}
-                            className="text-slate-600 hover:text-slate-900"
-                          >
-                            <Pencil size={18} />
+                          <button type="button" title="Edit Employee" aria-label={`Edit ${employee.firstName} ${employee.lastName}`} onClick={() => router.push(`/employees/${employee._id}/edit`)} className="rounded-lg border border-transparent p-2 text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-slate-800 hover:shadow-sm">
+                            <Pencil size={17} />
                           </button>
                         </div>
                       </td>
@@ -392,6 +351,7 @@ function EmployeeList() {
             </div>
           )}
         </section>
+        <p className="pb-2 text-center text-xs text-slate-400">Employee records are managed securely within your HRMS workspace.</p>
       </div>
     </main>
   );
