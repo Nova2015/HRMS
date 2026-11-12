@@ -3,7 +3,7 @@ import HelpdeskTicket from "../models/HelpdeskTicket.js";
 import User from "../models/User.js";
 
 const isPrivileged = (role) => ["admin", "hr"].includes(role);
-const categories = new Set(["hardware", "software", "network", "access", "other"]);
+const categories = new Set(["hardware", "software", "ui_error", "network", "access", "other"]);
 const priorities = new Set(["low", "medium", "high", "urgent"]);
 const statuses = new Set(["open", "in_progress", "resolved", "closed"]);
 
