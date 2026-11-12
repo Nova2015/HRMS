@@ -13,7 +13,7 @@ import AuthGuard from "../components/AuthGuard";
 import CalendarExportActions from "./CalendarExportActions";
 import CalendarImportActions from "./CalendarImportActions";
 
-const API_URL = `${API_URL}`;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 type Role = "admin" | "hr" | "manager" | "employee";
 type ApiResponse = { data?: unknown; message?: string };
