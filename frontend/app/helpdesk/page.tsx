@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft, ArrowUpRight, CheckCircle2, Clock3, Headset, LoaderCircle,
   MessageSquareText, Plus, RefreshCw, Search, ShieldCheck, Ticket,
@@ -13,6 +14,7 @@ const API_URL = "http://localhost:5000/api";
 const categories = [
   { value: "hardware", label: "Hardware" },
   { value: "software", label: "Software" },
+  { value: "ui_error", label: "HRMS UI Error" },
   { value: "network", label: "Network / Internet" },
   { value: "access", label: "Account / Access" },
   { value: "other", label: "Other" },
@@ -67,6 +69,7 @@ function dateLabel(value: string) {
 }
 
 function HelpdeskContent() {
+  const searchParams = useSearchParams();
   const [role, setRole] = useState("");
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +114,13 @@ function HelpdeskContent() {
   }, [apiRequest]);
 
   useEffect(() => { void loadWorkspace(); }, [loadWorkspace]);
+
+  useEffect(() => {
+    if (searchParams.get("category") === "ui_error") {
+      setCategory("ui_error");
+      if (searchParams.get("new") === "1") setShowForm(true);
+    }
+  }, [searchParams]);
 
   const visibleTickets = useMemo(() => {
     const query = search.trim().toLowerCase();
