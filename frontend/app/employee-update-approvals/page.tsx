@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Check, FileText, RefreshCw, Search, ShieldCheck, X } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = `${API_URL}`;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 type ApprovalRequest = {
   _id: string; employeeCode: string;
   employee?: { firstName: string; lastName: string } | null;
