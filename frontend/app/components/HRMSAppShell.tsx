@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity, Award, BarChart3, BriefcaseBusiness, Building2, CalendarDays,
   CalendarCheck, ClipboardList, FileText, Headset, LayoutDashboard,
-  LogOut, Menu, Plug, ReceiptText, ShieldCheck, Users, Wallet, UserCircle2,
+  LogOut, Menu, ReceiptText, ShieldCheck, Users, Wallet, UserCircle2,
 } from "lucide-react";
 
 type Props = {
@@ -32,7 +32,6 @@ const adminLinks = [
   { label: "Reports & Analytics", href: "/reports", icon: BarChart3 },
   { label: "Audit Logs", href: "/audit-logs", icon: ShieldCheck },
   { label: "Update Approvals", href: "/employee-update-approvals", icon: Activity },
-  { label: "Integrations", href: "/integrations", icon: Plug },
 ];
 
 const employeeLinks = [
