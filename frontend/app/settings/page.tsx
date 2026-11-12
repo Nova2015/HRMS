@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Bell, CalendarClock, Check, ChevronRight, CircleHelp, ExternalLink, Globe2, LifeBuoy, LockKeyhole, Mail, Monitor, Moon, Plug, RefreshCw, Settings2, ShieldCheck, Sun, UserRound, X } from "lucide-react";
+import { ArrowLeft, Bell, Check, ChevronRight, ExternalLink, Globe2, LifeBuoy, LockKeyhole, Mail, Monitor, Moon, Plug, RefreshCw, Settings2, Sun, UserRound, X } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
 const API_URL = "http://localhost:5000/api";
@@ -40,7 +40,8 @@ function SettingsContent() {
   useEffect(() => {
     try {
       const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
-      setRole(user.role || "employee");
+      const currentRole = user.role || "employee";
+      setRole(currentRole);
       const saved = JSON.parse(localStorage.getItem("hrms_preferences") || "{}");
       if (saved.appearance) setAppearance(saved.appearance);
       if (saved.dateFormat) setDateFormat(saved.dateFormat);
@@ -48,7 +49,10 @@ function SettingsContent() {
       if (typeof saved.appAlerts === "boolean") setAppAlerts(saved.appAlerts);
     } catch {}
     if (new URLSearchParams(window.location.search).get("connected") === "1") setNotice("Google account connected successfully.");
-    void loadStatus();
+    try {
+      const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
+      if (user.role === "admin" || user.role === "hr") void loadStatus();
+    } catch {}
   }, [loadStatus]);
 
   const savePreference = (key: string, value: string | boolean) => {
