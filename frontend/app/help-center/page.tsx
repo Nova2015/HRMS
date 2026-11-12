@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, CircleHelp, FileText, Headset, LifeBuoy, Mail, MessageCircle, Search, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, CircleHelp, FileText, Headset, LifeBuoy, Mail, MessageCircle, Search, ShieldCheck, Users, Bug } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
 const articles = [
@@ -37,7 +37,7 @@ function HelpCenterContent(){
       </section>
       <section className="mt-5 flex flex-col justify-between gap-4 rounded-[24px] border border-indigo-100 bg-gradient-to-r from-indigo-50/90 to-violet-50/80 p-5 sm:flex-row sm:items-center sm:p-6">
         <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm"><Headset size={19}/></span><div><h2 className="text-sm font-extrabold text-slate-900">Still need help?</h2><p className="mt-1 text-xs leading-5 text-slate-500">Raise a support ticket and our Admin / HR team can assist.</p></div></div>
-        <Link href="/helpdesk" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/15"><MessageCircle size={14}/>Open IT Support</Link>
+        <div className="flex flex-wrap gap-2"><Link href="/helpdesk" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-xs font-bold text-indigo-700"><MessageCircle size={14}/>Open IT Support</Link><Link href="/helpdesk?category=ui_error&new=1" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/15"><Bug size={14}/>Report UI Error</Link></div>
       </section>
       <div className="mt-5 flex flex-wrap items-center justify-center gap-4 text-[10px] text-slate-400"><span className="inline-flex items-center gap-1.5"><Mail size={12}/>Contact your HR / Admin</span><span className="inline-flex items-center gap-1.5"><FileText size={12}/>HRMS Help & Guides</span><Link href="/settings" className="font-semibold text-indigo-500 hover:text-indigo-700">Settings</Link></div>
     </div>
