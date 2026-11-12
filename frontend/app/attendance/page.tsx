@@ -49,6 +49,7 @@ type Holiday = {
   dateKey: string;
   type: "public" | "optional" | "company";
   description?: string;
+  isActive: boolean;
 };
 type CompanyEvent = {
   _id: string;
@@ -98,6 +99,9 @@ function AttendanceWorkspace() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [holidayManagerItems, setHolidayManagerItems] = useState<Holiday[]>([]);
+  const [holidayYear, setHolidayYear] = useState(String(new Date().getFullYear()));
+  const [holidayManagerLoading, setHolidayManagerLoading] = useState(false);
   const [showHolidayModal, setShowHolidayModal] = useState(false);
   const [holidayEditId, setHolidayEditId] = useState<string | null>(null);
   const [holidaySaving, setHolidaySaving] = useState(false);
@@ -190,7 +194,7 @@ function AttendanceWorkspace() {
       const requests: Promise<ApiResponse>[] = [
         apiRequest("/attendance/today"),
         apiRequest(attendancePath),
-        apiRequest(`/holidays?${range}`),
+        apiRequest(`/holidays?${range}${isAdmin ? "&includeInactive=true" : ""}`),
         apiRequest("/auth/me"),
         apiRequest("/leaves"),
         apiRequest(`/calendar/events?from=${encodeURIComponent(new Date(`${monthStart}T00:00:00`).toISOString())}&to=${encodeURIComponent(new Date(`${monthEnd}T23:59:59.999`).toISOString())}`),
@@ -210,7 +214,23 @@ function AttendanceWorkspace() {
     } finally {
       setLoading(false);
     }
-  }, [apiRequest, canSeeTeam, employeeFilter, monthStart, monthEnd]);
+  }, [apiRequest, canSeeTeam, employeeFilter, monthStart, monthEnd, isAdmin]);
+
+  const loadHolidayManager = useCallback(async (selectedYear = holidayYear) => {
+    setHolidayManagerLoading(true);
+    try {
+      const result = await apiRequest(`/holidays?year=${encodeURIComponent(selectedYear)}&includeInactive=true`);
+      setHolidayManagerItems((result.data as Holiday[] | undefined) || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load holiday list.");
+    } finally {
+      setHolidayManagerLoading(false);
+    }
+  }, [apiRequest, holidayYear]);
+
+  useEffect(() => {
+    if (showHolidayModal) void loadHolidayManager();
+  }, [showHolidayModal, loadHolidayManager]);
 
   const importCalendarRows = useCallback(async (rows: Array<{ category: "holiday" | "event"; date: string; name: string; type: string; description: string; startAt: string; endAt: string; location: string; allDay: boolean }>) => {
     const dates = rows.map((row) => row.category === "holiday" ? row.date : row.startAt.slice(0, 10));
@@ -428,6 +448,9 @@ function AttendanceWorkspace() {
       setHolidayEditId(null);
       setHolidayForm({ name: "", dateKey: selectedDay, type: "public", description: "" });
       await loadWorkspace();
+      const savedYear = holidayForm.dateKey.slice(0, 4);
+      setHolidayYear(savedYear);
+      await loadHolidayManager(savedYear);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save holiday.");
     } finally { setHolidaySaving(false); }
@@ -438,6 +461,21 @@ function AttendanceWorkspace() {
     setHolidayForm({ name: holiday.name, dateKey: holiday.dateKey, type: holiday.type, description: holiday.description || "" });
   };
 
+  const toggleHolidayStatus = async (holiday: Holiday) => {
+    setHolidaySaving(true); setError(""); setNotice("");
+    try {
+      const result = await apiRequest(`/holidays/${holiday._id}`, {
+        method: "PUT",
+        body: JSON.stringify({ isActive: !holiday.isActive }),
+      });
+      setNotice(result.message || `Holiday ${holiday.isActive ? "deactivated" : "activated"} successfully.`);
+      await loadWorkspace();
+      await loadHolidayManager();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update holiday status.");
+    } finally { setHolidaySaving(false); }
+  };
+
   const removeHoliday = async (holiday: Holiday) => {
     if (!window.confirm(`Delete holiday "${holiday.name}"?`)) return;
     setHolidaySaving(true); setError(""); setNotice("");
@@ -445,6 +483,7 @@ function AttendanceWorkspace() {
       const result = await apiRequest(`/holidays/${holiday._id}`, { method: "DELETE" });
       setNotice(result.message || "Holiday deleted successfully.");
       await loadWorkspace();
+      await loadHolidayManager();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to delete holiday.");
     } finally { setHolidaySaving(false); }
@@ -675,7 +714,7 @@ function AttendanceWorkspace() {
 
         {isAdmin && showHolidayModal && <div className="fixed inset-0 z-[105] grid place-items-center overflow-hidden bg-slate-950/50 p-4 backdrop-blur-md" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowHolidayModal(false); }}>
           <section role="dialog" aria-modal="true" aria-labelledby="calendar-holiday-title" className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-[28px] border border-white/80 bg-white p-5 shadow-[0_30px_100px_rgba(15,23,42,0.3)] sm:p-7">
-            <div className="mb-5 flex items-start justify-between gap-4"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-rose-600">Attendance Calendar</p><h3 id="calendar-holiday-title" className="mt-1 text-xl font-extrabold text-slate-950">Holiday management</h3><p className="mt-1 text-sm text-slate-500">Add, edit or remove holidays without leaving this calendar.</p></div><button type="button" aria-label="Close holiday manager" onClick={() => { setShowHolidayModal(false); setHolidayEditId(null); }} className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition hover:bg-slate-200"><X size={18} /></button></div>
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-4"><div><p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-rose-600">Attendance Calendar</p><h3 id="calendar-holiday-title" className="mt-1 text-xl font-extrabold text-slate-950">Holiday management</h3><p className="mt-1 text-sm text-slate-500">Manage holidays for any year, including active and inactive dates.</p></div><button type="button" aria-label="Close holiday manager" onClick={() => { setShowHolidayModal(false); setHolidayEditId(null); }} className="rounded-xl bg-slate-100 p-2.5 text-slate-500 transition hover:bg-slate-200"><X size={18} /></button></div>
             <form onSubmit={submitHoliday} className="grid gap-3 sm:grid-cols-2">
               <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Holiday name *<input required maxLength={120} value={holidayForm.name} onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })} placeholder="e.g. Diwali" className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100" /></label>
               <label className="text-sm font-semibold text-slate-700">Date *<input required type="date" value={holidayForm.dateKey} onChange={(e) => setHolidayForm({ ...holidayForm, dateKey: e.target.value })} className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
@@ -683,7 +722,7 @@ function AttendanceWorkspace() {
               <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Description<textarea maxLength={500} rows={2} value={holidayForm.description} onChange={(e) => setHolidayForm({ ...holidayForm, description: e.target.value })} placeholder="Optional details..." className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
               <div className="flex justify-end gap-2 border-b border-slate-100 pb-4 sm:col-span-2"><button type="button" onClick={() => { setHolidayEditId(null); setHolidayForm({ name: "", dateKey: selectedDay, type: "public", description: "" }); }} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600">Clear</button><button type="submit" disabled={holidaySaving || !holidayForm.name.trim()} className="rounded-xl bg-gradient-to-r from-rose-600 to-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-md disabled:opacity-50">{holidaySaving ? "Saving..." : holidayEditId ? "Update holiday" : "Add holiday"}</button></div>
             </form>
-            <div className="mt-4"><div className="mb-3 flex items-center justify-between"><h4 className="text-sm font-extrabold text-slate-900">Current month holidays</h4><span className="text-xs text-slate-500">{holidays.length} listed</span></div>{holidays.length ? <div className="max-h-64 space-y-2 overflow-y-auto pr-1">{holidays.map((holiday) => <div key={holiday._id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5"><div className="min-w-0"><p className="truncate text-sm font-bold text-slate-800">{holiday.name}</p><p className="mt-0.5 text-xs text-slate-500">{new Date(`${holiday.dateKey}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · {holiday.type}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => editHoliday(holiday)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Edit</button><button type="button" disabled={holidaySaving} onClick={() => void removeHoliday(holiday)} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50">Delete</button></div></div>)}</div> : <p className="rounded-xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-500">No active holidays in this month.</p>}</div>
+            <div className="mt-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h4 className="text-sm font-extrabold text-slate-900">Holiday list</h4><p className="text-xs text-slate-500">Active holidays appear on the calendar. Inactive holidays remain saved.</p></div><div className="flex items-center gap-2"><label htmlFor="holiday-year" className="text-xs font-semibold text-slate-600">Year</label><select id="holiday-year" value={holidayYear} onChange={(e) => { setHolidayYear(e.target.value); void loadHolidayManager(e.target.value); }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">{Array.from({ length: 9 }, (_, i) => new Date().getFullYear() - 3 + i).map((year) => <option key={year} value={String(year)}>{year}</option>)}</select></div></div>{holidayManagerLoading ? <p className="rounded-xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-500">Loading holidays...</p> : holidayManagerItems.length ? <div className="max-h-72 space-y-2 overflow-y-auto pr-1">{holidayManagerItems.map((holiday) => <div key={holiday._id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5"><div className="min-w-0"><p className="truncate text-sm font-bold text-slate-800">{holiday.name}</p><p className="mt-0.5 text-xs text-slate-500">{new Date(`${holiday.dateKey}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · {holiday.type} · <span className={holiday.isActive ? "font-semibold text-emerald-700" : "font-semibold text-slate-400"}>{holiday.isActive ? "Active" : "Inactive"}</span></p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => editHoliday(holiday)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Edit</button><button type="button" disabled={holidaySaving} onClick={() => void toggleHolidayStatus(holiday)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50">{holiday.isActive ? "Deactivate" : "Activate"}</button><button type="button" disabled={holidaySaving} onClick={() => void removeHoliday(holiday)} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50">Delete</button></div></div>)}</div> : <p className="rounded-xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-500">No holidays found for {holidayYear}.</p>}</div>
             <div className="mt-5 flex justify-end"><button type="button" onClick={() => { setShowHolidayModal(false); setHolidayEditId(null); }} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white">Close</button></div>
           </section>
         </div>}
@@ -711,7 +750,7 @@ function AttendanceWorkspace() {
                 {isAdmin && <CalendarImportActions onImport={importCalendarRows} />}
                 {isAdmin && <button type="button" onClick={syncGoogleCalendar} disabled={googleSyncing} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs font-bold text-sky-700 shadow-sm transition hover:bg-sky-100 disabled:opacity-50"><RefreshCw size={14} className={googleSyncing ? "animate-spin" : ""} />{googleSyncing ? "Syncing..." : "Google Sync"}</button>}
 
-                {isAdmin && <><button type="button" onClick={() => { setHolidayEditId(null); setHolidayForm({ name: "", dateKey: selectedDay, type: "public", description: "" }); setShowHolidayModal(true); }} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-50">Manage holidays</button><button type="button" onClick={() => { setEventEditId(null); setEventForm({ title: "", description: "", eventType: "company_event", startAt: "", endAt: "", allDay: false, location: "" }); setShowEventForm(true); }} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:-translate-y-0.5"><CalendarDays size={15} /> Add event / meeting</button></>}
+                {isAdmin && <><button type="button" onClick={() => { setHolidayEditId(null); setHolidayForm({ name: "", dateKey: selectedDay, type: "public", description: "" }); setHolidayYear(String(month.getFullYear())); setShowHolidayModal(true); }} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2.5 text-xs font-bold text-rose-700 shadow-sm transition hover:bg-rose-50">Manage holidays</button><button type="button" onClick={() => { setEventEditId(null); setEventForm({ title: "", description: "", eventType: "company_event", startAt: "", endAt: "", allDay: false, location: "" }); setShowEventForm(true); }} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:-translate-y-0.5"><CalendarDays size={15} /> Add event / meeting</button></>}
                 <button type="button" aria-label="Previous month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() - 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronLeft size={18} /></button>
                 <button type="button" onClick={() => { setMonth(new Date()); setSelectedDay(todayKey()); }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Today</button>
                 <button type="button" aria-label="Next month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() + 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronRight size={18} /></button>
@@ -721,7 +760,7 @@ function AttendanceWorkspace() {
             <div className="mt-2 grid grid-cols-7 gap-1.5 p-2 sm:gap-2 sm:p-3">
               {calendarCells.map((cell) => {
                 const dayRecords = records.filter((record) => record.dateKey === cell.key);
-                const dayHoliday = holidays.filter((holiday) => holiday.dateKey === cell.key);
+                const dayHoliday = holidays.filter((holiday) => holiday.dateKey === cell.key && holiday.isActive);
                 const statuses = dayRecords.map((record) => record.status);
                 const isToday = cell.key === currentDateKey;
                 const isSunday = new Date(`${cell.key}T00:00:00`).getDay() === 0;
