@@ -92,15 +92,6 @@ const modules = [
     accent: "group-hover:border-cyan-200",
   },
   {
-    title: "Holiday Calendar",
-    description: "View and maintain the company holiday calendar.",
-    href: "/holidays",
-    action: "View holidays",
-    icon: CalendarCheck,
-    iconStyle: "bg-rose-50 text-rose-700",
-    accent: "group-hover:border-rose-200",
-  },
-  {
     title: "Organization",
     description: "Manage company departments and designations.",
     href: "/organization",
@@ -267,7 +258,7 @@ export default function Home() {
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expenses", "IT support", "Holiday Calendar", "Performance"].includes(item.title));
+    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expenses", "IT support", "Performance"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
@@ -411,7 +402,6 @@ export default function Home() {
                   "Employee Documents": "Documents",
                   "Leave Management": "Leave",
                   "Shift Management": "Shifts",
-                  "Holiday Calendar": "Holidays",
                   "IT support": "IT Support",
                 } as Record<string, string>)[item.title] || item.title;
                 return (
