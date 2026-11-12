@@ -549,7 +549,7 @@ function AttendanceWorkspace() {
 
   const selectedRecords = records.filter((record) => record.dateKey === selectedDay);
   const selectedLeaves = leaves.filter((leave) => leave.status === "pending" || leave.status === "approved").filter((leave) => leave.startDate <= selectedDay && leave.endDate >= selectedDay);
-  const selectedHoliday = holidays.filter((holiday) => holiday.dateKey === selectedDay);
+  const selectedHoliday = holidays.filter((holiday) => holiday.dateKey === selectedDay && holiday.isActive);
   const selectedEvents = companyEvents.filter((event) => {
     const start = new Date(event.startAt);
     const end = new Date(event.endAt);
@@ -778,7 +778,7 @@ function AttendanceWorkspace() {
             </div>
             {hoverPreview && (() => {
               const previewDay = hoverPreview.day;
-              const previewHoliday = holidays.filter((item) => item.dateKey === previewDay);
+              const previewHoliday = holidays.filter((item) => item.dateKey === previewDay && item.isActive);
               const previewEvents = companyEvents.filter((item) => item.status === "scheduled" && new Date(item.startAt) <= new Date(`${previewDay}T23:59:59.999`) && new Date(item.endAt) >= new Date(`${previewDay}T00:00:00`));
               const previewLeaves = leaves.filter((item) => (item.status === "pending" || item.status === "approved") && item.startDate <= previewDay && item.endDate >= previewDay);
               return createPortal(<div className="pointer-events-none fixed z-[9999] w-[304px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[22px] border border-white/80 bg-white/65 p-4 text-slate-800 shadow-[0_20px_60px_rgba(71,85,105,0.20)] backdrop-blur-2xl" style={{ top: hoverPreview.top, left: hoverPreview.left, animation: hoverPreviewClosing ? "calendarPreviewOut 420ms ease-out forwards" : "calendarPreviewIn 360ms cubic-bezier(0.2,0.8,0.2,1)" }}><p className="mb-3 border-b border-white/80 pb-2.5 text-[11px] font-extrabold uppercase tracking-wider text-indigo-700">{new Date(`${previewDay}T00:00:00`).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })} <span className="ml-1 font-semibold text-slate-400">· DAY DETAILS</span></p><div className="max-h-40 space-y-2 overflow-y-auto">{previewHoliday.map((item) => <p key={item._id} className="truncate rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">Holiday · {item.name}</p>)}{previewEvents.map((item) => <div key={item._id} className="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2"><p className="truncate text-[11px] font-bold text-violet-800">{item.title}</p><p className="mt-0.5 text-[10px] capitalize text-violet-600">{item.eventType.replace("_", " ")} · {item.allDay ? "All day" : formatTime(item.startAt)}</p></div>)}{previewLeaves.map((item) => <p key={item._id} className="truncate rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">Leave · {item.employee ? `${item.employee.firstName} ${item.employee.lastName}` : item.leaveType}</p>)}{!previewHoliday.length && !previewEvents.length && !previewLeaves.length && <p className="py-3 text-center text-[11px] text-slate-400">No events or meetings</p>}</div></div>, document.body);
