@@ -43,7 +43,6 @@ const employeeLinks = [
   { label: "Expenses", href: "/expenses", icon: ReceiptText },
   { label: "Documents", href: "/documents", icon: FileText },
   { label: "IT Support", href: "/helpdesk", icon: Headset },
-  { label: "Help Center", href: "/help-center", icon: CircleHelp },
   { label: "Holiday Calendar", href: "/holidays", icon: CalendarCheck },
   { label: "Performance", href: "/performance", icon: Award },
   { label: "Settings", href: "/settings", icon: Settings },
