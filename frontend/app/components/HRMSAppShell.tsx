@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity, Award, BarChart3, BriefcaseBusiness, Building2, CalendarDays,
+  Activity, Award, BarChart3, BriefcaseBusiness, Building2, CalendarCheck, CalendarDays,
   ClipboardList, FileText, Headset, LayoutDashboard,
   LogOut, Menu, ReceiptText, Settings, ShieldCheck, Users, Wallet, UserCircle2,
 } from "lucide-react";
@@ -42,7 +42,6 @@ const employeeLinks = [
   { label: "Expenses", href: "/expenses", icon: ReceiptText },
   { label: "Documents", href: "/documents", icon: FileText },
   { label: "IT Support", href: "/helpdesk", icon: Headset },
-  { label: "Holiday Calendar", href: "/holidays", icon: CalendarCheck },
   { label: "Performance", href: "/performance", icon: Award },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
