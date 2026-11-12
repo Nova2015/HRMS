@@ -246,6 +246,21 @@ router.get("/gmail/callback", async (req, res) => {
     }
 });
 
+// Disconnect the saved Google account for the signed-in Admin/HR user.
+router.delete("/gmail/disconnect", protect, authorizeRoles("admin", "hr"), async (req, res) => {
+    try {
+        const result = await GoogleGmailIntegration.deleteOne({ userId: req.user.userId });
+        return res.status(200).json({
+            success: true,
+            disconnected: result.deletedCount > 0,
+            message: result.deletedCount > 0 ? "Google account disconnected from HRMS" : "No Google account was connected"
+        });
+    } catch (error) {
+        console.error("Google Gmail disconnect failed:", error.message);
+        return res.status(500).json({ success: false, message: "Could not disconnect Google account" });
+    }
+});
+
 // Connection status for the signed-in Admin/HR user. Never expose stored OAuth tokens.
 router.get("/gmail/status", protect, authorizeRoles("admin", "hr"), async (req, res) => {
     try {
