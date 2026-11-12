@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Activity, RefreshCw, Search, ChevronLeft, ChevronRight, ShieldCheck, CalendarDays, UserRound, Filter } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = `${API_URL}`;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 type AuditItem = {
   _id: string;
   actor?: { email?: string; role?: string } | null;
