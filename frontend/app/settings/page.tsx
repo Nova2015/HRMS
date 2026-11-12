@@ -90,6 +90,7 @@ function SettingsContent() {
   };
 
   const close = () => router.back();
+  const isAdmin = role === "admin" || role === "hr";
   const tabs: {id:Tab;label:string;icon:typeof Settings2}[] = [
     {id:"general",label:"General",icon:Settings2},{id:"account",label:"Account",icon:UserRound},
     {id:"notifications",label:"Notifications",icon:Bell},
@@ -98,7 +99,6 @@ function SettingsContent() {
     ...(role === "admin" ? [{id:"admin" as Tab,label:"Admin Tools",icon:LockKeyhole}] : []),
     ...(role === "hr" ? [{id:"hr" as Tab,label:"HR Tools",icon:Users}] : [])
   ];
-  const isAdmin = role === "admin" || role === "hr";
 
   return (
     <main className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/30 px-3 py-4 backdrop-blur-md sm:px-6" onMouseDown={(e)=>{if(e.target===e.currentTarget) close();}}>
