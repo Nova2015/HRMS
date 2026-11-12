@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity, Award, BarChart3, BriefcaseBusiness, Building2, CalendarDays,
   CalendarCheck, ClipboardList, FileText, Headset, LayoutDashboard,
-  LogOut, Menu, ReceiptText, ShieldCheck, Users, Wallet, UserCircle2,
+  LogOut, Menu, ReceiptText, Settings, ShieldCheck, Users, Wallet, UserCircle2,
 } from "lucide-react";
 
 type Props = {
@@ -32,6 +32,7 @@ const adminLinks = [
   { label: "Reports & Analytics", href: "/reports", icon: BarChart3 },
   { label: "Audit Logs", href: "/audit-logs", icon: ShieldCheck },
   { label: "Update Approvals", href: "/employee-update-approvals", icon: Activity },
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 const employeeLinks = [
@@ -44,6 +45,7 @@ const employeeLinks = [
   { label: "IT Support", href: "/helpdesk", icon: Headset },
   { label: "Holiday Calendar", href: "/holidays", icon: CalendarCheck },
   { label: "Performance", href: "/performance", icon: Award },
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 export default function HRMSAppShell({ children, onLogout, showLogout = true }: Props) {
@@ -69,15 +71,6 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
   const links = isAdmin ? adminLinks : employeeLinks;
   const active = useMemo(() => links.find((item) => item.href !== "/" && (pathname === item.href || pathname.startsWith(item.href + "/")))?.href || (pathname === "/" ? "/" : ""), [links, pathname]);
   const pageTitle = links.find((item) => item.href === active)?.label || (pathname === "/" ? "Dashboard" : "HRMS Workspace");
-  const standalone = pathname.startsWith("/integrations/google-gmail");
-
-  if (standalone) return (
-    <>
-      {children}
-      {showLogout && <button type="button" onClick={onLogout} title="Logout" aria-label="Logout" className="fixed right-5 top-5 z-50 flex h-10 w-10 items-center justify-center rounded-xl border border-white/80 bg-white/90 text-slate-600 shadow-lg backdrop-blur-xl transition hover:bg-rose-50 hover:text-rose-600"><LogOut size={17} /></button>}
-    </>
-  );
-
   const sidebar = (
     <aside className="flex h-full w-[258px] shrink-0 flex-col border-r border-white/70 bg-white/75 px-4 py-5 shadow-[8px_0_40px_-32px_rgba(71,85,105,.35)] backdrop-blur-2xl">
       <Link href="/" className="mb-8 flex items-center gap-3 rounded-2xl px-2 py-1.5">
