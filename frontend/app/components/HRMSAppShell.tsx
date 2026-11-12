@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity, Award, BarChart3, BriefcaseBusiness, Building2, CalendarDays,
   CalendarCheck, ClipboardList, FileText, Headset, LayoutDashboard,
-  LogOut, Menu, ReceiptText, Settings, ShieldCheck, Users, Wallet, UserCircle2, CircleHelp,
+  LogOut, Menu, ReceiptText, Settings, ShieldCheck, Users, Wallet, UserCircle2,
 } from "lucide-react";
 
 type Props = {
@@ -24,7 +24,6 @@ const adminLinks = [
   { label: "Expenses", href: "/expenses", icon: ReceiptText },
   { label: "Documents", href: "/documents", icon: FileText },
   { label: "IT Support", href: "/helpdesk", icon: Headset },
-  { label: "Help Center", href: "/help-center", icon: CircleHelp },
   { label: "Shift Management", href: "/shifts", icon: CalendarCheck },
   { label: "Holiday Calendar", href: "/holidays", icon: CalendarCheck },
   { label: "Organization", href: "/organization", icon: Building2 },
