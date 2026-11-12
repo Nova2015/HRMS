@@ -25,7 +25,6 @@ const adminLinks = [
   { label: "Documents", href: "/documents", icon: FileText },
   { label: "IT Support", href: "/helpdesk", icon: Headset },
   { label: "Shift Management", href: "/shifts", icon: CalendarCheck },
-  { label: "Holiday Calendar", href: "/holidays", icon: CalendarCheck },
   { label: "Organization", href: "/organization", icon: Building2 },
   { label: "Performance", href: "/performance", icon: Award },
   { label: "Recruitment", href: "/recruitment", icon: BriefcaseBusiness },
