@@ -1,12 +1,13 @@
 
 "use client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, LogIn, Clock3, X } from "lucide-react";
 import HRMSAppShell from "./HRMSAppShell";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export default function AuthGuard({
   children,
