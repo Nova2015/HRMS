@@ -288,21 +288,9 @@ export default function Home() {
 
   return (
     <AuthGuard>
-      <main className="hrms-home min-h-screen bg-[#f5f7fb] px-4 py-6 sm:px-6 lg:px-8">
+      <main className="hrms-home min-h-screen px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1440px]">
-          <header className="mb-7 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{dashboardTitle}</h1>
-              <p className="mt-1.5 text-sm text-slate-500">{dashboardDescription}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link href="/profile" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
-                <UserRound size={17} /> Profile
-              </Link>
-            </div>
-          </header>
-
-          <section className={`relative mb-7 overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-5 py-5 text-white shadow-lg shadow-slate-900/10 sm:px-7 sm:py-6 ${role === "employee" ? "hrms-employee-hero" : ""}`}>
+          <section className={`relative mb-6 overflow-hidden rounded-[28px] bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-5 py-6 text-white shadow-xl shadow-indigo-950/10 sm:px-8 sm:py-7 ${role === "employee" ? "hrms-employee-hero" : ""}`}>
             <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-white/5" />
             <div className="pointer-events-none absolute right-24 top-16 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
             {role === "employee" ? (
@@ -357,11 +345,11 @@ export default function Home() {
           </section>
 
           {isAdmin && (
-            <section className="mb-7">
+            <section className="mb-6">
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
                   
-                  <h2 className="mt-1 text-xl font-bold text-slate-900">Attendance dashboard</h2>
+                  <h2 className="mt-1 text-lg font-extrabold tracking-tight text-slate-900">Attendance dashboard</h2>
                   <p className="mt-1 text-sm text-slate-500">Company attendance recorded from the start of this month to today.</p>
                 </div>
                 <Link href="/attendance" className="text-sm font-semibold text-blue-700 hover:text-blue-900">Open attendance register →</Link>
@@ -423,10 +411,10 @@ export default function Home() {
 
           <section className="mb-7">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-              <div><h2 className="mt-1 text-xl font-bold text-slate-900">HR modules</h2></div>
+              <div><h2 className="mt-1 text-lg font-extrabold tracking-tight text-slate-900">HR modules</h2></div>
               <span className="text-xs font-medium text-slate-400">{visibleModules.length} modules available</span>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {visibleModules.map((item, index) => {
                 const Icon = item.icon;
                 const compactTitle = ({
@@ -442,14 +430,15 @@ export default function Home() {
                     key={item.href}
                     href={item.href}
                     style={{ animationDelay: `${index * 55}ms` }}
-                    className={`group hrms-module-card flex min-h-[132px] items-center gap-4 rounded-2xl p-5 ${item.accent}`}
+                    className={`group hrms-module-card flex min-h-[124px] items-center gap-3.5 rounded-2xl p-4 ${item.accent}`}
                   >
                     <div className={`hrms-module-icon shrink-0 rounded-2xl p-3.5 ${item.iconStyle}`}>
                       <Icon size={23} strokeWidth={1.9} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-base font-bold tracking-tight text-slate-900">{compactTitle}</h3>
-                      <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-blue-700">
+                      <h3 className="truncate text-sm font-extrabold tracking-tight text-slate-900">{compactTitle}</h3>
+                      <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">{item.description}</p>
+                      <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700">
                         Open <ChevronRight size={13} className="transition-transform duration-300 group-hover:translate-x-1" />
                       </span>
                     </div>
@@ -463,16 +452,16 @@ export default function Home() {
           </section>
 
           <section className="hrms-premium-card hrms-dashboard-3d-card rounded-2xl p-5 sm:p-6">
-            <div className="mb-4 flex items-center gap-3"><div className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><BriefcaseBusiness size={20} /></div><div><h2 className="font-bold text-slate-900">Quick actions</h2></div></div>
+            <div className="mb-4 flex items-center gap-3"><div className="rounded-xl bg-indigo-50 p-2.5 text-indigo-600"><BriefcaseBusiness size={19} /></div><div><h2 className="text-sm font-extrabold text-slate-900">Quick actions</h2><p className="mt-0.5 text-[11px] text-slate-500">Shortcuts to frequently used tasks</p></div></div>
             <div className="grid gap-3 sm:grid-cols-3">
               {visibleQuickActions.map((item) => {
                 const Icon = item.icon;
-                return <Link key={item.href} href={item.href} className="hrms-dashboard-3d-card flex items-center justify-between rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3.5 text-sm font-semibold text-slate-700 hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700"><span className="flex items-center gap-3"><Icon size={18} className="text-blue-600" />{item.title}</span><ArrowUpRight size={16} className="text-slate-400" /></Link>;
+                return <Link key={item.href} href={item.href} className="hrms-dashboard-3d-card flex items-center justify-between rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3.5 text-xs font-bold text-slate-700 hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700"><span className="flex items-center gap-3"><Icon size={18} className="text-blue-600" />{item.title}</span><ArrowUpRight size={16} className="text-slate-400" /></Link>;
               })}
             </div>
           </section>
 
-          <footer className="mt-7 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 py-5 text-xs text-slate-400">
+          <footer className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-white/80 py-4 text-[10px] font-medium text-slate-400">
             <span>HRMS</span>
             
           </footer>
