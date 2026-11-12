@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, CircleAlert, ExternalLink, Mail, RefreshCw, ShieldCheck, Unplug, LockKeyhole, Clock3, Inbox, ArrowUpRight } from "lucide-react";
-import AuthGuard from "../../components/AuthGuard";
+import AuthGuard from "../components/AuthGuard";
 
 const API_URL = "http://localhost:5000/api";
 
