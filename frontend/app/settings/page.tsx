@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Bell, Check, ChevronRight, Globe2, Headset, LockKeyhole, Mail, Monitor, Moon, Plug, RefreshCw, Settings2, Sun, UserRound, X, Users } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 type Tab = "general" | "account" | "notifications" | "integrations" | "support" | "admin" | "hr";
 
 function SettingsContent() {

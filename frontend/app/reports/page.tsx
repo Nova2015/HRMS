@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, BarChart3, CalendarDays, Download, RefreshCw, Users, Clock3, Wallet, ClipboardCheck } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 type ReportData = {
   range: { from: string; to: string };
   employees: { active: number; total: number; inactive: number };

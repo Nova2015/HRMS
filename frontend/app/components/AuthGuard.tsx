@@ -1,6 +1,8 @@
 
 "use client";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, LogIn, Clock3, X } from "lucide-react";
@@ -35,7 +37,7 @@ export default function AuthGuard({
 
       try {
         const response = await fetch(
-          "http://localhost:5000/api/auth/me",
+          `${API_URL}/auth/me`,
           {
             method: "GET",
             headers: {
@@ -58,7 +60,7 @@ export default function AuthGuard({
             setShowAttendancePrompt(true);
             setAttendancePromptLoading(true);
             try {
-              const attendanceResponse = await fetch("http://localhost:5000/api/attendance/today", {
+              const attendanceResponse = await fetch(`${API_URL}/attendance/today`, {
                 headers: { Authorization: `Bearer ${token}` },
                 cache: "no-store",
               });
@@ -98,14 +100,14 @@ export default function AuthGuard({
     setAttendanceBusy(true);
     setAttendanceError("");
     try {
-      const response = await fetch(`http://localhost:5000/api/attendance/${action}`, {
+      const response = await fetch(`${API_URL}/attendance/${action}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.message || "Attendance action failed.");
-      const refresh = await fetch("http://localhost:5000/api/attendance/today", {
+      const refresh = await fetch(`${API_URL}/attendance/today`, {
         headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
       });
       const refreshed = await refresh.json();

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Clock3, Plus, RefreshCw, Pencil, Power, Trash2 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 
 type Shift = {
   _id: string;

@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 const categories = [
   { id: "travel", label: "Travel", color: "bg-blue-500", soft: "bg-blue-50 text-blue-700" },
   { id: "meals", label: "Meals", color: "bg-amber-500", soft: "bg-amber-50 text-amber-700" },

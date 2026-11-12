@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Activity, RefreshCw, Search, ChevronLeft, ChevronRight, ShieldCheck, CalendarDays, UserRound, Filter } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 type AuditItem = {
   _id: string;
   actor?: { email?: string; role?: string } | null;

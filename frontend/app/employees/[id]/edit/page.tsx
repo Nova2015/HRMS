@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ArrowLeft, Save } from "lucide-react";
 import AuthGuard from "../../../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 
 type Department = {
   _id: string;

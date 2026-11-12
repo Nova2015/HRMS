@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Award, RefreshCw, CalendarDays, Send, CheckCircle2, Users } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 const inputClass = "mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10";
 const labelClass = "block text-sm font-semibold text-slate-700";
 

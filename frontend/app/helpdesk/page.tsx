@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 const categories = [
   { value: "hardware", label: "Hardware" },
   { value: "software", label: "Software" },

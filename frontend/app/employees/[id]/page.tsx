@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import AuthGuard from "../../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 
 type Employee = {
   _id: string;

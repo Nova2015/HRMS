@@ -1,5 +1,7 @@
 "use client";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -197,7 +199,7 @@ export default function Home() {
       try {
         const token = sessionStorage.getItem("hrms_token");
         if (!token) return;
-        const response = await fetch("http://localhost:5000/api/auth/me", {
+        const response = await fetch(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
         });
         const result = await response.json();
@@ -232,7 +234,7 @@ export default function Home() {
         const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
         const fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
         const from = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, "0")}-${String(fromDate.getDate()).padStart(2, "0")}`;
-        const response = await fetch(`http://localhost:5000/api/attendance?from=${from}&to=${to}`, {
+        const response = await fetch(`${API_URL}/attendance?from=${from}&to=${to}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         });

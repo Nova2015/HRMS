@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, RefreshCw, UserCircle, BriefcaseBusiness, Clock3, ShieldCheck, Save } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 
 type Profile = {
   employeeCode: string;

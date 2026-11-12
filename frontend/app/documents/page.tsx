@@ -1,12 +1,14 @@
 "use client";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileText, Download, Upload, RefreshCw, ShieldCheck, Send, Check, X } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 type EmployeeInfo = {
