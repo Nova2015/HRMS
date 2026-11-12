@@ -40,8 +40,18 @@ if (!jwtSecret || jwtSecret.length < 32) {
 
 app.use(helmet());
 
+const allowedOrigins = new Set([
+    "https://hrms-frontend-tawny-pi.vercel.app",
+    ...(process.env.CLIENT_URL || "").split(",").map((url) => url.trim()).filter(Boolean)
+]);
+
 app.use(cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.has(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error(`CORS origin not allowed: ${origin}`));
+    },
     credentials: true
 }));
 
