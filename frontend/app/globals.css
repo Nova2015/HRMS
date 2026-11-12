@@ -1,10 +1,14 @@
-
 @import "tailwindcss";
 
 :root {
   color-scheme: light;
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f7fc;
+  --foreground: #172033;
+  --hrms-primary: #4f46e5;
+  --hrms-primary-soft: #eef2ff;
+  --hrms-border: rgba(226, 232, 240, 0.9);
+  --hrms-surface: rgba(255, 255, 255, 0.88);
+  --hrms-shadow: 0 18px 50px rgba(30, 41, 59, 0.07);
 }
 
 @theme inline {
@@ -14,8 +18,405 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: #f3f4f6;
-  color: #171717;
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100%;
+  background:
+    radial-gradient(ellipse at 8% 0%, rgba(224, 231, 255, 0.72), transparent 34rem),
+    radial-gradient(ellipse at 100% 12%, rgba(219, 234, 254, 0.52), transparent 30rem),
+    #f5f7fc;
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.32);
+  outline-offset: 2px;
+}
+
+.hrms-enter {
+  animation: hrms-fade-up 520ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.hrms-card {
+  border: 1px solid var(--hrms-border);
+  background: var(--hrms-surface);
+  box-shadow: var(--hrms-shadow);
+  backdrop-filter: blur(16px);
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.hrms-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(165, 180, 252, 0.72);
+  box-shadow: 0 22px 56px rgba(30, 41, 59, 0.1);
+}
+
+.hrms-interactive {
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+
+.hrms-interactive:active {
+  transform: scale(0.985);
+}
+
+@keyframes hrms-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hrms-soft-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.14); }
+  50% { box-shadow: 0 0 0 7px rgba(99, 102, 241, 0); }
+}
+
+.hrms-pulse {
+  animation: hrms-soft-pulse 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* Consistent entrance animation for success and error notifications. */
+[role="status"],
+[role="alert"] {
+  animation: hrms-notification-in 360ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@keyframes hrms-notification-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+
+/* Hide native scrollbars consistently across the entire HRMS UI while preserving scrolling. */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Keep dark floating panels clean: scrolling remains enabled without a legacy white scrollbar. */
+.hrms-scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hrms-scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+
+/* Premium depth for primary dashboard surfaces: restrained 3D lift, layered highlights and soft edge. */
+.hrms-premium-card {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  background: linear-gradient(145deg, rgba(255,255,255,0.99), rgba(248,250,255,0.96));
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.035), 0 10px 24px rgba(30, 41, 59, 0.055), inset 0 1px 0 rgba(255,255,255,0.95);
+  transition: transform 240ms cubic-bezier(0.2, 0.75, 0.25, 1), box-shadow 240ms ease, border-color 240ms ease;
+}
+.hrms-premium-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.98), transparent);
+  pointer-events: none;
+}
+.hrms-premium-card:hover {
+  transform: perspective(900px) translateY(-4px) rotateX(0.35deg);
+  border-color: rgba(165, 180, 252, 0.78);
+  box-shadow: 0 5px 10px rgba(15, 23, 42, 0.045), 0 20px 38px rgba(30, 41, 59, 0.11), inset 0 1px 0 rgba(255,255,255,1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hrms-premium-card { transition: none; }
+  .hrms-premium-card:hover { transform: none; }
+}
+
+
+/* Focused 3D treatment for HR module navigation cards only. */
+.hrms-module-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  background: linear-gradient(145deg, #ffffff 0%, #f8faff 58%, #f1f5ff 100%);
+  box-shadow:
+    0 2px 3px rgba(15, 23, 42, 0.035),
+    0 8px 16px rgba(30, 41, 59, 0.055),
+    0 17px 28px -18px rgba(30, 41, 59, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+  transform: perspective(1000px) translateY(0) rotateX(0) scale(1);
+  transform-style: preserve-3d;
+  animation: hrms-module-enter 520ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  transition:
+    transform 360ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    box-shadow 360ms ease,
+    border-color 360ms ease,
+    background 360ms ease;
+}
+.hrms-module-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(112deg, transparent 18%, rgba(255,255,255,0.82) 45%, transparent 68%);
+  transform: translateX(-115%);
+  transition: transform 700ms ease, opacity 250ms ease;
+}
+.hrms-module-card:hover {
+  z-index: 2;
+  border-color: rgba(129, 140, 248, 0.58);
+  background: linear-gradient(145deg, #ffffff 0%, #f7f8ff 58%, #eef2ff 100%);
+  transform: perspective(1000px) translateY(-8px) rotateX(2deg) rotateY(-1deg) scale(1.012);
+  box-shadow:
+    0 5px 9px rgba(15, 23, 42, 0.045),
+    0 20px 34px rgba(49, 46, 129, 0.12),
+    0 30px 42px -24px rgba(30, 41, 59, 0.28),
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(99, 102, 241, 0.08);
+}
+.hrms-module-card:hover::before {
+  opacity: 1;
+  transform: translateX(115%);
+}
+.hrms-module-card:active {
+  transform: perspective(1000px) translateY(-2px) scale(0.99);
+}
+.hrms-module-icon {
+  position: relative;
+  box-shadow: 0 5px 10px rgba(30, 41, 59, 0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+  transition: transform 360ms cubic-bezier(0.2, 0.75, 0.25, 1), box-shadow 360ms ease;
+}
+.hrms-module-card:hover .hrms-module-icon {
+  transform: translateY(-3px) rotate(-5deg) scale(1.07);
+  box-shadow: 0 10px 17px rgba(49, 46, 129, 0.14), inset 0 1px 0 rgba(255,255,255,0.95);
+}
+.hrms-module-arrow {
+  transition: transform 360ms cubic-bezier(0.2, 0.75, 0.25, 1), color 250ms ease, background 250ms ease;
+}
+.hrms-module-card:hover .hrms-module-arrow {
+  transform: translate3d(2px, -2px, 8px);
+  background: rgba(238, 242, 255, 0.9);
+}
+@keyframes hrms-module-enter {
+  from { opacity: 0; transform: perspective(1000px) translateY(16px) rotateX(-3deg); }
+  to { opacity: 1; transform: perspective(1000px) translateY(0) rotateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hrms-module-card { animation: none; transition: none; }
+  .hrms-module-card:hover,
+  .hrms-module-card:active,
+  .hrms-module-card:hover .hrms-module-icon,
+  .hrms-module-card:hover .hrms-module-arrow { transform: none; }
+}
+
+
+/* Reuse the HR module's premium 3D motion on the other light dashboard cards.
+   The dark hero banner is intentionally excluded. */
+.hrms-dashboard-3d-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  background: linear-gradient(145deg, #ffffff 0%, #f8faff 58%, #f1f5ff 100%);
+  box-shadow:
+    0 2px 3px rgba(15, 23, 42, 0.035),
+    0 8px 16px rgba(30, 41, 59, 0.055),
+    0 17px 28px -18px rgba(30, 41, 59, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+  transform: perspective(1000px) translateY(0) rotateX(0) scale(1);
+  transform-style: preserve-3d;
+  transition:
+    transform 360ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    box-shadow 360ms ease,
+    border-color 360ms ease,
+    background 360ms ease;
+}
+.hrms-dashboard-3d-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(112deg, transparent 18%, rgba(255,255,255,0.82) 45%, transparent 68%);
+  transform: translateX(-115%);
+  transition: transform 700ms ease, opacity 250ms ease;
+}
+.hrms-dashboard-3d-card:hover {
+  z-index: 2;
+  border-color: rgba(129, 140, 248, 0.58);
+  background: linear-gradient(145deg, #ffffff 0%, #f7f8ff 58%, #eef2ff 100%);
+  transform: perspective(1000px) translateY(-7px) rotateX(1.6deg) rotateY(-0.7deg) scale(1.008);
+  box-shadow:
+    0 5px 9px rgba(15, 23, 42, 0.045),
+    0 20px 34px rgba(49, 46, 129, 0.12),
+    0 30px 42px -24px rgba(30, 41, 59, 0.28),
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(99, 102, 241, 0.08);
+}
+.hrms-dashboard-3d-card:hover::after {
+  opacity: 1;
+  transform: translateX(115%);
+}
+.hrms-dashboard-3d-card:active {
+  transform: perspective(1000px) translateY(-2px) scale(0.99);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hrms-dashboard-3d-card,
+  .hrms-dashboard-3d-card:hover,
+  .hrms-dashboard-3d-card:active { transition: none; transform: none; }
+  .hrms-dashboard-3d-card::after { display: none; }
+}
+
+
+/* Shared premium card interaction across internal HRMS pages.
+   Main dashboard has its own tuned treatment; dark surfaces are not selected. */
+main:not(.hrms-home) div[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]),
+main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]) {
+  position: relative;
+  isolation: isolate;
+  border-color: rgba(226, 232, 240, 0.92);
+  box-shadow:
+    0 2px 3px rgba(15, 23, 42, 0.035),
+    0 8px 16px rgba(30, 41, 59, 0.055),
+    0 17px 28px -18px rgba(30, 41, 59, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+  transform: perspective(1000px) translateY(0) rotateX(0) scale(1);
+  transform-style: preserve-3d;
+  transition:
+    transform 340ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    box-shadow 340ms ease,
+    border-color 340ms ease;
+}
+main:not(.hrms-home) div[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]):hover,
+main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]):hover {
+  border-color: rgba(129, 140, 248, 0.52);
+  transform: perspective(1000px) translateY(-5px) rotateX(1deg) scale(1.006);
+  box-shadow:
+    0 5px 9px rgba(15, 23, 42, 0.045),
+    0 18px 30px rgba(49, 46, 129, 0.11),
+    0 28px 38px -24px rgba(30, 41, 59, 0.25),
+    inset 0 1px 0 #ffffff;
+}
+@media (prefers-reduced-motion: reduce) {
+  main:not(.hrms-home) div[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]),
+  main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]) {
+    transition: none;
+    transform: none;
+  }
+}
+
+
+/* Employee profile hero: same layered 3D card interaction as the dashboard cards, while preserving its dark gradient. */
+.hrms-employee-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(147, 197, 253, 0.2);
+  background: linear-gradient(112deg, #020617 0%, #0f172a 52%, #172554 100%);
+  box-shadow:
+    0 2px 3px rgba(15, 23, 42, 0.12),
+    0 8px 16px rgba(15, 23, 42, 0.16),
+    0 17px 28px -18px rgba(30, 64, 175, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transform: perspective(1000px) translateY(0) rotateX(0) scale(1);
+  transform-style: preserve-3d;
+  animation: hrms-employee-hero-enter 760ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  transition:
+    transform 360ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    box-shadow 360ms ease,
+    border-color 360ms ease;
+}
+.hrms-employee-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(112deg, transparent 18%, rgba(191, 219, 254, 0.15) 45%, transparent 68%);
+  transform: translateX(-115%);
+  transition: transform 700ms ease, opacity 250ms ease;
+}
+.hrms-employee-hero:hover {
+  z-index: 2;
+  border-color: rgba(147, 197, 253, 0.42);
+  transform: perspective(1000px) translateY(-7px) rotateX(1.6deg) rotateY(-0.7deg) scale(1.008);
+  box-shadow:
+    0 5px 9px rgba(15, 23, 42, 0.16),
+    0 20px 34px rgba(30, 64, 175, 0.22),
+    0 30px 42px -24px rgba(15, 23, 42, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+.hrms-employee-hero:hover::after {
+  opacity: 1;
+  transform: translateX(115%);
+}
+.hrms-employee-hero-content {
+  position: relative;
+  z-index: 1;
+  animation: hrms-employee-content-in 820ms 90ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+.hrms-employee-hero-content h2 {
+  text-shadow: 0 3px 18px rgba(96, 165, 250, 0.2);
+}
+.hrms-employee-hero-content a {
+  transform: translateZ(18px);
+  transition: transform 280ms ease, box-shadow 280ms ease, background-color 280ms ease;
+}
+.hrms-employee-hero-content a:hover {
+  transform: translate3d(0, -3px, 24px);
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.3);
+}
+@keyframes hrms-employee-hero-enter {
+  from { opacity: 0; transform: perspective(1000px) translateY(16px) rotateX(-3deg); }
+  to { opacity: 1; transform: perspective(1000px) translateY(0) rotateX(0); }
+}
+@keyframes hrms-employee-content-in {
+  from { opacity: 0; transform: translate3d(0, 10px, -10px); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hrms-employee-hero,
+  .hrms-employee-hero-content { animation: none; transition: none; }
+  .hrms-employee-hero:hover,
+  .hrms-employee-hero-content a,
+  .hrms-employee-hero-content a:hover { transform: none; }
+  .hrms-employee-hero::after { display: none; }
 }

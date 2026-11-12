@@ -1,23 +1,26 @@
 "use client";
 
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, UserCircle,
-  CalendarCheck, BriefcaseBusiness, LayoutGrid, Sparkles, ChevronRight,
-  Settings2, UserPlus, ClipboardList, FileText,
+  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, ShieldCheck, Award,
+  CalendarCheck, BriefcaseBusiness, ChevronRight,
+  UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, Headset, UserCircle2,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
 const modules = [
   {
-    title: "My Profile",
-    description: "View your personal and employment information.",
-    href: "/profile",
-    action: "View my profile",
-    icon: UserCircle,
-    iconStyle: "bg-sky-50 text-sky-700",
-    accent: "group-hover:border-sky-200",
+    title: "Update approvals",
+    description: "Review and decide employee data update proposals from Gmail and documents.",
+    href: "/employee-update-approvals",
+    action: "Review update requests",
+    icon: ShieldCheck,
+    iconStyle: "bg-emerald-50 text-emerald-700",
+    accent: "group-hover:border-emerald-200",
   },
   {
     title: "Employee Documents",
@@ -65,6 +68,24 @@ const modules = [
     accent: "group-hover:border-emerald-200",
   },
   {
+    title: "Expenses",
+    description: "Submit expense claims, review approvals and track reimbursements.",
+    href: "/expenses",
+    action: "Manage expenses",
+    icon: ReceiptText,
+    iconStyle: "bg-violet-50 text-violet-700",
+    accent: "group-hover:border-violet-200",
+  },
+  {
+    title: "IT support",
+    description: "Submit IT support requests and track ticket progress.",
+    href: "/helpdesk",
+    action: "Open helpdesk",
+    icon: Headset,
+    iconStyle: "bg-indigo-50 text-indigo-700",
+    accent: "group-hover:border-indigo-200",
+  },
+  {
     title: "Shift Management",
     description: "Configure work timings and employee shift assignments.",
     href: "/shifts",
@@ -72,15 +93,6 @@ const modules = [
     icon: CalendarCheck,
     iconStyle: "bg-cyan-50 text-cyan-700",
     accent: "group-hover:border-cyan-200",
-  },
-  {
-    title: "Holiday Calendar",
-    description: "View and maintain the company holiday calendar.",
-    href: "/holidays",
-    action: "View holidays",
-    icon: CalendarCheck,
-    iconStyle: "bg-rose-50 text-rose-700",
-    accent: "group-hover:border-rose-200",
   },
   {
     title: "Organization",
@@ -91,6 +103,42 @@ const modules = [
     iconStyle: "bg-indigo-50 text-indigo-700",
     accent: "group-hover:border-indigo-200",
   },
+  {
+    title: "Performance",
+    description: "Employee self-reviews, manager feedback and performance ratings.",
+    href: "/performance",
+    action: "Open performance reviews",
+    icon: Award,
+    iconStyle: "bg-amber-50 text-amber-700",
+    accent: "group-hover:border-amber-200",
+  },
+  {
+    title: "Reports & Analytics",
+    description: "Company-wide attendance, leave, payroll and performance insights.",
+    href: "/reports",
+    action: "View reports",
+    icon: BarChart3,
+    iconStyle: "bg-indigo-50 text-indigo-700",
+    accent: "group-hover:border-indigo-200",
+  },
+  {
+    title: "Audit Logs",
+    description: "Trace successful account, employee and HR workflow changes.",
+    href: "/audit-logs",
+    action: "View audit activity",
+    icon: ShieldCheck,
+    iconStyle: "bg-slate-100 text-slate-700",
+    accent: "group-hover:border-slate-300",
+  },
+  {
+    title: "Recruitment",
+    description: "Manage job openings, candidate selection and employee onboarding.",
+    href: "/recruitment",
+    action: "Manage recruitment",
+    icon: UserPlus,
+    iconStyle: "bg-fuchsia-50 text-fuchsia-700",
+    accent: "group-hover:border-fuchsia-200",
+  },
 ];
 
 const quickActions = [
@@ -99,8 +147,37 @@ const quickActions = [
   { title: "Payroll processing", href: "/payroll", icon: Wallet },
 ];
 
+type DashboardEmployee = {
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  joiningDate?: string;
+  employmentStatus: string;
+  department?: { name: string } | null;
+  designation?: { name: string } | null;
+  shift?: { name: string; startTime?: string; endTime?: string } | null;
+  reportingManager?: { firstName: string; lastName: string; employeeCode?: string } | null;
+};
+
+type DashboardAttendance = {
+  _id: string;
+  dateKey: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  status: "present" | "half-day" | "absent";
+  isLate: boolean;
+  employee?: { firstName: string; lastName: string; employeeCode: string };
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export default function Home() {
   const [role, setRole] = useState("employee");
+  const [attendanceRecords, setAttendanceRecords] = useState<DashboardAttendance[]>([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceError, setAttendanceError] = useState("");
+  const [employeeProfile, setEmployeeProfile] = useState<DashboardEmployee | null>(null);
+  const [employeeProfileLoading, setEmployeeProfileLoading] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("hrms_user");
@@ -115,11 +192,76 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    if (role !== "employee") return;
+    let cancelled = false;
+    const loadEmployeeProfile = async () => {
+      setEmployeeProfileLoading(true);
+      try {
+        const token = sessionStorage.getItem("hrms_token");
+        if (!token) return;
+        const response = await fetch(`${API_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+        });
+        const result = await response.json();
+        if (response.status === 401) {
+          sessionStorage.removeItem("hrms_token");
+          sessionStorage.removeItem("hrms_user");
+          window.location.href = "/login";
+          return;
+        }
+        if (!response.ok || !result.success || !result.data?.employee) throw new Error(result.message || "Unable to load employee information");
+        if (!cancelled) setEmployeeProfile(result.data.employee);
+      } catch (error) {
+        console.error("Employee dashboard profile load failed:", error);
+        if (!cancelled) setEmployeeProfile(null);
+      } finally {
+        if (!cancelled) setEmployeeProfileLoading(false);
+      }
+    };
+    void loadEmployeeProfile();
+    return () => { cancelled = true; };
+  }, [role]);
+
+  useEffect(() => {
+    if (role !== "admin" && role !== "hr") return;
+    const loadDashboardAttendance = async () => {
+      setAttendanceLoading(true);
+      setAttendanceError("");
+      try {
+        const token = sessionStorage.getItem("hrms_token");
+        if (!token) return;
+        const now = new Date();
+        const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        const from = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, "0")}-${String(fromDate.getDate()).padStart(2, "0")}`;
+        const response = await fetch(`${API_URL}/attendance?from=${from}&to=${to}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const result = await response.json();
+        if (response.status === 401) {
+          sessionStorage.removeItem("hrms_token");
+          sessionStorage.removeItem("hrms_user");
+          window.location.href = "/login";
+          return;
+        }
+        if (!response.ok || !result.success) throw new Error(result.message || "Unable to load attendance dashboard");
+        setAttendanceRecords(Array.isArray(result.data) ? result.data : []);
+      } catch (error) {
+        setAttendanceError(error instanceof Error ? error.message : "Unable to load attendance dashboard");
+      } finally {
+        setAttendanceLoading(false);
+      }
+    };
+    void loadDashboardAttendance();
+  }, [role]);
+
   const isAdmin = role === "admin" || role === "hr";
   const isManager = role === "manager";
   const visibleModules = isAdmin
     ? modules
-    : modules.filter((item) => ["My Profile", "Employee Documents", "Attendance", "Leave Management", "Payroll", "Holiday Calendar"].includes(item.title));
+    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expenses", "IT support", "Performance"].includes(item.title));
   const visibleQuickActions = isAdmin
     ? quickActions
     : [
@@ -127,107 +269,183 @@ export default function Home() {
         { title: "My attendance", href: "/attendance", icon: Clock3 },
         { title: "My payslips", href: "/payroll", icon: Wallet },
       ];
-  const dashboardTitle = isAdmin
-    ? "Admin / HR Dashboard"
-    : isManager
-      ? "Manager Dashboard"
-      : "Employee Self-Service";
-  const dashboardDescription = isAdmin
-    ? "Manage company people operations, records and approvals."
-    : isManager
-      ? "Manage your team's leave approvals and access your own HR records."
-      : "Access your attendance, apply for leave and view your payslips.";
-
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-[#f5f7fb] px-4 py-6 sm:px-6 lg:px-8">
+      <main className="hrms-home min-h-screen px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1440px]">
-          <header className="mb-7 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" /> Company workspace
-              </p>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{dashboardTitle}</h1>
-              <p className="mt-1.5 text-sm text-slate-500">{dashboardDescription}</p>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 shadow-sm">
-              <LayoutGrid size={17} className="text-blue-600" />
-              Single-company workspace
-            </div>
-          </header>
-
-          <section className="relative mb-7 overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-9 sm:py-10">
+          <section className={`relative mb-6 overflow-hidden rounded-[28px] bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-5 py-6 text-white shadow-xl shadow-indigo-950/10 sm:px-8 sm:py-7 ${role === "employee" ? "hrms-employee-hero" : ""}`}>
             <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-white/5" />
             <div className="pointer-events-none absolute right-24 top-16 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
-            <div className="relative z-10 max-w-2xl">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-blue-100">
-                <Sparkles size={14} /> Human Resource Management
-              </span>
-              <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
-                {isAdmin ? <>Your company operations,<br className="hidden sm:block" /> in one organized workspace.</> : isManager ? <>Your team and personal HR tasks,<br className="hidden sm:block" /> in one focused workspace.</> : <>Your workday essentials,<br className="hidden sm:block" /> in one simple workspace.</>}
-              </h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">{isAdmin ? "Manage employees, attendance, leave, shifts, holidays and payroll." : isManager ? "Review assigned team leave requests and manage your own attendance and payroll." : "Check attendance, apply for leave and view your own payroll records."}</p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href={isAdmin ? "/employees" : "/leaves"} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-blue-50">{isAdmin ? "View employees" : isManager ? "Review team leaves" : "Apply for leave"} <ArrowUpRight size={16} /></Link>
-                <Link href="/attendance" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15">{isAdmin ? "Open attendance register" : "My attendance"} <ChevronRight size={16} /></Link>
+            {role === "employee" ? (
+              <div className="hrms-employee-hero-content relative z-10 max-w-2xl">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="h-1 w-7 rounded-full bg-gradient-to-r from-sky-300 to-blue-500 shadow-[0_0_14px_rgba(96,165,250,0.55)]" />
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-blue-200">Employee profile</p>
+                </div>
+                <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl">
+                  {employeeProfileLoading ? "Loading your profile…" : employeeProfile ? `${employeeProfile.firstName} ${employeeProfile.lastName}` : "Your employee information"}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-blue-100">{employeeProfile?.designation?.name || "Designation not assigned"}{employeeProfile?.department?.name ? ` · ${employeeProfile.department.name}` : ""}</p>
+                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold capitalize tracking-wide ${employeeProfile?.employmentStatus === "active" ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-200" : "border-white/15 bg-white/10 text-slate-200"}`}>{employeeProfileLoading ? "Loading" : employeeProfile?.employmentStatus || "Profile unavailable"}</span>
+                </div>
+                {employeeProfile ? (
+                  <div className="mt-5 max-w-xl border-l-2 border-blue-300/40 pl-4">
+                    <div className="grid max-w-xl gap-y-2">
+                      <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Employee ID</span><span className="ml-2 font-semibold text-white">{employeeProfile.employeeCode}</span></p>
+                      <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Department</span><span className="ml-2 font-semibold text-white">{employeeProfile.department?.name || "Not assigned"}</span></p>
+                      <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Joining date</span><span className="ml-2 font-semibold text-white">{employeeProfile.joiningDate ? new Date(employeeProfile.joiningDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span></p>
+                      <p className="text-xs text-slate-300"><span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Reporting manager</span><span className="ml-2 font-semibold text-white">{employeeProfile.reportingManager ? `${employeeProfile.reportingManager.firstName} ${employeeProfile.reportingManager.lastName}` : "Not assigned"}</span></p>
+                    </div>
+                  </div>
+                ) : !employeeProfileLoading ? (
+                  <p className="mt-4 text-sm text-slate-300">Employee details could not be loaded. Open your profile to review your information.</p>
+                ) : null}
+                <div className="mt-4 flex flex-wrap items-center gap-4">
+                  <Link href="/profile" className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white px-3.5 py-2 text-xs font-bold text-slate-900 shadow-lg shadow-blue-950/20 transition hover:-translate-y-0.5 hover:bg-blue-50">View full profile <ArrowUpRight size={15} /></Link>
+                  {employeeProfile?.shift?.name && <span className="text-[11px] text-slate-300">Shift: <strong className="text-white">{employeeProfile.shift.name}{employeeProfile.shift.startTime && employeeProfile.shift.endTime ? ` · ${employeeProfile.shift.startTime}–${employeeProfile.shift.endTime}` : ""}</strong></span>}
+                </div>
               </div>
-            </div>
-            <div className="relative z-10 mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/15 pt-5 sm:absolute sm:bottom-8 sm:right-9 sm:mt-0 sm:w-[390px] sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
-              <div><p className="text-xs text-slate-400">Available modules</p><p className="mt-1 text-2xl font-bold">{visibleModules.length.toString().padStart(2, "0")}</p></div>
-              <div><p className="text-xs text-slate-400">Workspace</p><p className="mt-1 text-sm font-semibold">Centralized</p></div>
-              <div><p className="text-xs text-slate-400">Access</p><p className="mt-1 text-sm font-semibold">Role-based</p></div>
-            </div>
+            ) : (
+              <>
+                <div className="relative z-10 max-w-2xl">
+                  <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+                    {isAdmin ? <>People operations,<br className="hidden sm:block" /> made simpler.</> : <>Your team,<br className="hidden sm:block" /> in one place.</>}
+                  </h2>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">{isAdmin ? "Employees, attendance, leave and payroll." : "Team leave and your HR records."}</p>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Link href={isAdmin ? "/employees" : "/leaves"} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-blue-50">{isAdmin ? "View employees" : "Review team leaves"} <ArrowUpRight size={16} /></Link>
+                    <Link href="/attendance" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15">{isAdmin ? "Open attendance register" : "My attendance"} <ChevronRight size={16} /></Link>
+                  </div>
+                </div>
+                <div className="relative z-10 mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/15 pt-5 sm:absolute sm:bottom-8 sm:right-9 sm:mt-0 sm:w-[390px] sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
+                  <div><p className="text-xs text-slate-400">Available modules</p><p className="mt-1 text-2xl font-bold">{visibleModules.length.toString().padStart(2, "0")}</p></div>
+                  <div><p className="text-xs text-slate-400">Workspace</p><p className="mt-1 text-sm font-semibold">Centralized</p></div>
+                  <div><p className="text-xs text-slate-400">Access</p><p className="mt-1 text-sm font-semibold">Role-based</p></div>
+                </div>
+              </>
+            )}
           </section>
+
+          {isAdmin && (
+            <section className="mb-6">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  
+                  <h2 className="mt-1 text-lg font-extrabold tracking-tight text-slate-900">Attendance dashboard</h2>
+                  <p className="mt-1 text-sm text-slate-500">Company attendance recorded from the start of this month to today.</p>
+                </div>
+                <Link href="/attendance" className="text-sm font-semibold text-blue-700 hover:text-blue-900">Open attendance register →</Link>
+              </div>
+              {attendanceError && <p role="alert" className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{attendanceError}</p>}
+              <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  { label: "Present records", value: attendanceRecords.filter((item) => item.status === "present").length, icon: CheckCircle2, color: "text-emerald-700 bg-emerald-50" },
+                  { label: "Half-day records", value: attendanceRecords.filter((item) => item.status === "half-day").length, icon: Clock3, color: "text-amber-700 bg-amber-50" },
+                  { label: "Absent records", value: attendanceRecords.filter((item) => item.status === "absent").length, icon: Activity, color: "text-rose-700 bg-rose-50" },
+                  { label: "Late arrivals", value: attendanceRecords.filter((item) => item.isLate).length, icon: Clock3, color: "text-orange-700 bg-orange-50" },
+                ].map((stat) => {
+                  const Icon = stat.icon;
+                  return <div key={stat.label} className="hrms-premium-card hrms-dashboard-3d-card rounded-2xl p-4">
+                    <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-500">{stat.label}</span><span className={`rounded-lg p-2 ${stat.color}`}><Icon size={18} /></span></div>
+                    <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{attendanceLoading ? "…" : stat.value}</p>
+                  </div>;
+                })}
+              </div>
+              <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
+                <div className="hrms-premium-card hrms-dashboard-3d-card rounded-2xl p-5">
+                  <div className="mb-5 flex items-center gap-2"><BarChart3 size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Attendance trend · Last 7 days</h3></div>
+                  <div className="flex h-44 items-end justify-around gap-3 border-b border-slate-100 pb-2">
+                    {Array.from({ length: 7 }, (_, index) => {
+                      const day = new Date();
+                      day.setDate(day.getDate() - (6 - index));
+                      const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+                      const count = attendanceRecords.filter((record) => record.dateKey === key && record.status !== "absent").length;
+                      const max = Math.max(1, ...Array.from({ length: 7 }, (_, offset) => {
+                        const d = new Date(); d.setDate(d.getDate() - (6 - offset));
+                        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                        return attendanceRecords.filter((record) => record.dateKey === k && record.status !== "absent").length;
+                      }));
+                      return <div key={key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
+                        <span className="text-xs font-semibold text-slate-600">{count}</span>
+                        <div className="w-full max-w-10 rounded-t-lg bg-blue-600 transition-all" style={{ height: `${Math.max(5, (count / max) * 112)}px` }} />
+                        <span className="text-[11px] text-slate-500">{day.toLocaleDateString("en-IN", { weekday: "short" })}</span>
+                      </div>;
+                    })}
+                  </div>
+                  <p className="mt-3 text-xs text-slate-400">Counts include present and half-day records for each date.</p>
+                </div>
+                <div className="hrms-premium-card hrms-dashboard-3d-card rounded-2xl p-5">
+                  <div className="mb-4 flex items-center gap-2"><Activity size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Recent Activity</h3></div>
+                  {attendanceLoading ? <p className="py-6 text-sm text-slate-500">Loading recent activity…</p> : attendanceRecords.length === 0 ? <p className="py-6 text-sm text-slate-500">No attendance records found for this month yet.</p> : (
+                    <div className="space-y-3">
+                      {[...attendanceRecords].sort((a, b) => new Date(b.updatedAt || b.createdAt || b.dateKey).getTime() - new Date(a.updatedAt || a.createdAt || a.dateKey).getTime()).slice(0, 6).map((record) => (
+                        <div key={record._id} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                          <div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-800">{record.employee ? `${record.employee.firstName} ${record.employee.lastName}` : "Employee"}</p><p className="text-xs text-slate-500">{record.employee?.employeeCode || "—"} · {record.dateKey}</p></div>
+                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${record.status === "present" ? "bg-emerald-50 text-emerald-700" : record.status === "half-day" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"}`}>{record.status.replace("-", " ")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
 
           <section className="mb-7">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-              <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Workspace</p><h2 className="mt-1 text-xl font-bold text-slate-900">HR modules</h2><p className="mt-1 text-sm text-slate-500">Choose a module to view or manage its records.</p></div>
+              <div><h2 className="mt-1 text-lg font-extrabold tracking-tight text-slate-900">HR modules</h2></div>
               <span className="text-xs font-medium text-slate-400">{visibleModules.length} modules available</span>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {visibleModules.map((item) => {
-                const roleDescription = item.title === "Leave Management"
-                  ? (isAdmin ? "Company-wide leave requests, approvals and calendar." : isManager ? "Review leave requests from your assigned team." : "Apply for leave and track your own requests.")
-                  : item.title === "Attendance"
-                    ? (isAdmin ? "Company-wide attendance register and monthly calendar." : isManager ? "View your assigned team's attendance calendar and daily records." : "View your personal attendance calendar and daily records.")
-                    : item.title === "Payroll" && !isAdmin
-                      ? "View your own monthly payroll and payslips."
-                      : item.description;
-                const roleAction = item.title === "Leave Management"
-                  ? (isAdmin ? "Manage company leaves" : isManager ? "Review team leaves" : "Apply for leave")
-                  : item.title === "Attendance" && !isAdmin
-                    ? (isManager ? "View team attendance calendar" : "View my attendance calendar")
-                    : item.title === "Payroll" && !isAdmin
-                      ? "View my payslips"
-                      : item.action;
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleModules.map((item, index) => {
                 const Icon = item.icon;
+                const compactTitle = ({
+                  "Update approvals": "Approvals",
+                  "Employee Documents": "Documents",
+                  "Leave Management": "Leave",
+                  "Shift Management": "Shifts",
+                  "IT support": "IT Support",
+                } as Record<string, string>)[item.title] || item.title;
                 return (
-                  <Link key={item.href} href={item.href} className={`group flex min-h-[190px] flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/70 ${item.accent}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className={`rounded-xl p-3 ${item.iconStyle}`}><Icon size={21} /></div>
-                      <span className="rounded-lg p-2 text-slate-300 transition group-hover:bg-slate-50 group-hover:text-slate-700"><ArrowUpRight size={18} /></span>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    style={{ animationDelay: `${index * 55}ms` }}
+                    className={`group hrms-module-card flex min-h-[124px] items-center gap-3.5 rounded-2xl p-4 ${item.accent}`}
+                  >
+                    <div className={`hrms-module-icon shrink-0 rounded-2xl p-3.5 ${item.iconStyle}`}>
+                      <Icon size={23} strokeWidth={1.9} />
                     </div>
-                    <div className="mt-5"><h3 className="font-bold text-slate-900">{item.title}</h3><p className="mt-1.5 min-h-10 text-sm leading-5 text-slate-500">{roleDescription}</p></div>
-                    <div className="mt-auto flex items-center gap-1.5 pt-4 text-sm font-semibold text-blue-700">{roleAction}<ChevronRight size={15} className="transition group-hover:translate-x-1" /></div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-sm font-extrabold tracking-tight text-slate-900">{compactTitle}</h3>
+                      <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">{item.description}</p>
+                      <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700">
+                        Open <ChevronRight size={13} className="transition-transform duration-300 group-hover:translate-x-1" />
+                      </span>
+                    </div>
+                    <span className="hrms-module-arrow shrink-0 rounded-xl p-2 text-slate-300 transition-colors group-hover:text-blue-700">
+                      <ArrowUpRight size={19} />
+                    </span>
                   </Link>
                 );
               })}
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-4 flex items-center gap-3"><div className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><BriefcaseBusiness size={20} /></div><div><h2 className="font-bold text-slate-900">Quick actions</h2><p className="mt-1 text-sm text-slate-500">Jump directly to common HR tasks.</p></div></div>
+          <section className="hrms-premium-card hrms-dashboard-3d-card rounded-2xl p-5 sm:p-6">
+            <div className="mb-4 flex items-center gap-3"><div className="rounded-xl bg-indigo-50 p-2.5 text-indigo-600"><BriefcaseBusiness size={19} /></div><div><h2 className="text-sm font-extrabold text-slate-900">Quick actions</h2><p className="mt-0.5 text-[11px] text-slate-500">Shortcuts to frequently used tasks</p></div></div>
             <div className="grid gap-3 sm:grid-cols-3">
               {visibleQuickActions.map((item) => {
                 const Icon = item.icon;
-                return <Link key={item.href} href={item.href} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3.5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700"><span className="flex items-center gap-3"><Icon size={18} className="text-blue-600" />{item.title}</span><ArrowUpRight size={16} className="text-slate-400" /></Link>;
+                return <Link key={item.href} href={item.href} className="hrms-dashboard-3d-card flex items-center justify-between rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3.5 text-xs font-bold text-slate-700 hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700"><span className="flex items-center gap-3"><Icon size={18} className="text-blue-600" />{item.title}</span><ArrowUpRight size={16} className="text-slate-400" /></Link>;
               })}
             </div>
           </section>
 
-          <footer className="mt-7 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 py-5 text-xs text-slate-400">
-            <span>HRMS · Company workspace</span>
-            <span className="inline-flex items-center gap-1.5"><Settings2 size={13} /> Manage your organization settings</span>
+          <footer className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-white/80 py-4 text-[10px] font-medium text-slate-400">
+            <span>HRMS</span>
+            
           </footer>
         </div>
       </main>

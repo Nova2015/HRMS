@@ -12,6 +12,7 @@ import {
 
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
+import { auditAction } from "../middleware/auditLogMiddleware.js";
 
 const router = express.Router();
 
@@ -22,8 +23,8 @@ router.use(protect);
 router.get("/today", getTodayAttendance);
 router.get("/me", getMyAttendance);
 router.get("/team", authorizeRoles("admin", "hr", "manager"), getAttendanceTeam);
-router.post("/check-in", checkIn);
-router.post("/check-out", checkOut);
+router.post("/check-in", auditAction("attendance", "attendance.checked_in"), checkIn);
+router.post("/check-out", auditAction("attendance", "attendance.checked_out"), checkOut);
 
 // Admin / HR can view the complete register.
 router.get("/", getAttendanceRegister);
@@ -32,6 +33,7 @@ router.get("/", getAttendanceRegister);
 router.post(
     "/manual",
     authorizeRoles("admin", "hr"),
+    auditAction("attendance", "attendance.manual_updated"),
     saveManualAttendance
 );
 

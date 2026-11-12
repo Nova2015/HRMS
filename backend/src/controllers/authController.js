@@ -73,7 +73,8 @@ export const login = async (req, res) => {
             {
                 userId: user._id.toString(),
                 role: user.role,
-                employeeId: employee._id.toString()
+                employeeId: employee._id.toString(),
+                tokenVersion: user.tokenVersion || 0
             },
             process.env.JWT_SECRET,
             {
@@ -203,6 +204,7 @@ export const changePassword = async (req, res) => {
         }
 
         user.passwordHash = await bcrypt.hash(newPassword, 12);
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
         await user.save();
 
         return res.status(200).json({

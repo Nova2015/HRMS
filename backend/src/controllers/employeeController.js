@@ -239,7 +239,7 @@ export const createEmployee = async (req, res) => {
 export const getEmployees = async (req, res) => {
     try {
         const employees = await populateEmployee(
-            Employee.find().sort({ createdAt: -1 })
+            Employee.find({ isTestRecord: { $ne: true } }).sort({ createdAt: -1 })
         );
 
         const employeeIds = employees.map((employee) => employee._id);
@@ -287,7 +287,7 @@ export const getEmployeeById = async (req, res) => {
             });
         }
 
-        const employee = await populateEmployee(Employee.findById(id));
+        const employee = await populateEmployee(Employee.findOne({ _id: id, isTestRecord: { $ne: true } }));
 
         if (!employee) {
             return res.status(404).json({
@@ -626,6 +626,63 @@ export const activateEmployee = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Unable to activate employee"
+        });
+    }
+};
+
+// ADMIN RESET EMPLOYEE PASSWORD
+export const resetEmployeePassword = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { newPassword } = req.body || {};
+
+        if (!mongoose.isValidObjectId(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid employee ID"
+            });
+        }
+
+        if (
+            typeof newPassword !== "string" ||
+            newPassword.length < 12 ||
+            Buffer.byteLength(newPassword, "utf8") > 72
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Temporary password must be at least 12 characters and no more than 72 UTF-8 bytes"
+            });
+        }
+
+        const employee = await Employee.findById(id).select("_id");
+        if (!employee) {
+            return res.status(404).json({
+                success: false,
+                message: "Employee not found"
+            });
+        }
+
+        const user = await User.findOne({ employee: employee._id }).select("+passwordHash");
+        if (!user) {
+            return res.status(409).json({
+                success: false,
+                message: "Employee login account is not linked"
+            });
+        }
+
+        user.passwordHash = await bcrypt.hash(newPassword, 12);
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Employee password reset successfully. All existing sessions have been signed out."
+        });
+    } catch (error) {
+        console.error("Admin reset employee password error:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to reset employee password"
         });
     }
 };

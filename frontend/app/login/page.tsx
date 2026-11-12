@@ -1,6 +1,7 @@
 
 "use client";
 
+
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -13,6 +14,12 @@ import {
   EyeSlash,
   SpinnerGap,
 } from "@phosphor-icons/react";
+
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+const API_URL = (configuredApiUrl && !/localhost|127\.0\.0\.1/i.test(configuredApiUrl)
+  ? configuredApiUrl
+  : "https://hrms-57dk.onrender.com/api"
+).replace(/\/$/, "");
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,7 +42,7 @@ export default function LoginPage() {
     setNotice("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -51,6 +58,7 @@ export default function LoginPage() {
 
       sessionStorage.setItem("hrms_token", result.token);
       sessionStorage.setItem("hrms_user", JSON.stringify(result.data));
+      sessionStorage.setItem("hrms_attendance_prompt", "pending");
 
       router.replace("/");
     } catch (err) {

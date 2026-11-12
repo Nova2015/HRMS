@@ -24,7 +24,8 @@ const employeeSchema = new mongoose.Schema(
             type: String,
             enum: ["active", "inactive", "resigned", "terminated"],
             default: "active"
-        }
+        },
+        isTestRecord: { type: Boolean, default: false, select: false }
     },
     { timestamps: true }
 );

@@ -10,10 +10,11 @@ import {
   RefreshCw,
   UserCheck,
   UserX,
+  KeyRound,
 } from "lucide-react";
 import AuthGuard from "../../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 type Employee = {
   _id: string;
@@ -44,6 +45,11 @@ function EmployeeDetails() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [userRole, setUserRole] = useState("");
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const loadEmployee = useCallback(async () => {
     const token = sessionStorage.getItem("hrms_token");
@@ -57,6 +63,11 @@ function EmployeeDetails() {
     setError("");
 
     try {
+      const storedUser = sessionStorage.getItem("hrms_user");
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        setUserRole(typeof parsedUser.role === "string" ? parsedUser.role : "");
+      }
       const response = await fetch(`${API_URL}/employees/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
@@ -134,6 +145,68 @@ function EmployeeDetails() {
       setError(err instanceof Error ? err.message : "Unable to update status");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const resetEmployeePassword = async () => {
+    if (!employee || userRole !== "admin") return;
+
+    if (newPassword !== confirmPassword) {
+      setError("New password and confirm password do not match.");
+      return;
+    }
+
+    if (newPassword.length < 12 || new TextEncoder().encode(newPassword).length > 72) {
+      setError("Temporary password must be at least 12 characters and no more than 72 UTF-8 bytes.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Reset the login password for ${employee.firstName} ${employee.lastName}? Their existing sessions will be signed out.`
+    );
+    if (!confirmed) return;
+
+    const token = sessionStorage.getItem("hrms_token");
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    setResettingPassword(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`${API_URL}/employees/${id}/reset-password`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ newPassword }),
+      });
+
+      const result = await response.json();
+
+      if (response.status === 401) {
+        sessionStorage.removeItem("hrms_token");
+        sessionStorage.removeItem("hrms_user");
+        router.replace("/login");
+        return;
+      }
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Unable to reset employee password");
+      }
+
+      setMessage(result.message);
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPasswordReset(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to reset employee password");
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -338,6 +411,88 @@ function EmployeeDetails() {
             <p className="text-sm font-semibold !text-orange-800">
               No login account is linked to this employee.
             </p>
+          )}
+
+          {employee.account && userRole === "admin" && (
+            <div className="mt-6 border-t border-gray-200 pt-5">
+              {!showPasswordReset ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError("");
+                    setMessage("");
+                    setShowPasswordReset(true);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold !text-amber-900 hover:bg-amber-100"
+                >
+                  <KeyRound size={16} /> Reset Password
+                </button>
+              ) : (
+                <div className="max-w-xl space-y-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div>
+                    <h3 className="font-semibold !text-gray-950">Set Temporary Password</h3>
+                    <p className="mt-1 text-sm !text-gray-700">
+                      Set a new password and share it securely with the employee. Their existing sessions will be signed out.
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="employee-new-password" className="mb-1 block text-sm font-medium !text-gray-800">
+                      New temporary password
+                    </label>
+                    <input
+                      id="employee-new-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      minLength={12}
+                      maxLength={72}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm !text-gray-950 outline-none focus:border-amber-500"
+                      placeholder="At least 12 characters"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="employee-confirm-password" className="mb-1 block text-sm font-medium !text-gray-800">
+                      Confirm temporary password
+                    </label>
+                    <input
+                      id="employee-confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      minLength={12}
+                      maxLength={72}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm !text-gray-950 outline-none focus:border-amber-500"
+                      placeholder="Re-enter temporary password"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={resetEmployeePassword}
+                      disabled={resettingPassword || !newPassword || !confirmPassword}
+                      className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold !text-white hover:bg-amber-800 disabled:opacity-50"
+                    >
+                      {resettingPassword ? "Resetting..." : "Confirm Password Reset"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPasswordReset(false);
+                        setNewPassword("");
+                        setConfirmPassword("");
+                        setError("");
+                      }}
+                      disabled={resettingPassword}
+                      className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold !text-gray-800 hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </section>
 

@@ -6,6 +6,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 
 import connectDB from "./config/database.js";
+import { seedRecruitmentMasters } from "./config/seedRecruitmentMasters.js";
 
 // Routes
 import departmentRoutes from "./routes/departmentRoutes.js";
@@ -19,6 +20,15 @@ import shiftRoutes from "./routes/shiftRoutes.js";
 import payrollRoutes from "./routes/payrollRoutes.js";
 import employeeDocumentRoutes from "./routes/employeeDocumentRoutes.js";
 import employeeHrDetailsRoutes from "./routes/employeeHrDetailsRoutes.js";
+import expenseRoutes from "./routes/expenseRoutes.js";
+import helpdeskRoutes from "./routes/helpdeskRoutes.js";
+import recruitmentRoutes from "./routes/recruitmentRoutes.js";
+import googleIntegrationRoutes from "./routes/googleIntegrationRoutes.js";
+import employeeUpdateApprovalRoutes from "./routes/employeeUpdateApprovalRoutes.js";
+import performanceRoutes from "./routes/performanceRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
+import auditLogRoutes from "./routes/auditLogRoutes.js";
+import companyEventRoutes from "./routes/companyEventRoutes.js";
 
 const app = express();
 
@@ -30,8 +40,18 @@ if (!jwtSecret || jwtSecret.length < 32) {
 
 app.use(helmet());
 
+const allowedOrigins = new Set([
+    "https://hrms-frontend-tawny-pi.vercel.app",
+    ...(process.env.CLIENT_URL || "").split(",").map((url) => url.trim()).filter(Boolean)
+]);
+
 app.use(cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.has(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error(`CORS origin not allowed: ${origin}`));
+    },
     credentials: true
 }));
 
@@ -59,6 +79,15 @@ app.use("/api/holidays", holidayRoutes);
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/documents", employeeDocumentRoutes);
+app.use("/api/expenses", expenseRoutes);
+app.use("/api/helpdesk", helpdeskRoutes);
+app.use("/api/recruitment", recruitmentRoutes);
+app.use("/api/integrations/google", googleIntegrationRoutes);
+app.use("/api/employee-update-approvals", employeeUpdateApprovalRoutes);
+app.use("/api/performance", performanceRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/audit-logs", auditLogRoutes);
+app.use("/api/calendar/events", companyEventRoutes);
 
 app.use((req, res) => {
     res.status(404).json({
@@ -78,6 +107,7 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
     try {
         await connectDB();
+        await seedRecruitmentMasters();
         const PORT = process.env.PORT || 5000;
         app.listen(PORT, () => {
             console.log("-----------------------------------");
