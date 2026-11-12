@@ -1,7 +1,6 @@
 
 "use client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 import { useState } from "react";
 import Image from "next/image";
@@ -15,6 +14,8 @@ import {
   EyeSlash,
   SpinnerGap,
 } from "@phosphor-icons/react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export default function LoginPage() {
   const router = useRouter();
