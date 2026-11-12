@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, BriefcaseBusiness, Users, UserCheck, UserPlus, Search, RefreshCw, Plus, X, CheckCircle2 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${API_URL}`;
 
 type Department = { _id: string; name: string; code?: string; description?: string; isActive?: boolean };
 type Designation = { _id: string; name: string; department?: string | { _id?: string; name?: string }; description?: string; isActive?: boolean };
