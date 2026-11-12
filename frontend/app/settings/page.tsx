@@ -1,206 +1,128 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, CircleAlert, ExternalLink, Mail, RefreshCw, ShieldCheck, Unplug, LockKeyhole, Clock3, Inbox, ArrowUpRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Bell, CalendarClock, Check, ChevronRight, CircleHelp, ExternalLink, Globe2, LifeBuoy, LockKeyhole, Mail, Monitor, Moon, Plug, RefreshCw, Settings2, ShieldCheck, Sun, UserRound, X } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
 const API_URL = "http://localhost:5000/api";
+type Tab = "general" | "account" | "notifications" | "integrations" | "help";
 
-type GmailStatus = {
-  connected: boolean;
-  googleEmail: string | null;
-  connectedAt: string | null;
-  lastUsedAt: string | null;
-};
-
-type GmailMessage = {
-  messageId: string;
-  from: string;
-  subject: string;
-  date: string;
-  snippet: string;
-  matchedEmployees: { employeeCode: string; employeeName: string; matchType: string }[];
-};
-
-function GmailIntegrationContent() {
-  const [role, setRole] = useState("");
-  const [status, setStatus] = useState<GmailStatus | null>(null);
-  const [messages, setMessages] = useState<GmailMessage[]>([]);
-  const [eventCandidates, setEventCandidates] = useState<Array<{ messageId: string; from: string; subject: string; date: string; snippet: string; textPreview: string; category: string; detectedAction: string; reviewRequired: boolean }>>([]);
-  const [scanningEvents, setScanningEvents] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+function SettingsContent() {
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>("general");
+  const [role, setRole] = useState("employee");
+  const [status, setStatus] = useState<{connected:boolean;googleEmail:string|null;connectedAt:string|null}|null>(null);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [isPopup, setIsPopup] = useState(false);
+  const [appearance, setAppearance] = useState("system");
+  const [dateFormat, setDateFormat] = useState("DD MMM YYYY");
+  const [emailAlerts, setEmailAlerts] = useState(true);
+  const [appAlerts, setAppAlerts] = useState(true);
 
   const token = () => sessionStorage.getItem("hrms_token") || "";
-
   const loadStatus = useCallback(async () => {
     const authToken = token();
-    if (!authToken) { setError("Your session has expired. Please sign in again."); setLoading(false); return; }
-    setLoading(true);
-    setError("");
+    if (!authToken) return;
+    setLoading(true); setError("");
     try {
-      const response = await fetch(`${API_URL}/integrations/google/gmail/status`, {
-        headers: { Authorization: `Bearer ${authToken}` }, cache: "no-store"
-      });
+      const response = await fetch(`${API_URL}/integrations/google/gmail/status`, { headers: { Authorization: `Bearer ${authToken}` }, cache: "no-store" });
       const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.message || "Unable to load Gmail connection status");
-      setStatus({
-        connected: Boolean(result.connected),
-        googleEmail: result.googleEmail || null,
-        connectedAt: result.connectedAt || null,
-        lastUsedAt: result.lastUsedAt || null
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load Gmail connection status");
-    } finally {
-      setLoading(false);
-    }
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to load Google connection");
+      setStatus({ connected: Boolean(result.connected), googleEmail: result.googleEmail || null, connectedAt: result.connectedAt || null });
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to load Google connection"); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
-    setIsPopup(new URLSearchParams(window.location.search).get("popup") === "1");
     try {
       const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
       setRole(user.role || "employee");
-    } catch { setRole("employee"); }
-    if (new URLSearchParams(window.location.search).get("connected") === "1") setNotice("Gmail account connected successfully.");
+      const saved = JSON.parse(localStorage.getItem("hrms_preferences") || "{}");
+      if (saved.appearance) setAppearance(saved.appearance);
+      if (saved.dateFormat) setDateFormat(saved.dateFormat);
+      if (typeof saved.emailAlerts === "boolean") setEmailAlerts(saved.emailAlerts);
+      if (typeof saved.appAlerts === "boolean") setAppAlerts(saved.appAlerts);
+    } catch {}
+    if (new URLSearchParams(window.location.search).get("connected") === "1") setNotice("Google account connected successfully.");
     void loadStatus();
   }, [loadStatus]);
 
-  const connectGmail = async () => {
-    const authToken = token();
-    if (!authToken) { setError("Your session has expired. Please sign in again."); return; }
-    setConnecting(true); setError("");
+  const savePreference = (key: string, value: string | boolean) => {
+    const saved = JSON.parse(localStorage.getItem("hrms_preferences") || "{}");
+    const next = { ...saved, [key]: value };
+    localStorage.setItem("hrms_preferences", JSON.stringify(next));
+    if (key === "appearance") setAppearance(String(value));
+    if (key === "dateFormat") setDateFormat(String(value));
+    if (key === "emailAlerts") setEmailAlerts(Boolean(value));
+    if (key === "appAlerts") setAppAlerts(Boolean(value));
+    setNotice("Preference saved on this device.");
+  };
+
+  const connect = async () => {
+    setBusy(true); setError(""); setNotice("");
     try {
-      const response = await fetch(`${API_URL}/integrations/google/gmail/connect`, {
-        headers: { Authorization: `Bearer ${authToken}` }, cache: "no-store"
-      });
+      const response = await fetch(`${API_URL}/integrations/google/gmail/connect`, { headers: { Authorization: `Bearer ${token()}` }, cache: "no-store" });
       const result = await response.json();
       if (!response.ok || !result.success || !result.authorizationUrl) throw new Error(result.message || "Unable to start Google authorization");
-      // Google OAuth must run in the top-level browser window, not inside the HRMS iframe/modal.
-      if (window.top) window.top.location.assign(result.authorizationUrl);
-      else window.location.assign(result.authorizationUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to connect Gmail");
-      setConnecting(false);
-    }
+      window.location.assign(result.authorizationUrl);
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to connect Google"); setBusy(false); }
   };
 
-  const loadMessages = async () => {
-    const authToken = token();
-    if (!authToken) { setError("Your session has expired. Please sign in again."); return; }
-    setSyncing(true); setError("");
+  const disconnect = async () => {
+    if (!window.confirm("Disconnect this Google account from HRMS? Gmail scanning and Google Calendar sync will stop for this account.")) return;
+    setBusy(true); setError(""); setNotice("");
     try {
-      const response = await fetch(`${API_URL}/integrations/google/gmail/messages?maxResults=20`, {
-        headers: { Authorization: `Bearer ${authToken}` }, cache: "no-store"
-      });
+      const response = await fetch(`${API_URL}/integrations/google/gmail/disconnect`, { method: "DELETE", headers: { Authorization: `Bearer ${token()}` } });
       const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.message || "Unable to read Gmail messages");
-      setMessages(Array.isArray(result.messages) ? result.messages : []);
-      setNotice(`Loaded ${result.totalReturned || 0} recent messages from ${result.googleEmail || "the connected Gmail account"}.`);
-      await loadStatus();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to read Gmail messages");
-    } finally { setSyncing(false); }
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to disconnect Google account");
+      setStatus({ connected: false, googleEmail: null, connectedAt: null });
+      setNotice("Google account disconnected from HRMS.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to disconnect Google account"); }
+    finally { setBusy(false); }
   };
 
-  const scanCalendarEmails = async () => {
-    const authToken = token();
-    if (!authToken) { setError("Your session has expired. Please sign in again."); return; }
-    setScanningEvents(true); setError("");
-    try {
-      const response = await fetch(`${API_URL}/integrations/google/gmail/calendar-candidates`, {
-        headers: { Authorization: `Bearer ${authToken}` }, cache: "no-store"
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.message || "Unable to scan meeting and event emails");
-      setEventCandidates(Array.isArray(result.candidates) ? result.candidates : []);
-      setNotice(`Scanned ${result.totalScanned || 0} emails and found ${result.totalCandidates || 0} meeting/event candidates. Review before making Calendar changes.`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to scan event emails");
-    } finally { setScanningEvents(false); }
-  };
-
-  const isAuthorized = role === "admin" || role === "hr";
-  const dateLabel = (value: string | null) => value
-    ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
-    : "Not available";
-
-  if (loading) return <main className="flex min-h-[420px] items-center justify-center bg-[#080d1c] text-sm text-slate-400"><RefreshCw size={16} className="mr-2 animate-spin text-violet-300" /> Checking secure Gmail connection...</main>;
+  const close = () => router.back();
+  const tabs: {id:Tab;label:string;icon:typeof Settings2}[] = [
+    {id:"general",label:"General",icon:Settings2},{id:"account",label:"Account",icon:UserRound},
+    {id:"notifications",label:"Notifications",icon:Bell},{id:"integrations",label:"Integrations",icon:Plug},{id:"help",label:"Help Center",icon:CircleHelp}
+  ];
+  const isAdmin = role === "admin" || role === "hr";
 
   return (
-    <main className="min-h-full overflow-y-auto bg-[#080d1c] px-4 py-4 text-white sm:px-6 sm:py-5">
-      <div className={`mx-auto ${isPopup ? "max-w-5xl" : "max-w-6xl"}`}>
-        <header className="mb-5 flex items-center justify-between gap-4 border-b border-white/[.08] pb-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-rose-300/20 bg-gradient-to-br from-rose-400/20 to-orange-300/10 text-rose-200 shadow-lg shadow-rose-950/30"><Mail size={21} /></span>
-            <div><p className="text-[9px] font-bold uppercase tracking-[.24em] text-rose-200/70">HRMS · Connected services</p><h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-white">Google Gmail</h1><p className="mt-0.5 text-[10px] text-slate-500">Company mailbox integration</p></div>
-          </div>
-          <span className="hidden items-center gap-1.5 rounded-full border border-white/10 bg-white/[.035] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400 sm:flex"><LockKeyhole size={11} /> Secure connection</span>
+    <main className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/30 px-3 py-4 backdrop-blur-md sm:px-6" onMouseDown={(e)=>{if(e.target===e.currentTarget) close();}}>
+      <section role="dialog" aria-modal="true" aria-labelledby="settings-title" className="hrms-enter flex max-h-[min(690px,92vh)] w-full max-w-[760px] flex-col overflow-hidden rounded-[26px] border border-white/80 bg-white/95 shadow-[0_30px_100px_rgba(15,23,42,.24)] backdrop-blur-2xl">
+        <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/20"><Settings2 size={19}/></span><div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-indigo-500">Workspace preferences</p><h1 id="settings-title" className="text-lg font-extrabold tracking-tight text-slate-900">Settings</h1></div></div>
+          <button type="button" onClick={close} aria-label="Close settings" className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"><X size={17}/></button>
         </header>
-
-        {notice && <div role="status" className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/[.08] px-3 py-2.5 text-[11px] font-semibold text-emerald-100"><CheckCircle2 size={15} />{notice}</div>}
-        {error && <div role="alert" className="mb-4 flex items-center gap-2 rounded-xl border border-rose-300/20 bg-rose-300/[.08] px-3 py-2.5 text-[11px] text-rose-100"><CircleAlert size={15} />{error}</div>}
-
-        {!isAuthorized ? <section className="rounded-2xl border border-amber-300/20 bg-amber-300/[.07] p-5 text-sm text-amber-100">Only Admin and HR accounts can manage the company Gmail integration.</section> : <>
-          <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br from-[#17213b] via-[#111a30] to-[#21182f] p-4 shadow-[0_24px_70px_-38px_rgba(99,102,241,.55)] sm:p-5">
-            <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-violet-500/15 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-28 left-1/3 h-52 w-52 rounded-full bg-rose-400/10 blur-3xl" />
-            <div className="relative flex flex-col justify-between gap-5 md:flex-row md:items-center">
-              <div className="flex min-w-0 items-start gap-3.5">
-                <span className={`mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${status?.connected ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-200" : "border-white/10 bg-white/[.06] text-slate-400"}`}>{status?.connected ? <CheckCircle2 size={22} /> : <Unplug size={21} />}</span>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2"><h2 className="text-base font-bold text-white">Mailbox connection</h2><span className={`rounded-full border px-2.5 py-1 text-[9px] font-extrabold tracking-wider ${status?.connected ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-200" : "border-amber-300/20 bg-amber-300/[.08] text-amber-200"}`}>{status?.connected ? "CONNECTED" : "NOT CONNECTED"}</span></div>
-                  <p className="mt-1.5 break-all text-sm font-semibold text-slate-200">{status?.googleEmail || "No Google account connected"}</p>
-                  <p className="mt-1 text-[10px] leading-4 text-slate-400">{status?.connected ? "Your company mailbox is linked and ready for read-only message review." : "Connect the approved company Google account to enable mailbox review."}</p>
-                </div>
-              </div>
-              <div className="relative flex shrink-0 flex-wrap gap-2 md:justify-end">
-                <button type="button" onClick={loadStatus} className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[.06] px-3.5 py-2.5 text-[10px] font-bold text-slate-200 transition hover:bg-white/10"><RefreshCw size={13} /> Refresh status</button>
-                <button type="button" onClick={connectGmail} disabled={connecting} className="inline-flex items-center gap-2 rounded-xl border border-violet-300/30 bg-gradient-to-r from-violet-500/90 to-indigo-500/90 px-4 py-2.5 text-[10px] font-extrabold text-white shadow-lg shadow-indigo-950/40 transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-50"><Mail size={13} />{connecting ? "Redirecting..." : status?.connected ? "Reconnect account" : "Connect Gmail"}<ExternalLink size={11} /></button>
-              </div>
-            </div>
-            {status?.connected && <div className="relative mt-5 grid grid-cols-1 gap-2 border-t border-white/10 pt-3 sm:grid-cols-2"><div className="flex items-center gap-2 text-[10px] text-slate-400"><Clock3 size={13} className="text-violet-300" /><span>Connected: <strong className="font-semibold text-slate-200">{dateLabel(status.connectedAt)}</strong></span></div><div className="flex items-center gap-2 text-[10px] text-slate-400"><RefreshCw size={12} className="text-violet-300" /><span>Last read: <strong className="font-semibold text-slate-200">{dateLabel(status.lastUsedAt)}</strong></span></div></div>}
-          </section>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1.2fr_.8fr]">
-            <section className="rounded-2xl border border-white/[.09] bg-[#10182a] p-4">
-              <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-emerald-300" /><h3 className="text-xs font-bold text-white">Access & privacy</h3></div>
-              <p className="mt-2 text-[10px] leading-5 text-slate-400">Gmail message access remains read-only. Google Calendar sync can create, update and cancel calendar events in both directions. OAuth tokens are encrypted by the backend. Only Admin and HR can manage this connection.</p>
-              <div className="mt-3 flex flex-wrap gap-2"><span className="rounded-lg border border-emerald-300/15 bg-emerald-300/[.06] px-2.5 py-1.5 text-[9px] font-semibold text-emerald-200">Gmail read-only</span><span className="rounded-lg border border-sky-300/15 bg-sky-300/[.06] px-2.5 py-1.5 text-[9px] font-semibold text-sky-200">Calendar two-way sync</span><span className="rounded-lg border border-white/10 bg-white/[.04] px-2.5 py-1.5 text-[9px] font-semibold text-slate-300">Admin / HR only</span></div>
-            </section>
-            <section className="rounded-2xl border border-white/[.09] bg-[#10182a] p-4">
-              <div className="flex items-center gap-2"><Inbox size={16} className="text-violet-300" /><h3 className="text-xs font-bold text-white">Mailbox overview</h3></div>
-              <p className="mt-2 text-[10px] leading-5 text-slate-400">Review recent messages and identify emails that match employee records.</p>
-              <div className="mt-3 flex items-end justify-between"><div><p className="text-2xl font-black tabular-nums text-white">{messages.length.toString().padStart(2, "0")}</p><p className="text-[9px] uppercase tracking-wider text-slate-500">Messages loaded</p></div><span className="mb-1 text-[9px] text-slate-500">Last 30 days · max 20</span></div>
-            </section>
+        <div className="grid min-h-0 flex-1 grid-cols-1 sm:grid-cols-[190px_1fr]">
+          <nav aria-label="Settings sections" className="flex gap-1 overflow-x-auto border-b border-slate-100 bg-slate-50/70 p-2 sm:flex-col sm:border-b-0 sm:border-r sm:p-3">
+            {tabs.map(item=>{const Icon=item.icon;return <button key={item.id} type="button" onClick={()=>{setTab(item.id);setError("");setNotice("");}} className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition ${tab===item.id?"bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/15":"text-slate-600 hover:bg-white hover:text-indigo-700"}`}><Icon size={15}/>{item.label}</button>;})}
+          </nav>
+          <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
+            {notice && <p role="status" className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-700"><Check size={14}/>{notice}</p>}
+            {error && <p role="alert" className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-xs text-rose-700">{error}</p>}
+            {tab==="general" && <div className="space-y-4"><div><h2 className="text-sm font-bold text-slate-900">General preferences</h2><p className="mt-1 text-xs text-slate-500">Choose how HRMS looks and displays dates on this device.</p></div>
+              <div className="rounded-2xl border border-slate-200 p-4"><p className="text-xs font-bold text-slate-800">Appearance</p><div className="mt-3 grid grid-cols-3 gap-2">{[{id:"light",label:"Light",icon:Sun},{id:"dark",label:"Dark",icon:Moon},{id:"system",label:"System",icon:Monitor}].map(o=>{const Icon=o.icon;return <button key={o.id} onClick={()=>savePreference("appearance",o.id)} className={`flex items-center justify-center gap-2 rounded-xl border px-2 py-3 text-xs font-semibold ${appearance===o.id?"border-indigo-300 bg-indigo-50 text-indigo-700":"border-slate-200 text-slate-600 hover:bg-slate-50"}`}><Icon size={15}/>{o.label}</button>;})}</div></div>
+              <label className="block rounded-2xl border border-slate-200 p-4"><span className="text-xs font-bold text-slate-800">Date format</span><select value={dateFormat} onChange={e=>savePreference("dateFormat",e.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-700 outline-none focus:border-indigo-400"><option>DD MMM YYYY</option><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></select></label>
+              <p className="flex items-center gap-2 text-[10px] text-slate-400"><Globe2 size={13}/> Preferences are currently stored in this browser on this device.</p>
+            </div>}
+            {tab==="account" && <div className="space-y-3"><div><h2 className="text-sm font-bold text-slate-900">Account & security</h2><p className="mt-1 text-xs text-slate-500">Manage your personal account information.</p></div><Link href="/profile" onClick={close} className="flex items-center justify-between rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:bg-indigo-50/40"><span className="flex items-center gap-3"><UserRound size={17} className="text-indigo-600"/><span><strong className="block text-xs text-slate-800">My profile</strong><small className="text-[10px] text-slate-500">Personal and employment details</small></span></span><ChevronRight size={16} className="text-slate-400"/></Link><div className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4"><LockKeyhole size={17} className="text-indigo-600"/><span><strong className="block text-xs text-slate-800">Password & access</strong><small className="text-[10px] text-slate-500">{isAdmin?"Use employee administration to manage password resets.":"Contact your Admin or HR to change/reset your password."}</small></span></div></div>}
+            {tab==="notifications" && <div className="space-y-3"><div><h2 className="text-sm font-bold text-slate-900">Notifications</h2><p className="mt-1 text-xs text-slate-500">Choose your local notification preferences.</p></div>{[{label:"Email notifications",desc:"Receive HRMS updates by email.",value:emailAlerts,key:"emailAlerts"},{label:"In-app notifications",desc:"Show alerts and updates inside HRMS.",value:appAlerts,key:"appAlerts"}].map(item=><div key={item.key} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4"><span><strong className="block text-xs text-slate-800">{item.label}</strong><small className="text-[10px] text-slate-500">{item.desc}</small></span><button type="button" role="switch" aria-checked={item.value} onClick={()=>savePreference(item.key,!item.value)} className={`relative h-6 w-11 rounded-full transition ${item.value?"bg-indigo-600":"bg-slate-300"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition ${item.value?"left-6":"left-1"}`}/></button></div>)}</div>}
+            {tab==="integrations" && <div className="space-y-4"><div><h2 className="text-sm font-bold text-slate-900">Connected services</h2><p className="mt-1 text-xs text-slate-500">Manage the Google account linked to HRMS.</p></div>{!isAdmin?<div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-xs text-amber-800">Only Admin and HR can manage the company Google integration.</div>:<div className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600"><Mail size={19}/></span><div><p className="text-xs font-bold text-slate-900">Google Gmail & Calendar</p><p className="mt-1 break-all text-[10px] text-slate-500">{loading?"Checking connection…":status?.connected?status.googleEmail:"Not connected"}</p></div></div><span className={`rounded-full px-2.5 py-1 text-[9px] font-bold ${status?.connected?"bg-emerald-50 text-emerald-700":"bg-slate-100 text-slate-500"}`}>{status?.connected?"CONNECTED":"DISCONNECTED"}</span></div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={connect} disabled={busy||loading} className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-[11px] font-bold text-white shadow-md shadow-indigo-500/15 disabled:opacity-50">{busy?"Please wait…":status?.connected?"Reconnect":"Connect Google"}</button>{status?.connected&&<button type="button" onClick={disconnect} disabled={busy} className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-[11px] font-bold text-rose-700 disabled:opacity-50}>Disconnect</button>}<button type="button" onClick={loadStatus} disabled={loading} className="rounded-xl border border-slate-200 px-3 py-2.5 text-slate-600 hover:bg-slate-50" aria-label="Refresh status"><RefreshCw size={14} className={loading?"animate-spin":""}/></button></div><p className="mt-3 text-[10px] leading-5 text-slate-400">Gmail access is read-only. Disconnecting removes the saved Google connection from HRMS and stops Gmail scanning and Google Calendar sync for this account.</p></div>}</div>}
+            {tab==="help" && <div className="space-y-3"><div><h2 className="text-sm font-bold text-slate-900">Help & support</h2><p className="mt-1 text-xs text-slate-500">Find answers or contact the HRMS support team.</p></div><Link href="/help-center" onClick={close} className="flex items-center justify-between rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-violet-50 p-4 transition hover:border-indigo-200"><span className="flex items-center gap-3"><LifeBuoy size={19} className="text-indigo-600"/><span><strong className="block text-xs text-slate-900">Open Help Center</strong><small className="text-[10px] text-slate-500">Guides, FAQs and support information</small></span></span><ExternalLink size={15} className="text-indigo-500"/></Link><Link href="/helpdesk" onClick={close} className="flex items-center justify-between rounded-2xl border border-slate-200 p-4 hover:bg-slate-50"><span><strong className="block text-xs text-slate-800">IT Support Tickets</strong><small className="text-[10px] text-slate-500">Raise a ticket and track its progress</small></span><ChevronRight size={16} className="text-slate-400"/></Link></div>}
           </div>
-
-          <section className="mt-4 overflow-hidden rounded-2xl border border-sky-300/15 bg-[#10182a]">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[.08] px-4 py-3.5">
-              <div><h2 className="text-xs font-bold text-white">Meetings, company events & festivals</h2><p className="mt-0.5 text-[9px] text-slate-500">Only relevant event emails · Travel and ticket emails excluded</p></div>
-              <button type="button" onClick={scanCalendarEmails} disabled={!status?.connected || scanningEvents} className="inline-flex items-center gap-2 rounded-lg border border-sky-300/20 bg-sky-400/10 px-3 py-2 text-[10px] font-bold text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-40"><RefreshCw size={12} className={scanningEvents ? "animate-spin" : ""} />{scanningEvents ? "Scanning..." : "Scan event emails"}</button>
-            </div>
-            {eventCandidates.length === 0 ? <p className="px-4 py-6 text-center text-[10px] text-slate-500">No event scan results yet. Scan Gmail to find meeting invitations, company functions and festivals such as Diwali or Padwa.</p> : <div className="max-h-[36vh] divide-y divide-white/[.06] overflow-y-auto">{eventCandidates.map((candidate) => <article key={candidate.messageId} className="px-4 py-3"><div className="flex flex-wrap items-center gap-2"><span className="rounded-full border border-sky-300/20 bg-sky-300/[.08] px-2 py-1 text-[9px] font-bold uppercase text-sky-200">{candidate.category.replace("_", " ")}</span><span className="rounded-full border border-amber-300/20 bg-amber-300/[.07] px-2 py-1 text-[9px] font-bold text-amber-200">{candidate.detectedAction}</span><span className="text-[9px] text-slate-500">{candidate.date}</span></div><h3 className="mt-2 text-[11px] font-bold text-slate-100">{candidate.subject || "(No subject)"}</h3><p className="mt-1 text-[9px] text-slate-500">{candidate.from}</p><p className="mt-2 text-[10px] leading-4 text-slate-400">{candidate.snippet || candidate.textPreview || "No preview available."}</p><p className="mt-2 text-[9px] font-semibold text-amber-200/80">Review required · No Calendar changes made</p></article>)}</div>}
-          </section>
-
-          <section className="mt-4 overflow-hidden rounded-2xl border border-white/[.09] bg-[#10182a]">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[.08] px-4 py-3.5">
-              <div className="flex items-center gap-2.5"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-400/10 text-violet-200"><Inbox size={16} /></span><div><h2 className="text-xs font-bold text-white">Recent Gmail messages</h2><p className="mt-0.5 text-[9px] text-slate-500">Employee-related matches are highlighted</p></div></div>
-              <button type="button" onClick={loadMessages} disabled={!status?.connected || syncing} className="inline-flex items-center gap-2 rounded-lg border border-violet-300/20 bg-violet-400/10 px-3 py-2 text-[10px] font-bold text-violet-100 transition hover:bg-violet-400/20 disabled:cursor-not-allowed disabled:opacity-40"><RefreshCw size={12} className={syncing ? "animate-spin" : ""} />{syncing ? "Loading..." : "Load messages"}<ArrowUpRight size={11} /></button>
-            </div>
-            {!status?.connected ? <div className="px-4 py-8 text-center"><Mail size={22} className="mx-auto text-slate-600" /><p className="mt-2 text-[11px] font-semibold text-slate-300">Connect Gmail to view messages</p><p className="mt-1 text-[9px] text-slate-500">Your inbox remains untouched until you connect.</p></div> : messages.length === 0 ? <div className="px-4 py-8 text-center"><Inbox size={22} className="mx-auto text-slate-600" /><p className="mt-2 text-[11px] font-semibold text-slate-300">No messages loaded yet</p><p className="mt-1 text-[9px] text-slate-500">Select “Load messages” to fetch recent email previews.</p></div> : <div className="max-h-[30vh] divide-y divide-white/[.06] overflow-y-auto">{messages.map(message => <article key={message.messageId} className="px-4 py-3 transition hover:bg-white/[.025]"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h3 className="break-words text-[11px] font-bold text-slate-100">{message.subject || "(No subject)"}</h3><p className="mt-1 break-all text-[9px] text-slate-500">{message.from}</p></div><time className="text-[9px] text-slate-500">{message.date}</time></div><p className="mt-2 text-[10px] leading-4 text-slate-400">{message.snippet || "No preview available."}</p>{message.matchedEmployees?.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{message.matchedEmployees.map(employee => <span key={employee.employeeCode} className="rounded-full border border-emerald-300/15 bg-emerald-300/[.07] px-2 py-0.5 text-[9px] font-semibold text-emerald-200">{employee.employeeName} · {employee.employeeCode}</span>)}</div>}</article>)}</div>}
-          </section>
-        </>}
-      </div>
+        </div>
+        <footer className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-5 py-3"><button type="button" onClick={close} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"><ArrowLeft size={14}/>Back to HRMS</button><span className="text-[10px] text-slate-400">HRMS Workspace Settings</span></footer>
+      </section>
     </main>
   );
 }
 
-export default function GoogleGmailIntegrationPage() {
-  return <AuthGuard showLogout={false}><GmailIntegrationContent /></AuthGuard>;
+export default function SettingsPage() {
+  return <AuthGuard><SettingsContent/></AuthGuard>;
 }
