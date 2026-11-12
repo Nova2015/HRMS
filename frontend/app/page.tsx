@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, ShieldCheck, Award,
   CalendarCheck, BriefcaseBusiness, ChevronRight,
-  UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, UserRound, Headset, UserCircle2,
+  UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, Headset, UserCircle2,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -275,17 +275,6 @@ export default function Home() {
         { title: "My attendance", href: "/attendance", icon: Clock3 },
         { title: "My payslips", href: "/payroll", icon: Wallet },
       ];
-  const dashboardTitle = isAdmin
-    ? "Dashboard"
-    : isManager
-      ? "Team"
-      : "My workspace";
-  const dashboardDescription = isAdmin
-    ? "People, attendance and approvals."
-    : isManager
-      ? "Your team and HR tasks."
-      : "Attendance, leave and payslips.";
-
   return (
     <AuthGuard>
       <main className="hrms-home min-h-screen px-4 py-5 sm:px-6 lg:px-8">
