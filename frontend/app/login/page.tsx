@@ -15,7 +15,7 @@ import {
   SpinnerGap,
 } from "@phosphor-icons/react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://hrms-57dk.onrender.com/api").replace(/\/$/, "");
 
 export default function LoginPage() {
   const router = useRouter();
