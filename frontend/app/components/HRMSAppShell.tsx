@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity, Award, BarChart3, Bell, BriefcaseBusiness, Building2, CalendarDays,
-  CalendarCheck, ChevronDown, ClipboardList, FileText, Headset, LayoutDashboard,
-  LogOut, Menu, ReceiptText, Settings2, ShieldCheck, Users, Wallet, X, UserCircle2,
+  Activity, Award, BarChart3, BriefcaseBusiness, Building2, CalendarDays,
+  CalendarCheck, ClipboardList, FileText, Headset, LayoutDashboard,
+  LogOut, Menu, Plug, ReceiptText, ShieldCheck, Users, Wallet, UserCircle2,
 } from "lucide-react";
 
 type Props = {
@@ -32,6 +32,7 @@ const adminLinks = [
   { label: "Reports & Analytics", href: "/reports", icon: BarChart3 },
   { label: "Audit Logs", href: "/audit-logs", icon: ShieldCheck },
   { label: "Update Approvals", href: "/employee-update-approvals", icon: Activity },
+  { label: "Integrations", href: "/integrations", icon: Plug },
 ];
 
 const employeeLinks = [
@@ -102,7 +103,6 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
       <div className="mt-4 flex items-center gap-2 border-t border-slate-200/70 px-2 pt-4">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><UserCircle2 size={19} /></span>
         <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-800">{displayName}</span><span className="block text-[10px] capitalize text-slate-400">{role}</span></span>
-        {showLogout && <button type="button" onClick={onLogout} title="Logout" aria-label="Logout" className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"><LogOut size={17} /></button>}
       </div>
     </aside>
   );
