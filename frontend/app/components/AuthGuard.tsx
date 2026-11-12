@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, LogIn, Clock3, X } from "lucide-react";
+import HRMSAppShell from "./HRMSAppShell";
 
 export default function AuthGuard({
   children,
@@ -134,22 +135,7 @@ export default function AuthGuard({
 
   return (
     <>
-      {showLogout && <div className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6">
-        <button
-          type="button"
-          onClick={handleLogout}
-          aria-label="Logout from HRMS"
-          title="Logout"
-          className="group inline-flex items-center gap-2.5 rounded-full border border-slate-200/90 bg-white/95 py-2 pl-3 pr-4 text-sm font-semibold text-slate-700 shadow-lg shadow-slate-900/10 backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 hover:shadow-xl hover:shadow-rose-900/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-200 active:translate-y-0"
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600 transition-colors group-hover:bg-rose-100">
-            <LogOut size={16} strokeWidth={2.2} />
-          </span>
-          <span className="hidden sm:inline">Logout</span>
-        </button>
-      </div>}
-
-      {children}
+      <HRMSAppShell onLogout={handleLogout} showLogout={showLogout}>{children}</HRMSAppShell>
       {showAttendancePrompt && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/30 px-4 py-6 backdrop-blur-sm" role="presentation">
           <section role="dialog" aria-modal="true" aria-labelledby="attendance-prompt-title" className="w-full max-w-sm rounded-[26px] border border-white/80 bg-white/95 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
