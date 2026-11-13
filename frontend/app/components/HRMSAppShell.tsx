@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity, Award, BarChart3, BriefcaseBusiness, Building2, CalendarCheck, CalendarDays,
   ClipboardList, FileText, Headset, LayoutDashboard,
-  LogOut, Menu, ReceiptText, Settings, ShieldCheck, Users, Wallet, UserCircle2,
+  LogOut, Menu, X, ReceiptText, Settings, ShieldCheck, Users, Wallet, UserCircle2,
 } from "lucide-react";
 
 type Props = {
@@ -70,13 +70,13 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
   const active = useMemo(() => links.find((item) => item.href !== "/" && (pathname === item.href || pathname.startsWith(item.href + "/")))?.href || (pathname === "/" ? "/" : ""), [links, pathname]);
   const pageTitle = links.find((item) => item.href === active)?.label || (pathname === "/" ? "Dashboard" : "HRMS Workspace");
   const sidebar = (
-    <aside className="flex h-full w-[258px] shrink-0 flex-col border-r border-white/70 bg-white/75 px-4 py-5 shadow-[8px_0_40px_-32px_rgba(71,85,105,.35)] backdrop-blur-2xl">
-      <Link href="/" className="mb-8 flex items-center gap-3 rounded-2xl px-2 py-1.5">
+    <aside className="flex h-full w-[min(258px,88vw)] shrink-0 flex-col border-r border-white/70 bg-white/75 px-4 py-5 shadow-[8px_0_40px_-32px_rgba(71,85,105,.35)] backdrop-blur-2xl">
+      <div className="mb-8 flex items-center justify-between gap-2"><Link href="/" className="flex min-w-0 items-center gap-3 rounded-2xl px-2 py-1.5">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <img src="https://raw.githubusercontent.com/Nova2015/HRMS/main/PROTOVERGE%20LLP.jpg" alt="PROTOVERGE LLP logo" className="h-full w-full object-contain" />
         </span>
         <span className="min-w-0"><span className="block truncate text-[15px] font-black tracking-tight text-slate-900">PROTOVERGE LLP</span><span className="block text-[10px] font-bold uppercase tracking-[.2em] text-slate-400">HR Management</span></span>
-      </Link>
+      </Link><button type="button" onClick={() => setMobileOpen(false)} aria-label="Close navigation" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 lg:hidden"><X size={17}/></button></div>
 
       <div className="mb-3 px-3 text-[10px] font-extrabold uppercase tracking-[.2em] text-slate-400">Workspace</div>
       <nav aria-label="Main navigation" className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
@@ -121,7 +121,7 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
             {showLogout && <button type="button" onClick={onLogout} title="Logout" aria-label="Logout" className="flex h-9 w-9 items-center justify-center rounded-xl border border-white bg-white/85 text-slate-500 shadow-sm transition hover:-translate-y-0.5 hover:bg-rose-50 hover:text-rose-600"><LogOut size={17} /></button>}
           </div>
         </header>
-        <div className="min-w-0">{children}</div>
+        <div className="min-w-0 overflow-x-clip">{children}</div>
       </div>
     </div>
   );
