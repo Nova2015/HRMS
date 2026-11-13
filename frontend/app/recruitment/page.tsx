@@ -172,7 +172,7 @@ function RecruitmentWorkspace() {
           <div>
             <Link href="/" className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-blue-700"><ArrowLeft size={16} /> Dashboard</Link>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">People operations</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">Recruitment & Applicant Tracking</h1>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Recruitment & Applicant Tracking</h1>
             <p className="mt-2 text-sm text-slate-500">Manage job openings, candidate pipeline and employee onboarding.</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -197,7 +197,7 @@ function RecruitmentWorkspace() {
 
 
         {showJobForm && (
-          <form onSubmit={submitJob} className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <form onSubmit={submitJob} className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="mb-4 flex items-center justify-between"><h2 className="font-bold text-slate-900">Create job opening</h2><button type="button" onClick={() => setShowJobForm(false)}><X size={18} /></button></div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <label><span className={labelClass}>Job title *</span><input required maxLength={120} className={inputClass} value={jobForm.title} onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })} /></label>
