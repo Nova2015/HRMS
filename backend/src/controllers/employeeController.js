@@ -357,6 +357,17 @@ export const updateEmployee = async (req, res) => {
             "employmentStatus"
         ];
 
+        const requestedRole = req.body.role;
+        if (
+            requestedRole !== undefined &&
+            !ALLOWED_ROLES.includes(String(requestedRole).trim().toLowerCase())
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid account role"
+            });
+        }
+
         const updates = {};
 
         for (const field of allowedFields) {
@@ -479,6 +490,10 @@ export const updateEmployee = async (req, res) => {
         await employee.save();
 
         const userUpdate = {};
+
+        if (requestedRole !== undefined) {
+            userUpdate.role = String(requestedRole).trim().toLowerCase();
+        }
 
         if (updates.email !== undefined) {
             userUpdate.email = updates.email;
