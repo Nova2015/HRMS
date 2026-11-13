@@ -11,6 +11,8 @@ import {
   UserCheck,
   UserX,
   KeyRound,
+  Crown,
+  Gem,
 } from "lucide-react";
 import AuthGuard from "../../components/AuthGuard";
 
@@ -222,6 +224,16 @@ function EmployeeDetails() {
 
   const fieldClass = "text-sm font-medium !text-gray-700";
   const valueClass = "mt-1 font-semibold !text-gray-950";
+  const executiveType = employee?.designation?.name?.trim().toLowerCase() === "founder"
+    ? "founder"
+    : /^(co[\\s-]?founder)$/i.test(employee?.designation?.name?.trim() || "")
+      ? "cofounder"
+      : null;
+  const executiveTheme = executiveType === "founder"
+    ? "border-amber-300 bg-gradient-to-br from-amber-50 via-white to-yellow-50"
+    : executiveType === "cofounder"
+      ? "border-violet-300 bg-gradient-to-br from-violet-50 via-white to-purple-50"
+      : "border-gray-200 bg-white";
 
   if (loading) {
     return (
@@ -293,11 +305,12 @@ function EmployeeDetails() {
           </div>
         )}
 
-        <section className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <section className={`mb-6 rounded-2xl border p-6 shadow-sm ${executiveTheme}`}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold !text-gray-950">
+              <h2 className={`flex flex-wrap items-center gap-2 text-2xl font-bold ${executiveType === "founder" ? "text-amber-950" : executiveType === "cofounder" ? "text-violet-950" : "!text-gray-950"}`}>
                 {employee.firstName} {employee.lastName}
+                {executiveType === "founder" ? <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-amber-800"><Crown size={13} /> Founder · Executive</span> : executiveType === "cofounder" ? <span className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-100 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-violet-800"><Gem size={13} /> Co-Founder · Executive</span> : null}
               </h2>
               <p className="mt-1 text-sm !text-gray-700">
                 {employee.employeeCode}
@@ -321,7 +334,7 @@ function EmployeeDetails() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <section className={`mb-6 rounded-xl border p-6 shadow-sm ${executiveType ? executiveTheme : "border-gray-200 bg-white"}`}>
           <h2 className="mb-5 text-lg font-bold !text-gray-950">
             Employment Information
           </h2>
