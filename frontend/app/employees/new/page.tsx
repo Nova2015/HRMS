@@ -402,7 +402,7 @@ function AddEmployeeForm() {
             </div>
 
             {isFounderOrCoFounder && (
-              <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${selectedDesignationName.toLowerCase() === "founder" ? "border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-950" : "border-violet-300 bg-gradient-to-r from-violet-50 to-purple-50 text-violet-950"}`}>
+              <div className={`mt-5 hidden items-start gap-3 rounded-xl border p-4 sm:flex ${selectedDesignationName.toLowerCase() === "founder" ? "border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-950" : "border-violet-300 bg-gradient-to-r from-violet-50 to-purple-50 text-violet-950"}`}>
                 {selectedDesignationName.toLowerCase() === "founder" ? <Crown size={22} className="mt-0.5 shrink-0 text-amber-600" /> : <Gem size={22} className="mt-0.5 shrink-0 text-violet-600" />}
                 <div>
                   <p className="text-sm font-bold">{selectedDesignationName} · Executive Leadership</p>
