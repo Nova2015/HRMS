@@ -172,23 +172,23 @@ export default function Home() {
                 <div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-cyan-700">Direction & purpose</p><h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">Company Vision</h2></div>
                 <span className="rounded-2xl bg-cyan-50 p-3 text-cyan-700"><Target size={22} /></span>
               </div>
-              <p className="max-w-3xl text-[15px] leading-8 text-slate-600">To build intelligent, reliable and human-centered technology that simplifies work, empowers people and helps businesses grow with confidence.</p>
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400"><Sparkles size={14} className="text-cyan-600" /> Innovation · People · Impact</div>
+              <p className="max-w-3xl text-[15px] leading-8 text-slate-600">Our mission is to create category-defining AI and technology products that solve meaningful problems at global scale. Our audacious north star: build a trillion-dollar technology company through relentless innovation, customer trust and extraordinary execution.</p>
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400"><Sparkles size={14} className="text-cyan-600" /> Think Bigger · Build Better · Scale Globally</div>
             </article>
 
             <article className="hrms-command-card col-span-4 min-h-[270px] p-7">
-              <div className="flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-violet-700">Milestones</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Key Achievements</h2></div><Award size={21} className="text-violet-600" /></div>
+              <div className="flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-violet-700">Building the Future</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Foundations in Motion</h2></div><Award size={21} className="text-violet-600" /></div>
               <div className="mt-7 space-y-5">
-                <div className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-violet-500 ring-4 ring-violet-50" /><div><p className="text-sm font-bold text-slate-800">Nexus HRMS V1</p><p className="mt-1 text-xs leading-5 text-slate-500">Building a unified people operations platform.</p></div></div>
-                <div className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-cyan-500 ring-4 ring-cyan-50" /><div><p className="text-sm font-bold text-slate-800">Predictive AI Models</p><p className="mt-1 text-xs leading-5 text-slate-500">Applying AI to turn data into useful decisions.</p></div></div>
+                <div className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-violet-500 ring-4 ring-violet-50" /><div><p className="text-sm font-bold text-slate-800">Nexus HRMS — Intelligent Work Platform</p><p className="mt-1 text-xs leading-5 text-slate-500">Transforming fragmented people operations into one connected, intelligent platform.</p></div></div>
+                <div className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-cyan-500 ring-4 ring-cyan-50" /><div><p className="text-sm font-bold text-slate-800">Predictive AI & Automation</p><p className="mt-1 text-xs leading-5 text-slate-500">Turning data into foresight, decisions and measurable business outcomes.</p></div></div>
               </div>
             </article>
 
             <article className="hrms-command-card col-span-4 min-h-[270px] p-7">
-              <div className="flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-orange-700">What comes next</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Future Roadmap</h2></div><Rocket size={21} className="text-orange-600" /></div>
+              <div className="flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-orange-700">The Next Challenges</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Mission: Global Scale</h2></div><Rocket size={21} className="text-orange-600" /></div>
               <div className="mt-7 space-y-5">
-                <div className="flex gap-3"><span className="rounded-xl bg-orange-50 px-2.5 py-1 text-[10px] font-extrabold text-orange-700">Q1 2027</span><div><p className="text-sm font-bold text-slate-800">Million Dollar ARR</p><p className="mt-1 text-xs leading-5 text-slate-500">Scale sustainable recurring revenue.</p></div></div>
-                <div className="flex gap-3"><span className="rounded-xl bg-violet-50 px-2.5 py-1 text-[10px] font-extrabold text-violet-700">Q2 2027</span><div><p className="text-sm font-bold text-slate-800">Global Expansion</p><p className="mt-1 text-xs leading-5 text-slate-500">Take products and services to new markets.</p></div></div>
+                <div className="flex gap-3"><span className="rounded-xl bg-orange-50 px-2.5 py-1 text-[10px] font-extrabold text-orange-700">Q1 2027</span><div><p className="text-sm font-bold text-slate-800">Product–Market Fit & Scale</p><p className="mt-1 text-xs leading-5 text-slate-500">Build products customers love, prove repeatable growth and deliver enterprise-grade reliability.</p></div></div>
+                <div className="flex gap-3"><span className="rounded-xl bg-violet-50 px-2.5 py-1 text-[10px] font-extrabold text-violet-700">Q2 2027</span><div><p className="text-sm font-bold text-slate-800">Global Market Entry</p><p className="mt-1 text-xs leading-5 text-slate-500">Expand into strategic markets with secure, scalable products and a world-class team.</p></div></div>
               </div>
             </article>
           </div>
