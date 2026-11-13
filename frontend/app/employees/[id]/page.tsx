@@ -226,7 +226,7 @@ function EmployeeDetails() {
   const valueClass = "mt-1 font-semibold !text-gray-950";
   const executiveType = employee?.designation?.name?.trim().toLowerCase() === "founder"
     ? "founder"
-    : /^(co[\\s-]?founder)$/i.test(employee?.designation?.name?.trim() || "")
+    : (employee?.designation?.name?.trim().toLowerCase().replace(/[\s-]+/g, "") || "") === "cofounder"
       ? "cofounder"
       : null;
   const executiveTheme = executiveType === "founder"
