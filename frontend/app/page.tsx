@@ -170,7 +170,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="relative z-10 mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/15 pt-5 sm:absolute sm:bottom-8 sm:right-9 sm:mt-0 sm:w-[390px] sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
-                  <div><p className="text-xs text-slate-400">Available modules</p><p className="mt-1 text-2xl font-bold">{visibleModules.length.toString().padStart(2, "0")}</p></div>
+                  <div><p className="text-xs text-slate-400">Reporting period</p><p className="mt-1 text-sm font-semibold">{new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" })}</p></div>
                   <div><p className="text-xs text-slate-400">Workspace</p><p className="mt-1 text-sm font-semibold">Centralized</p></div>
                   <div><p className="text-xs text-slate-400">Access</p><p className="mt-1 text-sm font-semibold">Role-based</p></div>
                 </div>
