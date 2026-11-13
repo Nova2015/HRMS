@@ -129,7 +129,7 @@ export default function Home() {
     <AuthGuard>
       <main className="hrms-home min-h-screen px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1440px]">
-          <section className={`relative mb-6 overflow-hidden rounded-[28px] bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-5 py-6 text-white shadow-xl shadow-indigo-950/10 sm:px-8 sm:py-7 ${role === "employee" ? "hrms-employee-hero" : ""}`}>
+          <section className={`relative mb-6 overflow-hidden rounded-[28px] bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-5 py-6 text-white shadow-xl shadow-indigo-950/10 sm:px-8 sm:py-7 xl:min-h-[250px] ${role === "employee" ? "hrms-employee-hero" : ""}`}>
             <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-white/5" />
             <div className="pointer-events-none absolute right-24 top-16 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
             {role === "employee" ? (
@@ -164,7 +164,7 @@ export default function Home() {
               </div>
             ) : (
               <>
-                <div className="relative z-10 max-w-2xl">
+                <div className="relative z-10 max-w-2xl xl:max-w-[calc(100%-430px)]">
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200">PROTOVERGE LLP</span>
                     <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200">{isAdmin ? (role === "admin" ? "Administrator" : "HR Manager") : "Employee"}</span>
@@ -183,7 +183,7 @@ export default function Home() {
                     <Link href="/attendance" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15">{isAdmin ? "Open attendance register" : "My attendance"} <ChevronRight size={16} /></Link>
                   </div>
                 </div>
-                <div className="relative z-10 mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/15 pt-5 sm:absolute sm:bottom-8 sm:right-9 sm:mt-0 sm:w-[390px] sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
+                <div className="relative z-10 mt-8 grid max-w-2xl grid-cols-3 gap-3 border-t border-white/15 pt-5 xl:absolute xl:bottom-8 xl:right-9 xl:mt-0 xl:w-[390px] xl:border-l xl:border-t-0 xl:pl-7 xl:pt-0">
                   <div><p className="text-xs text-slate-400">Reporting period</p><p className="mt-1 text-sm font-semibold">{new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" })}</p></div>
                   <div><p className="text-xs text-slate-400">Workspace</p><p className="mt-1 text-sm font-semibold">Centralized</p></div>
                   <div><p className="text-xs text-slate-400">Access</p><p className="mt-1 text-sm font-semibold">Role-based</p></div>
