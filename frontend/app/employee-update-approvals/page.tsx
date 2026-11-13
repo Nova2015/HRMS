@@ -147,7 +147,7 @@ function ApprovalQueue() {
           <div>
             <Link href="/" className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><ArrowLeft size={16} /> Back to Dashboard</Link>
             <p className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-blue-700"><ShieldCheck size={15} /> HR control center</p>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Employee Update Approvals</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Employee Update Approvals</h1>
             <p className="mt-2 text-sm text-slate-500">Review proposed employee record changes from Gmail, documents and manual submissions.</p>
           </div>
           <button type="button" onClick={loadRequests} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={16} /> Refresh</button>
