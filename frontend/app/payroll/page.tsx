@@ -230,10 +230,30 @@ function PayrollContent() {
             <div className="flex items-center gap-3"><div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-700"><FileText size={21} /></div><div><h2 className="text-lg font-bold text-slate-900">{isAdmin ? "Payroll register" : "My payslips"}</h2><p className="mt-1 text-sm text-slate-500">Payroll records for the selected month.</p></div></div>
             <label className="text-xs font-semibold text-slate-500">PERIOD<input aria-label="Payroll register period" type="month" value={period} onChange={(e) => setPeriod(e.target.value)} className="mt-1 block rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-blue-500" /></label>
           </div>
-          {loading ? <div className="flex items-center justify-center gap-3 py-16 text-sm text-slate-500"><RefreshCw size={17} className="animate-spin" />Loading payroll records...</div> : records.length === 0 ? <div className="px-5 py-16 text-center"><FileText className="mx-auto text-slate-300" size={34} /><p className="mt-3 font-semibold text-slate-700">No payroll records found</p><p className="mt-1 text-sm text-slate-500">There are no processed records for {period}.</p></div> : <div className="overflow-x-auto"><p className="px-4 pb-2 text-[11px] font-medium text-slate-400 sm:hidden">Swipe horizontally to view all payroll details</p><table className="w-full min-w-[760px] text-left text-sm">
+          {loading ? <div className="flex items-center justify-center gap-3 py-16 text-sm text-slate-500"><RefreshCw size={17} className="animate-spin" />Loading payroll records...</div> : records.length === 0 ? <div className="px-5 py-16 text-center"><FileText className="mx-auto text-slate-300" size={34} /><p className="mt-3 font-semibold text-slate-700">No payroll records found</p><p className="mt-1 text-sm text-slate-500">There are no processed records for {period}.</p></div> : <>
+          <div className="space-y-3 p-3 sm:hidden">
+            {records.map((item) => <article key={item._id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0"><p className="truncate font-semibold text-slate-900">{isAdmin ? `${item.employee?.firstName || ""} ${item.employee?.lastName || ""}` : "My payslip"}</p>{isAdmin && <p className="mt-0.5 text-xs text-slate-500">{item.employee?.employeeCode}</p>}</div>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${item.status === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{item.status}</span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div><p className="text-xs text-slate-500">Period</p><p className="mt-0.5 font-medium text-slate-800">{item.period}</p></div>
+                <div><p className="text-xs text-slate-500">Gross pay</p><p className="mt-0.5 font-medium text-slate-800">{money(item.grossEarnings)}</p></div>
+                <div><p className="text-xs text-slate-500">Deductions</p><p className="mt-0.5 font-medium text-slate-700">{money(item.totalDeductions)}</p></div>
+                <div><p className="text-xs text-slate-500">Net pay</p><p className="mt-0.5 font-bold text-slate-900">{money(item.netPay)}</p></div>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-3">
+                <button type="button" onClick={() => setSelectedSlip(item)} className="text-sm font-semibold text-blue-600">View payslip</button>
+                {isAdmin && item.status !== "paid" && <button type="button" onClick={() => markPaid(item._id)} disabled={busy} className="text-sm font-semibold text-emerald-700 disabled:opacity-50">Mark paid</button>}
+              </div>
+            </article>)}
+          </div>
+          <div className="hidden overflow-x-auto sm:block"><table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>{isAdmin && <th className="px-5 py-3 font-semibold">Employee</th>}<th className="px-5 py-3 font-semibold">Period</th><th className="px-5 py-3 font-semibold">Gross pay</th><th className="px-5 py-3 font-semibold">Deductions</th><th className="px-5 py-3 font-semibold">Net pay</th><th className="px-5 py-3 font-semibold">Status</th><th className="px-5 py-3 font-semibold">Actions</th></tr></thead>
             <tbody className="divide-y divide-slate-100">{records.map((item) => <tr key={item._id} className="transition hover:bg-slate-50/70">{isAdmin && <td className="px-5 py-4"><p className="font-semibold text-slate-800">{item.employee?.firstName} {item.employee?.lastName}</p><p className="mt-0.5 text-xs text-slate-400">{item.employee?.employeeCode}</p></td>}<td className="px-5 py-4 font-medium text-slate-700">{item.period}</td><td className="px-5 py-4 text-slate-700">{money(item.grossEarnings)}</td><td className="px-5 py-4 text-slate-600">{money(item.totalDeductions)}</td><td className="px-5 py-4 font-bold text-slate-900">{money(item.netPay)}</td><td className="px-5 py-4"><span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold capitalize ${item.status === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}><span className={`h-1.5 w-1.5 rounded-full ${item.status === "paid" ? "bg-emerald-500" : "bg-amber-500"}`} />{item.status}</span></td><td className="px-5 py-4"><div className="flex items-center gap-3 whitespace-nowrap"><button type="button" onClick={() => setSelectedSlip(item)} className="font-semibold text-blue-600 transition hover:text-blue-800">View payslip</button>{isAdmin && item.status !== "paid" && <button type="button" onClick={() => markPaid(item._id)} disabled={busy} className="font-semibold text-emerald-700 transition hover:text-emerald-900 disabled:opacity-50">Mark paid</button>}</div></td></tr>)}</tbody>
-          </table></div>}
+          </table></div>
+        </>}
         </section>
 
         {selectedSlip && <section className="print-slip mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
