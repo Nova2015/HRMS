@@ -303,15 +303,15 @@ function EmployeeList() {
             <>
             <div className="space-y-3 p-4 sm:hidden">
               {filteredEmployees.map((employee) => (
-                <article key={employee._id} className={`rounded-2xl border p-4 shadow-sm ${getExecutiveType(employee.designation?.name) === "founder" ? "border-amber-300 bg-gradient-to-br from-amber-50 to-white shadow-amber-100" : getExecutiveType(employee.designation?.name) === "cofounder" ? "border-violet-300 bg-gradient-to-br from-violet-50 to-white shadow-violet-100" : "border-slate-200 bg-white"}`}>
+                <article key={employee._id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-start gap-3">
-                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold uppercase ${getExecutiveType(employee.designation?.name) === "founder" ? "bg-amber-100 text-amber-700" : getExecutiveType(employee.designation?.name) === "cofounder" ? "bg-violet-100 text-violet-700" : "bg-gradient-to-br from-indigo-100 to-violet-100 text-indigo-700"}`}>
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 text-sm font-bold uppercase text-indigo-700">
                       {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <h4 className="flex flex-wrap items-center gap-1.5 truncate text-sm font-bold text-slate-900">{employee.firstName} {employee.lastName}{getExecutiveType(employee.designation?.name) === "founder" ? <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-800"><Crown size={10} /> Founder</span> : getExecutiveType(employee.designation?.name) === "cofounder" ? <span className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-violet-800"><Gem size={10} /> Co-Founder</span> : null}</h4>
+                          <h4 className="flex flex-wrap items-center gap-1.5 truncate text-sm font-bold text-slate-900">{employee.firstName} {employee.lastName}</h4>
                           <p className="mt-0.5 text-xs font-medium text-slate-500">{employee.employeeCode}</p>
                         </div>
                         <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold capitalize ${statusClass(employee.employmentStatus)}`}>{employee.employmentStatus}</span>
@@ -369,7 +369,7 @@ function EmployeeList() {
                             {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
                           </div>
                           <div className="min-w-0">
-                            <p className="flex flex-wrap items-center gap-1.5 truncate font-semibold text-slate-800">{employee.firstName} {employee.lastName}{getExecutiveType(employee.designation?.name) === "founder" ? <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-800"><Crown size={10} /> Founder</span> : getExecutiveType(employee.designation?.name) === "cofounder" ? <span className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-violet-800"><Gem size={10} /> Co-Founder</span> : null}</p>
+                            <p className="flex flex-wrap items-center gap-1.5 truncate font-semibold text-slate-800">{employee.firstName} {employee.lastName}</p>
                             <p className="mt-0.5 text-xs text-slate-400">{employee.employeeCode}</p>
                             <p className="max-w-[210px] truncate text-xs text-slate-500">{employee.email}</p>
                           </div>
