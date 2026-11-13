@@ -226,7 +226,7 @@ function LeaveManagement() {
             <Link href="/" className="mb-3 inline-flex items-center gap-2 text-sm text-blue-600 transition hover:text-blue-800">
               <ArrowLeft size={16} /> Dashboard
             </Link>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">{heading}</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{heading}</h1>
             <p className="mt-2 text-slate-500">{description}</p>
           </div>
           <div className="flex flex-wrap gap-2">
