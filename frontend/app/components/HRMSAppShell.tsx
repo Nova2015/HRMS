@@ -72,8 +72,10 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
   const sidebar = (
     <aside className="flex h-full w-[258px] shrink-0 flex-col border-r border-white/70 bg-white/75 px-4 py-5 shadow-[8px_0_40px_-32px_rgba(71,85,105,.35)] backdrop-blur-2xl">
       <Link href="/" className="mb-8 flex items-center gap-3 rounded-2xl px-2 py-1.5">
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-sky-500 text-lg font-black text-white shadow-lg shadow-indigo-500/20">H</span>
-        <span><span className="block text-[17px] font-black tracking-tight text-slate-900">HRMS</span><span className="block text-[10px] font-bold uppercase tracking-[.2em] text-slate-400">People workspace</span></span>
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <img src="https://raw.githubusercontent.com/Nova2015/HRMS/main/PROTOVERGE%20LLP.jpg" alt="PROTOVERGE LLP logo" className="h-full w-full object-contain" />
+        </span>
+        <span className="min-w-0"><span className="block truncate text-[15px] font-black tracking-tight text-slate-900">PROTOVERGE LLP</span><span className="block text-[10px] font-bold uppercase tracking-[.2em] text-slate-400">HR Management</span></span>
       </Link>
 
       <div className="mb-3 px-3 text-[10px] font-extrabold uppercase tracking-[.2em] text-slate-400">Workspace</div>

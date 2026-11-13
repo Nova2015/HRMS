@@ -6,7 +6,6 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
-  Hexagon,
   Quotes,
   EnvelopeSimple,
   LockKey,
@@ -103,12 +102,17 @@ export default function LoginPage() {
 
           <div className="relative z-20 flex animate-slide-up items-center">
 
-            <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#818cf8] to-[#8b5cf6] shadow-lg shadow-[#6366f1]/40">
-              <Hexagon weight="fill" className="text-2xl text-white" />
-            </div>
+            <Image
+              src="https://raw.githubusercontent.com/Nova2015/HRMS/main/PROTOVERGE%20LLP.jpg"
+              alt="PROTOVERGE LLP company logo"
+              width={56}
+              height={56}
+              unoptimized
+              className="mr-4 h-14 w-14 rounded-xl bg-white object-contain p-1 shadow-lg"
+            />
 
             <span className="text-2xl font-bold tracking-tight text-white">
-              NEXUS
+              PROTOVERGE LLP
             </span>
 
           </div>
@@ -181,12 +185,17 @@ export default function LoginPage() {
 
           <div className="absolute left-8 top-8 flex animate-slide-up items-center lg:hidden">
 
-            <div className="mr-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] shadow-lg shadow-[#6366f1]/30">
-              <Hexagon weight="fill" className="text-xl text-white" />
-            </div>
+            <Image
+              src="https://raw.githubusercontent.com/Nova2015/HRMS/main/PROTOVERGE%20LLP.jpg"
+              alt="PROTOVERGE LLP company logo"
+              width={44}
+              height={44}
+              unoptimized
+              className="mr-3 h-11 w-11 rounded-lg bg-white object-contain p-1 shadow"
+            />
 
             <span className="text-xl font-bold tracking-tight text-slate-900">
-              NEXUS
+              PROTOVERGE LLP
             </span>
 
           </div>
