@@ -354,7 +354,7 @@ function EmployeeList() {
                 <tbody className="divide-y divide-slate-100/90">
                   {filteredEmployees.map((employee) => (
                     <tr key={employee._id} className="group transition-colors hover:bg-indigo-50/40">
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 text-xs font-bold uppercase text-indigo-700">
                             {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
@@ -379,7 +379,7 @@ function EmployeeList() {
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${employee.account.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{employee.account.isActive ? "Active" : "Inactive"}</span>
                         ) : <span className="text-xs font-medium text-amber-600">Not linked</span>}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
                           <button type="button" title="View Employee" aria-label={`View ${employee.firstName} ${employee.lastName}`} onClick={() => router.push(`/employees/${employee._id}`)} className="rounded-lg border border-transparent p-2 text-indigo-600 transition hover:border-indigo-100 hover:bg-white hover:shadow-sm">
                             <Eye size={17} />
