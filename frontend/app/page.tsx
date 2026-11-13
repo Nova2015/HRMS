@@ -226,9 +226,6 @@ export default function Home() {
                 <div className="flex min-w-0 items-center gap-3 text-sm text-slate-600"><Mail size={17} className="shrink-0 text-violet-500" /><span className="truncate">{userInfo?.email || "Work contact"}</span></div>
                 {userInfo?.employeeCode && <div className="flex items-center gap-3 text-sm text-slate-600"><ShieldCheck size={17} className="text-violet-500" /><span>{userInfo.employeeCode}</span></div>}
               </div>
-              <div className="mt-auto pt-8">
-                <Link href="/profile" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-violet-700">Connect <ArrowUpRight size={16} /></Link>
-              </div>
             </article>
 
             <article className="hrms-command-card flex min-h-[245px] flex-col justify-between p-5 sm:p-7 lg:col-span-8">
