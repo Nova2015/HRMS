@@ -83,10 +83,10 @@ function AuditLogsContent() {
         <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700 disabled:opacity-50"><RefreshCw size={16} className={loading ? "animate-spin" : ""}/>Refresh</button>
       </header>
 
-      <section className="mb-5 grid gap-3 sm:grid-cols-3">
+      <section className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total events</p><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{loading ? "…" : pagination.total.toLocaleString("en-IN")}</p></div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current page</p><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{pagination.pages ? `${pagination.page} / ${pagination.pages}` : "—"}</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Event coverage</p><p className="mt-2 text-sm font-semibold text-slate-900">Employees · Attendance · Leave · Payroll · Expenses</p><p className="mt-1 text-xs text-slate-500">Plus recruitment, approvals, IT support, holidays and shifts.</p></div>
+        <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-1"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Event coverage</p><p className="mt-2 text-sm font-semibold text-slate-900">Employees · Attendance · Leave · Payroll · Expenses</p><p className="mt-1 text-xs text-slate-500">Plus recruitment, approvals, IT support, holidays and shifts.</p></div>
       </section>
 
       <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
