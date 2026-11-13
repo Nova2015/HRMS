@@ -4,12 +4,13 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowUp, ArrowDown, Building2, Plus, RefreshCw, Pencil, Power } from "lucide-react";
+import { ArrowLeft, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Building2, Plus, RefreshCw, Pencil, Power } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
-function ScrollableList({ children }: { children: ReactNode }) {
+function ScrollableList({ children, label, count }: { children: ReactNode; label: string; count: number }) {
+  const [expanded, setExpanded] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showArrows, setShowArrows] = useState(false);
@@ -48,7 +49,12 @@ function ScrollableList({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="group relative">
+    <div className="mt-auto border-t border-slate-100 pt-3">
+      <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded} className="flex w-full items-center justify-between rounded-lg bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+        <span>{expanded ? `Hide ${label}` : `Show ${label}`} <span className="ml-1 text-xs font-medium text-slate-500">({count})</span></span>
+        {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {expanded && <div className="group relative mt-2">
       <div
         ref={listRef}
         onScroll={revealArrows}
@@ -69,6 +75,7 @@ function ScrollableList({ children }: { children: ReactNode }) {
           </button>
         </div>
       )}
+      </div>}
     </div>
   );
 }
@@ -263,7 +270,7 @@ function OrganizationManagement() {
               </div>
             </form>
             {loading ? <p className="py-6 text-center text-slate-500">Loading departments...</p> : departments.length === 0 ? <p className="py-6 text-center text-slate-500">No departments found.</p> : (
-              <ScrollableList>
+              <ScrollableList label="departments" count={departments.length}>
                 {departments.map((department) => (
                   <div key={department._id} className="flex items-center justify-between gap-2 py-2">
                     <div className="min-w-0">
@@ -299,7 +306,7 @@ function OrganizationManagement() {
               </div>
             </form>
             {loading ? <p className="py-6 text-center text-slate-500">Loading designations...</p> : designations.length === 0 ? <p className="py-6 text-center text-slate-500">No designations found.</p> : (
-              <ScrollableList>
+              <ScrollableList label="designations" count={designations.length}>
                 {designations.map((designation) => (
                   <div key={designation._id} className="flex items-center justify-between gap-2 py-2">
                     <div className="min-w-0">
