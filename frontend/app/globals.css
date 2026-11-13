@@ -456,3 +456,53 @@ main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="b
   .hrms-employee-table th:last-child,
   .hrms-employee-table td:last-child { width: 7%; }
 }
+
+
+/* Shared responsive foundation for every authenticated HRMS module. */
+.hrms-app-shell {
+  min-width: 0;
+  width: 100%;
+  overflow-x: clip;
+}
+.hrms-app-shell main.min-h-screen {
+  min-width: 0;
+  max-width: 100%;
+  background-color: transparent;
+}
+.hrms-app-shell main > div,
+.hrms-app-shell main section,
+.hrms-app-shell main article {
+  min-width: 0;
+}
+.hrms-app-shell main input,
+.hrms-app-shell main select,
+.hrms-app-shell main textarea {
+  max-width: 100%;
+}
+.hrms-app-shell main [class*="overflow-x-auto"],
+.hrms-app-shell main [class*="overflow-x-scroll"] {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 767px) {
+  .hrms-app-shell main.min-h-screen {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  .hrms-app-shell main:not(.hrms-home) div[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]),
+  .hrms-app-shell main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]) {
+    transform: none;
+    transition: box-shadow 180ms ease, border-color 180ms ease;
+  }
+  .hrms-app-shell main:not(.hrms-home) div[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]):hover,
+  .hrms-app-shell main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]):hover {
+    transform: none;
+  }
+}
+@media (hover: none) {
+  .hrms-app-shell main:not(.hrms-home) div[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]):hover,
+  .hrms-app-shell main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]):hover {
+    transform: none;
+  }
+}
