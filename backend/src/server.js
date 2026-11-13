@@ -47,7 +47,13 @@ const allowedOrigins = new Set([
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.has(origin)) {
+        // Allow the production frontend, explicitly configured CLIENT_URL values,
+        // and this project's Vercel preview deployments only.
+        const isHrmsVercelPreview =
+            typeof origin === "string" &&
+            /^https:\/\/hrms-[a-z0-9-]+-nova2015s-projects\.vercel\.app$/.test(origin);
+
+        if (!origin || allowedOrigins.has(origin) || isHrmsVercelPreview) {
             return callback(null, true);
         }
         return callback(new Error(`CORS origin not allowed: ${origin}`));
