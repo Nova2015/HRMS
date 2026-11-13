@@ -129,7 +129,7 @@ export default function Home() {
   return (
     <AuthGuard>
 
-      <section className="hrms-command-center hidden min-h-screen overflow-hidden px-8 py-7 lg:block xl:px-12">
+      <section className="hrms-command-center relative min-h-screen overflow-hidden px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7 xl:px-12">
         <div className="hrms-command-orb hrms-command-orb-one" />
         <div className="hrms-command-orb hrms-command-orb-two" />
         <div className="hrms-command-orb hrms-command-orb-three" />
@@ -137,13 +137,13 @@ export default function Home() {
           <header className="mb-8 flex items-center justify-between gap-6">
             <div>
               <p className="text-[11px] font-extrabold uppercase tracking-[0.28em] text-slate-500">PROTOVERGE LLP</p>
-              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">Founder Command Center</h1>
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">Company Command Center</h1>
               <p className="mt-1 text-sm text-slate-500">A clear view of people, progress and what comes next.</p>
             </div>
           </header>
 
-          <div className="grid grid-cols-12 gap-5">
-            <article className="hrms-command-card hrms-command-profile col-span-4 row-span-2 flex min-h-[590px] flex-col p-7">
+          <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-12">
+            <article className="hrms-command-card hrms-command-profile flex min-h-0 flex-col p-5 sm:p-7 lg:col-span-4 lg:row-span-2 lg:min-h-[590px]">
               <div className="flex items-center justify-between">
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">Executive status</span>
                 <span className="rounded-2xl bg-violet-50 p-3 text-violet-600"><Crown size={20} /></span>
@@ -164,7 +164,7 @@ export default function Home() {
               </div>
             </article>
 
-            <article className="hrms-command-card col-span-8 flex min-h-[245px] flex-col justify-between p-7">
+            <article className="hrms-command-card flex min-h-[245px] flex-col justify-between p-5 sm:p-7 lg:col-span-8">
               <div className="flex items-center justify-between">
                 <div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-cyan-700">Direction & purpose</p><h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">Company Vision</h2></div>
                 <span className="rounded-2xl bg-cyan-50 p-3 text-cyan-700"><Target size={22} /></span>
@@ -173,7 +173,7 @@ export default function Home() {
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400"><Sparkles size={14} className="text-cyan-600" /> Think Bigger · Build Better · Scale Globally</div>
             </article>
 
-            <article className="hrms-command-card col-span-4 min-h-[270px] p-7">
+            <article className="hrms-command-card min-h-[250px] p-5 sm:p-7 lg:col-span-4 lg:min-h-[270px]">
               <div className="flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-violet-700">Building the Future</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Foundations in Motion</h2></div><Award size={21} className="text-violet-600" /></div>
               <div className="mt-7 space-y-5">
                 <div className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-violet-500 ring-4 ring-violet-50" /><div><p className="text-sm font-bold text-slate-800">AI-Powered Business Platforms</p><p className="mt-1 text-xs leading-5 text-slate-500">Creating intelligent products that simplify complex work and unlock new possibilities for businesses.</p></div></div>
@@ -181,7 +181,7 @@ export default function Home() {
               </div>
             </article>
 
-            <article className="hrms-command-card col-span-4 min-h-[270px] p-7">
+            <article className="hrms-command-card min-h-[250px] p-5 sm:p-7 lg:col-span-4 lg:min-h-[270px]">
               <div className="flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-orange-700">The Next Challenges</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Mission: Global Scale</h2></div><Rocket size={21} className="text-orange-600" /></div>
               <div className="mt-7 space-y-5">
                 <div className="flex gap-3"><span className="rounded-xl bg-orange-50 px-2.5 py-1 text-[10px] font-extrabold text-orange-700">Q1 2027</span><div><p className="text-sm font-bold text-slate-800">Product–Market Fit & Scale</p><p className="mt-1 text-xs leading-5 text-slate-500">Build products customers love, prove repeatable growth and deliver enterprise-grade reliability.</p></div></div>
@@ -204,7 +204,7 @@ export default function Home() {
           @media (prefers-reduced-motion:reduce) { .hrms-command-orb,.hrms-command-card { animation:none;transition:none; } }
         `}</style>
       </section>
-      <main className="hrms-home min-h-screen px-4 py-5 sm:px-6 lg:px-8 lg:hidden">
+      <main className="hidden">
         <div className="mx-auto max-w-[1440px]">
           <section className={`relative mb-6 overflow-hidden rounded-[28px] bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-5 py-6 text-white shadow-xl shadow-indigo-950/10 sm:px-8 sm:py-7 xl:min-h-[250px] ${role === "employee" ? "hrms-employee-hero" : ""}`}>
             <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-white/5" />
