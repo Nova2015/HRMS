@@ -54,7 +54,7 @@ function ScrollableList({ children }: { children: ReactNode }) {
         onScroll={revealArrows}
         onMouseEnter={revealArrows}
         onTouchStart={revealArrows}
-        className="max-h-[132px] overflow-y-auto overscroll-contain divide-y divide-slate-100 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="h-[132px] overflow-y-auto overscroll-contain divide-y divide-slate-100 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {children}
       </div>
@@ -246,8 +246,8 @@ function OrganizationManagement() {
         {error && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
         {message && <div role="status" className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">{message}</div>}
 
-        <div className="grid items-start gap-4 xl:grid-cols-2">
-          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="grid items-stretch gap-4 xl:grid-cols-2">
+          <section className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="mb-4 flex items-center gap-2.5">
               <div className="rounded-lg bg-blue-100 p-2"><Building2 size={18} className="text-blue-600" /></div>
               <div><h2 className="text-base font-bold text-slate-900">Departments</h2><p className="text-sm text-slate-500">{departments.length} total</p></div>
@@ -285,7 +285,7 @@ function OrganizationManagement() {
               <div className="rounded-lg bg-purple-100 p-2"><Building2 size={18} className="text-purple-600" /></div>
               <div><h2 className="text-base font-bold text-slate-900">Designations</h2><p className="text-sm text-slate-500">{designations.length} total</p></div>
             </div>
-            <form onSubmit={submitDesignation} className="mb-4 grid gap-2">
+            <form onSubmit={submitDesignation} className="mb-4 grid gap-2 sm:grid-cols-2">
               <input required maxLength={100} value={designationForm.name} onChange={(e) => setDesignationForm({ ...designationForm, name: e.target.value })} placeholder="Designation name *" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
               <select required value={designationForm.department} onChange={(e) => setDesignationForm({ ...designationForm, department: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
                 <option value="">Select department *</option>
