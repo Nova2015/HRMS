@@ -13,19 +13,35 @@ function ScrollableList({ children }: { children: ReactNode }) {
   const listRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showArrows, setShowArrows] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+
+  const updateOverflow = useCallback(() => {
+    const element = listRef.current;
+    setHasOverflow(Boolean(element && element.scrollHeight > element.clientHeight + 2));
+  }, []);
 
   const revealArrows = () => {
+    if (!hasOverflow) return;
     setShowArrows(true);
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setShowArrows(false), 5000);
   };
 
-  useEffect(() => () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-  }, []);
+  useEffect(() => {
+    updateOverflow();
+    const element = listRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateOverflow);
+    observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    return () => {
+      observer.disconnect();
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, [children, updateOverflow]);
 
   const scrollList = (direction: "up" | "down") => {
-    listRef.current?.scrollBy({ top: direction === "up" ? -150 : 150, behavior: "smooth" });
+    listRef.current?.scrollBy({ top: direction === "up" ? -120 : 120, behavior: "smooth" });
     revealArrows();
   };
 
@@ -36,18 +52,20 @@ function ScrollableList({ children }: { children: ReactNode }) {
         onScroll={revealArrows}
         onMouseEnter={revealArrows}
         onTouchStart={revealArrows}
-        className="max-h-52 overflow-y-auto overscroll-contain divide-y divide-slate-100 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="max-h-[132px] overflow-y-auto overscroll-contain divide-y divide-slate-100 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {children}
       </div>
-      <div className={`pointer-events-none absolute right-2 top-2 z-10 flex flex-col gap-2 transition-opacity duration-300 ${showArrows ? "opacity-100" : "opacity-0"}`}>
-        <button type="button" aria-label="Scroll up" onClick={() => scrollList("up")} className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md backdrop-blur hover:bg-slate-100">
-          <ArrowUp size={16} />
-        </button>
-        <button type="button" aria-label="Scroll down" onClick={() => scrollList("down")} className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md backdrop-blur hover:bg-slate-100">
-          <ArrowDown size={16} />
-        </button>
-      </div>
+      {hasOverflow && (
+        <div className={`pointer-events-none absolute right-2 top-2 z-10 flex flex-col gap-2 transition-opacity duration-300 ${showArrows ? "opacity-100" : "opacity-0"}`}>
+          <button type="button" aria-label="Scroll up" onClick={() => scrollList("up")} className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md backdrop-blur hover:bg-slate-100">
+            <ArrowUp size={16} />
+          </button>
+          <button type="button" aria-label="Scroll down" onClick={() => scrollList("down")} className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md backdrop-blur hover:bg-slate-100">
+            <ArrowDown size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -206,16 +224,20 @@ function OrganizationManagement() {
   return (
     <main className="min-h-screen bg-slate-50 px-3 py-4 sm:px-5 sm:py-5">
       <div className="mx-auto max-w-6xl">
-        <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <Link href="/" className="mb-2 inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700">
-              <ArrowLeft size={16} /> Dashboard
-            </Link>
-            <h1 className="text-2xl font-bold text-slate-900">Departments & Designations</h1>
-            <p className="mt-1 text-sm text-slate-500">Manage company departments and job titles.</p>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700">
+                <ArrowLeft size={15} /> Dashboard
+              </Link>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">Workspace active</span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Organization</h1>
+            <h2 className="mt-2 text-base font-semibold text-slate-800">Departments & Designations</h2>
+            <p className="mt-1 text-xs text-slate-500">Manage company departments and job titles.</p>
           </div>
           <button type="button" onClick={loadData} disabled={loading} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-            <RefreshCw size={17} /> Refresh
+            <RefreshCw size={16} /> Refresh
           </button>
         </header>
 
