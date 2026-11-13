@@ -162,7 +162,7 @@ export const updateProfilePhoto = async (req, res) => {
     try {
         const { profilePhoto } = req.body || {};
         if (typeof profilePhoto !== "string" || !profilePhoto) return res.status(400).json({ success: false, message: "Choose a profile photo first" });
-        const match = profilePhoto.match(/^data:image\\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
+        const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(profilePhoto);
         if (!match) return res.status(400).json({ success: false, message: "Only JPEG, PNG or WebP images are supported" });
         const imageBuffer = Buffer.from(match[2], "base64");
         if (!imageBuffer.length || imageBuffer.length > 600 * 1024 || imageBuffer.toString("base64") !== match[2]) return res.status(400).json({ success: false, message: "Profile photo must be under 600 KB after compression" });
