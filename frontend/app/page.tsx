@@ -1,7 +1,7 @@
 "use client";
 
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import {
   Clock3, CalendarDays, Wallet, ArrowUpRight, ShieldCheck, Activity, BarChart3, CheckCircle2, ChevronRight,
@@ -13,6 +13,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 type DashboardEmployee = {
   employeeCode: string;
+  profilePhoto?: string;
   firstName: string;
   lastName: string;
   joiningDate?: string;
