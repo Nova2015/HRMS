@@ -243,22 +243,22 @@ function LeaveManagement() {
         {message && <div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
 
         <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-600 to-indigo-600 p-5 text-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
+          <div className="flex min-h-[150px] flex-col rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-600 to-indigo-600 p-5 text-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg xl:min-h-[165px]">
             <div className="flex items-center justify-between"><span className="text-sm text-blue-100">Total Requests</span><Users size={20} /></div>
             <p className="mt-3 text-3xl font-bold">{summary.total}</p>
             <p className="mt-1 text-xs text-blue-100">{isManager ? "Assigned team" : isCompanyReviewer ? "All employees" : "Your submissions"}</p>
           </div>
-          <div className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
+          <div className="flex min-h-[150px] flex-col rounded-2xl border border-amber-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md xl:min-h-[165px]">
             <div className="flex items-center justify-between text-amber-700"><span className="text-sm font-medium">Pending</span><Clock3 size={20} /></div>
             <p className="mt-3 text-3xl font-bold text-slate-900">{summary.pending}</p>
             <p className="mt-1 text-xs text-slate-500">Awaiting review</p>
           </div>
-          <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
+          <div className="flex min-h-[150px] flex-col rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md xl:min-h-[165px]">
             <div className="flex items-center justify-between text-emerald-700"><span className="text-sm font-medium">Approved</span><CheckCircle2 size={20} /></div>
             <p className="mt-3 text-3xl font-bold text-slate-900">{summary.approved}</p>
             <p className="mt-1 text-xs text-slate-500">Approved leave requests</p>
           </div>
-          <div className="rounded-2xl border border-rose-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
+          <div className="flex min-h-[150px] flex-col rounded-2xl border border-rose-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md xl:min-h-[165px]">
             <div className="flex items-center justify-between text-rose-700"><span className="text-sm font-medium">Rejected</span><XCircle size={20} /></div>
             <p className="mt-3 text-3xl font-bold text-slate-900">{summary.rejected}</p>
             <p className="mt-1 text-xs text-slate-500">Requests not approved</p>
@@ -335,15 +335,15 @@ function LeaveManagement() {
           ) : items.length === 0 ? (
             <div className="py-12 text-center"><CalendarDays className="mx-auto mb-3 text-slate-300" size={34} /><p className="font-medium text-slate-700">No leave requests found.</p><p className="mt-1 text-sm text-slate-500">New requests will appear here and on the calendar.</p></div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full min-w-[850px] text-left text-sm">
-                <thead className="border-b bg-slate-50 text-slate-600"><tr>
-                  {canReview && <th className="px-4 py-3 font-semibold">Employee</th>}
+                <thead className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>
+                  {canReview && <th className="whitespace-nowrap px-4 py-3 font-semibold">Employee</th>}
                   <th className="px-4 py-3 font-semibold">Leave Type</th><th className="px-4 py-3 font-semibold">From</th><th className="px-4 py-3 font-semibold">To</th><th className="px-4 py-3 font-semibold">Days</th><th className="px-4 py-3 font-semibold">Reason</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 font-semibold">Action</th>
                 </tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {items.map((item) => (
-                    <tr key={item._id} className="transition hover:bg-slate-50">
+                    <tr key={item._id} className="transition-colors hover:bg-slate-50/80">
                       {canReview && <td className="px-4 py-4"><p className="font-semibold text-slate-900">{item.employee?.firstName} {item.employee?.lastName}</p><p className="text-xs text-slate-500">{item.employee?.employeeCode}</p></td>}
                       <td className="px-4 py-4 capitalize">{item.leaveType}</td><td className="px-4 py-4">{item.startDate}</td><td className="px-4 py-4">{item.endDate}</td><td className="px-4 py-4">{item.totalDays}</td><td className="max-w-xs whitespace-normal px-4 py-4">{item.reason}</td>
                       <td className="px-4 py-4"><span className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusStyles[item.status]}`}>{item.status}</span>{item.reviewComment && <p className="mt-2 text-xs text-slate-500">{item.reviewComment}</p>}</td>
