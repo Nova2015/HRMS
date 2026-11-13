@@ -211,8 +211,8 @@ export default function Home() {
                 >
                   {employeeProfile?.profilePhoto ? <img src={employeeProfile.profilePhoto} alt="Your profile" className="h-full w-full object-cover" /> : (userInfo?.name || "P").trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "P"}
                   <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 text-white transition group-hover:bg-slate-950/30">
-                    <span className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-violet-700 shadow-md">
-                      {photoSaving ? <span className="text-[10px] font-bold">…</span> : <Camera size={17} />}
+                    <span className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/75 text-slate-500 shadow-sm backdrop-blur-md transition-colors group-hover:bg-white/90 group-hover:text-slate-700">
+                      {photoSaving ? <span className="text-[10px] font-semibold">…</span> : <Camera size={15} strokeWidth={1.8} />}
                     </span>
                   </span>
                 </button>
