@@ -49,7 +49,7 @@ type Employee = {
 };
 
 function getExecutiveType(name?: string | null): "founder" | "cofounder" | null {
-  const normalized = name?.trim().toLowerCase().replace(/[\\s-]+/g, "") || "";
+  const normalized = name?.trim().toLowerCase().replace(/[\s-]+/g, "") || "";
   if (normalized === "founder") return "founder";
   if (normalized === "cofounder") return "cofounder";
   return null;
