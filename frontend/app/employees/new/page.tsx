@@ -146,12 +146,23 @@ function AddEmployeeForm() {
 
     return departmentId === form.department;
   });
+  const selectedDesignationName =
+    designations.find((item) => item._id === form.designation)?.name || "";
+  const isFounderOrCoFounder = /^(co[\s-]?founder|founder)$/i.test(
+    selectedDesignationName.trim()
+  );
 
   const updateField = (field: string, value: string) => {
     setForm((previous) => ({
       ...previous,
       [field]: value,
-      ...(field === "department" ? { designation: "" } : {}),
+      ...(field === "department" ? { designation: "", reportingManager: "" } : {}),
+      ...(field === "designation" &&
+      /^(co[\s-]?founder|founder)$/i.test(
+        designations.find((item) => item._id === value)?.name?.trim() || ""
+      )
+        ? { reportingManager: "" }
+        : {}),
     }));
   };
 
@@ -201,7 +212,10 @@ function AddEmployeeForm() {
           designation: form.designation,
           joiningDate: form.joiningDate,
           role: form.role,
-          reportingManager: form.role === "employee" ? (form.reportingManager || null) : null,
+          reportingManager:
+            form.role === "employee" && !isFounderOrCoFounder
+              ? form.reportingManager || null
+              : null,
           initialPassword: form.initialPassword,
         }),
       });
@@ -413,7 +427,7 @@ function AddEmployeeForm() {
                 </select>
               </div>
 
-              {form.role === "employee" && (
+              {form.role === "employee" && !isFounderOrCoFounder && (
                 <div>
                   <label className={labelClass}>Reporting Manager</label>
                   <select
