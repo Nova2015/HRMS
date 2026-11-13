@@ -1,13 +1,56 @@
 "use client";
 
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Building2, Plus, RefreshCw, Pencil, Power } from "lucide-react";
+import { ArrowLeft, ArrowUp, ArrowDown, Building2, Plus, RefreshCw, Pencil, Power } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
+function ScrollableList({ children }: { children: ReactNode }) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showArrows, setShowArrows] = useState(false);
+
+  const revealArrows = () => {
+    setShowArrows(true);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setShowArrows(false), 5000);
+  };
+
+  useEffect(() => () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+  }, []);
+
+  const scrollList = (direction: "up" | "down") => {
+    listRef.current?.scrollBy({ top: direction === "up" ? -150 : 150, behavior: "smooth" });
+    revealArrows();
+  };
+
+  return (
+    <div className="group relative">
+      <div
+        ref={listRef}
+        onScroll={revealArrows}
+        onMouseEnter={revealArrows}
+        onTouchStart={revealArrows}
+        className="max-h-52 overflow-y-auto overscroll-contain divide-y divide-slate-100 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {children}
+      </div>
+      <div className={`pointer-events-none absolute right-2 top-2 z-10 flex flex-col gap-2 transition-opacity duration-300 ${showArrows ? "opacity-100" : "opacity-0"}`}>
+        <button type="button" aria-label="Scroll up" onClick={() => scrollList("up")} className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md backdrop-blur hover:bg-slate-100">
+          <ArrowUp size={16} />
+        </button>
+        <button type="button" aria-label="Scroll down" onClick={() => scrollList("down")} className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md backdrop-blur hover:bg-slate-100">
+          <ArrowDown size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 type Department = {
   _id: string;
@@ -195,7 +238,7 @@ function OrganizationManagement() {
               </div>
             </form>
             {loading ? <p className="py-6 text-center text-slate-500">Loading departments...</p> : departments.length === 0 ? <p className="py-6 text-center text-slate-500">No departments found.</p> : (
-              <div className="max-h-52 overflow-y-auto overscroll-contain divide-y divide-slate-100 pr-1">
+              <ScrollableList>
                 {departments.map((department) => (
                   <div key={department._id} className="flex items-center justify-between gap-2 py-2">
                     <div className="min-w-0">
@@ -209,7 +252,7 @@ function OrganizationManagement() {
                     </div>
                   </div>
                 ))}
-              </div>
+              </ScrollableList>
             )}
           </section>
 
@@ -231,7 +274,7 @@ function OrganizationManagement() {
               </div>
             </form>
             {loading ? <p className="py-6 text-center text-slate-500">Loading designations...</p> : designations.length === 0 ? <p className="py-6 text-center text-slate-500">No designations found.</p> : (
-              <div className="max-h-52 overflow-y-auto overscroll-contain divide-y divide-slate-100 pr-1">
+              <ScrollableList>
                 {designations.map((designation) => (
                   <div key={designation._id} className="flex items-center justify-between gap-2 py-2">
                     <div className="min-w-0">
@@ -245,7 +288,7 @@ function OrganizationManagement() {
                     </div>
                   </div>
                 ))}
-              </div>
+              </ScrollableList>
             )}
           </section>
         </div>
