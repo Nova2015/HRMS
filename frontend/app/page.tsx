@@ -61,7 +61,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (role !== "employee") return;
     let cancelled = false;
     const loadEmployeeProfile = async () => {
       setEmployeeProfileLoading(true);
