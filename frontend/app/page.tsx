@@ -41,6 +41,7 @@ export default function Home() {
   const [attendanceError, setAttendanceError] = useState("");
   const [employeeProfile, setEmployeeProfile] = useState<DashboardEmployee | null>(null);
   const [employeeProfileLoading, setEmployeeProfileLoading] = useState(false);
+  const [userInfo, setUserInfo] = useState<{ name?: string; email?: string; employeeCode?: string; role?: string } | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("hrms_user");
@@ -48,7 +49,10 @@ export default function Home() {
       try {
         const user = JSON.parse(stored);
         const nextRole = user.role || "employee";
-        void Promise.resolve().then(() => setRole(nextRole));
+        void Promise.resolve().then(() => {
+          setRole(nextRole);
+          setUserInfo(user);
+        });
       } catch {
         void Promise.resolve().then(() => setRole("employee"));
       }
@@ -161,10 +165,19 @@ export default function Home() {
             ) : (
               <>
                 <div className="relative z-10 max-w-2xl">
-                  <h2 className="mt-5 text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
-                    {isAdmin ? <>People operations,<br className="hidden sm:block" /> made simpler.</> : <>Your team,<br className="hidden sm:block" /> in one place.</>}
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200">PROTOVERGE LLP</span>
+                    <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200">{isAdmin ? (role === "admin" ? "Administrator" : "HR Manager") : "Employee"}</span>
+                  </div>
+                  <h2 className="text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">
+                    Welcome, {userInfo?.name || (role === "admin" ? "Administrator" : "HR Manager")}
                   </h2>
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">{isAdmin ? "Employees, attendance, leave and payroll." : "Team leave and your HR records."}</p>
+                  <p className="mt-2 text-sm font-medium text-blue-100">{isAdmin ? "Company people operations workspace" : "Your team, in one place."}</p>
+                  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-300">
+                    {userInfo?.employeeCode && <span><span className="text-slate-400">Employee ID</span><strong className="ml-2 text-white">{userInfo.employeeCode}</strong></span>}
+                    {userInfo?.email && <span><span className="text-slate-400">Work email</span><strong className="ml-2 text-white">{userInfo.email}</strong></span>}
+                    <span><span className="text-slate-400">Workspace</span><strong className="ml-2 text-white">PROTOVERGE LLP</strong></span>
+                  </div>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Link href={isAdmin ? "/employees" : "/leaves"} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-blue-50">{isAdmin ? "View employees" : "Review team leaves"} <ArrowUpRight size={16} /></Link>
                     <Link href="/attendance" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15">{isAdmin ? "Open attendance register" : "My attendance"} <ChevronRight size={16} /></Link>
@@ -178,6 +191,21 @@ export default function Home() {
               </>
             )}
           </section>
+
+          {isAdmin && (
+            <section className="mb-6">
+              <div className="mb-3">
+                <h2 className="text-lg font-extrabold tracking-tight text-slate-900">Workspace overview</h2>
+                <p className="mt-1 text-sm text-slate-500">A quick snapshot of your company attendance activity.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="hrms-premium-card rounded-2xl p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Attendance entries</p><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{attendanceLoading ? "…" : attendanceRecords.length}</p><p className="mt-1 text-xs text-slate-500">Recorded this month</p></div>
+                <div className="hrms-premium-card rounded-2xl p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employees recorded</p><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{attendanceLoading ? "…" : new Set(attendanceRecords.map((item) => item.employee?.employeeCode).filter(Boolean)).size}</p><p className="mt-1 text-xs text-slate-500">Unique employees this month</p></div>
+                <div className="hrms-premium-card rounded-2xl p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Present today</p><p className="mt-2 text-2xl font-bold tabular-nums text-emerald-700">{attendanceLoading ? "…" : attendanceRecords.filter((item) => item.dateKey === new Date().toLocaleDateString("en-CA") && item.status === "present").length}</p><p className="mt-1 text-xs text-slate-500">Today's recorded presence</p></div>
+                <div className="hrms-premium-card rounded-2xl p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Late arrivals</p><p className="mt-2 text-2xl font-bold tabular-nums text-orange-700">{attendanceLoading ? "…" : attendanceRecords.filter((item) => item.isLate).length}</p><p className="mt-1 text-xs text-slate-500">Recorded this month</p></div>
+              </div>
+            </section>
+          )}
 
           {isAdmin && (
             <section className="mb-6">
