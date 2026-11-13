@@ -43,6 +43,7 @@ type Employee = {
   reportingManager: { _id: string } | null;
   joiningDate: string;
   employmentStatus: "active" | "inactive" | "resigned" | "terminated";
+  account?: { email: string; role: "employee" | "manager" | "hr"; isActive: boolean } | null;
 };
 
 function EditEmployeeForm() {
@@ -69,6 +70,7 @@ function EditEmployeeForm() {
     reportingManager: "",
     joiningDate: "",
     employmentStatus: "active",
+    role: "employee",
   });
 
   const loadData = useCallback(async () => {
@@ -143,6 +145,7 @@ function EditEmployeeForm() {
           ? new Date(employee.joiningDate).toISOString().slice(0, 10)
           : "",
         employmentStatus: employee.employmentStatus || "active",
+        role: employee.account?.role || "employee",
       });
 
       setDepartments(
@@ -236,6 +239,7 @@ function EditEmployeeForm() {
           designation: form.designation,
           joiningDate: form.joiningDate,
           employmentStatus: form.employmentStatus,
+          role: form.role,
           reportingManager: isFounderOrCoFounder ? null : form.reportingManager || null,
         }),
       });
@@ -459,6 +463,41 @@ function EditEmployeeForm() {
                   </div>
                 </div>
               )}
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-5 text-lg font-semibold text-slate-900">
+                Login Account
+              </h2>
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Login Email</label>
+                  <input
+                    readOnly
+                    className={`${inputClass} bg-slate-100 text-slate-500`}
+                    value={form.email}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Login email is synced with the Email Address field above.
+                  </p>
+                </div>
+                <div>
+                  <label className={labelClass}>Account Role *</label>
+                  <select
+                    required
+                    className={inputClass}
+                    value={form.role}
+                    onChange={(e) => updateField("role", e.target.value)}
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="manager">Manager</option>
+                    <option value="hr">HR</option>
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Controls this user&apos;s access and permissions in HRMS.
+                  </p>
+                </div>
+              </div>
             </section>
 
             <div className="flex flex-wrap justify-end gap-3">
