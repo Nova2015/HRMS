@@ -140,9 +140,6 @@ export default function Home() {
               <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">Founder Command Center</h1>
               <p className="mt-1 text-sm text-slate-500">A clear view of people, progress and what comes next.</p>
             </div>
-            <Link href="/" className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/75 px-5 py-3 text-sm font-bold text-slate-800 shadow-lg shadow-slate-900/5 backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white">
-              <LayoutDashboard size={16} /> Dashboard
-            </Link>
           </header>
 
           <div className="grid grid-cols-12 gap-5">
