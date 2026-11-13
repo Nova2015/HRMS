@@ -238,7 +238,7 @@ function DocumentsContent() {
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-blue-700">{isHR ? "HR document center" : "Employee self-service"}</p>
-            <h1 className="mt-1 text-3xl font-bold text-slate-900">{isHR ? "Employee Documents" : "My HR Documents"}</h1>
+            <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">{isHR ? "Employee Documents" : "My HR Documents"}</h1>
             <p className="mt-2 text-sm text-slate-500">{isHR ? "Send official documents and review employee resignation letters." : "Download documents issued by HR and submit your resignation letter if required."}</p>
           </div>
           <button type="button" onClick={loadDocuments} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"><RefreshCw size={16} /> Refresh</button>
