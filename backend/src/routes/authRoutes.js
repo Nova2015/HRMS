@@ -13,7 +13,7 @@ import { auditAction } from "../middleware/auditLogMiddleware.js";
 const router = express.Router();
 
 router.post("/login", loginRateLimit, login);
-router.get("/me", protect, getMe);
+router.get("/me", protect, getMe);\nrouter.put("/me/photo", protect, updateProfilePhoto);
 router.put("/change-password", protect, auditAction("auth", "password.changed"), changePassword);
 
 export default router;
