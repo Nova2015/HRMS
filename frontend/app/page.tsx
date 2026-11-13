@@ -44,6 +44,7 @@ export default function Home() {
   const [employeeProfile, setEmployeeProfile] = useState<DashboardEmployee | null>(null);
   const [employeeProfileLoading, setEmployeeProfileLoading] = useState(false);
   const [userInfo, setUserInfo] = useState<{ name?: string; email?: string; employeeCode?: string; role?: string } | null>(null);
+
   const [photoSaving, setPhotoSaving] = useState(false);
   const [photoError, setPhotoError] = useState("");
   const photoInputRef = useRef<HTMLInputElement>(null);
