@@ -43,7 +43,8 @@ export default function Home() {
   const [attendanceError, setAttendanceError] = useState("");
   const [employeeProfile, setEmployeeProfile] = useState<DashboardEmployee | null>(null);
   const [employeeProfileLoading, setEmployeeProfileLoading] = useState(false);
-  const [userInfo, setUserInfo] = useState<{ name?: string; email?: string; employeeCode?: string; role?: string } | null>(null);\n  const [photoSaving, setPhotoSaving] = useState(false);\n  const [photoError, setPhotoError] = useState("");\n  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [userInfo, setUserInfo] = useState<{ name?: string; email?: string; employeeCode?: string; role?: string } | null>(null);
+  const [photoSaving, setPhotoSaving] = useState(false);\n  const [photoError, setPhotoError] = useState("");\n  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("hrms_user");
@@ -124,6 +125,53 @@ export default function Home() {
     };
     void loadDashboardAttendance();
   }, [role]);
+
+
+  const handleProfilePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type.match(/^image\\/(jpeg|png|webp)$/)) { setPhotoError("Choose a JPG, PNG or WebP image."); return; }
+    if (file.size > 8 * 1024 * 1024) { setPhotoError("Choose an image smaller than 8 MB."); return; }
+    setPhotoSaving(true);
+    setPhotoError("");
+    try {
+      const image = new Image();
+      const source = URL.createObjectURL(file);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          image.onload = () => resolve();
+          image.onerror = () => reject(new Error("Unable to read this image."));
+          image.src = source;
+        });
+        const canvas = document.createElement("canvas");
+        const scale = Math.min(1, 480 / Math.max(image.naturalWidth, image.naturalHeight));
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Image processing is unavailable in this browser.");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const profilePhoto = canvas.toDataURL("image/jpeg", 0.78);
+        if (profilePhoto.length > 820000) throw new Error("Image is too large. Please choose a smaller photo.");
+        const token = sessionStorage.getItem("hrms_token");
+        if (!token) throw new Error("Please sign in again.");
+        const response = await fetch(`${API_URL}/auth/me/photo`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ profilePhoto })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || "Unable to save profile photo.");
+        setEmployeeProfile((current) => current ? { ...current, profilePhoto: result.data.profilePhoto } : current);
+      } finally {
+        URL.revokeObjectURL(source);
+      }
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "Unable to update profile photo.");
+    } finally {
+      setPhotoSaving(false);
+    }
+  };
 
   const isAdmin = role === "admin" || role === "hr";
   return (
