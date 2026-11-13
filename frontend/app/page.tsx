@@ -179,7 +179,7 @@ export default function Home() {
             <article className="hrms-command-card col-span-4 min-h-[270px] p-7">
               <div className="flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-violet-700">Building the Future</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Foundations in Motion</h2></div><Award size={21} className="text-violet-600" /></div>
               <div className="mt-7 space-y-5">
-                <div className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-violet-500 ring-4 ring-violet-50" /><div><p className="text-sm font-bold text-slate-800">Nexus HRMS — Intelligent Work Platform</p><p className="mt-1 text-xs leading-5 text-slate-500">Transforming fragmented people operations into one connected, intelligent platform.</p></div></div>
+                <div className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-violet-500 ring-4 ring-violet-50" /><div><p className="text-sm font-bold text-slate-800">AI-Powered Business Platforms</p><p className="mt-1 text-xs leading-5 text-slate-500">Creating intelligent products that simplify complex work and unlock new possibilities for businesses.</p></div></div>
                 <div className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-cyan-500 ring-4 ring-cyan-50" /><div><p className="text-sm font-bold text-slate-800">Predictive AI & Automation</p><p className="mt-1 text-xs leading-5 text-slate-500">Turning data into foresight, decisions and measurable business outcomes.</p></div></div>
               </div>
             </article>
