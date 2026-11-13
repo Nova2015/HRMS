@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import {
   Clock3, CalendarDays, Wallet, ArrowUpRight, ShieldCheck, Activity, BarChart3, CheckCircle2, ChevronRight,
-  LayoutDashboard, Crown, MapPin, Mail, Sparkles, Target, Award, Rocket,
+  LayoutDashboard, Crown, MapPin, Mail, Sparkles, Target, Award, Rocket, Camera,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -199,19 +199,27 @@ export default function Home() {
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">Executive status</span>
                 <span className="rounded-2xl bg-violet-50 p-3 text-violet-600"><Crown size={20} /></span>
               </div>
-              <div className="mt-9 flex flex-wrap items-end gap-4">
-                <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-[30px] bg-gradient-to-br from-cyan-100 via-violet-100 to-orange-100 text-4xl font-black text-slate-700 shadow-inner">
+              <div className="mt-9">
+                <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleProfilePhotoChange} />
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={photoSaving}
+                  aria-label={employeeProfile?.profilePhoto ? "Change profile photo" : "Add profile photo"}
+                  title={photoSaving ? "Uploading photo…" : employeeProfile?.profilePhoto ? "Change photo" : "Add photo"}
+                  className="group relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-[30px] bg-gradient-to-br from-cyan-100 via-violet-100 to-orange-100 text-4xl font-black text-slate-700 shadow-inner ring-4 ring-white transition hover:shadow-lg disabled:cursor-wait disabled:opacity-70"
+                >
                   {employeeProfile?.profilePhoto ? <img src={employeeProfile.profilePhoto} alt="Your profile" className="h-full w-full object-cover" /> : (userInfo?.name || "P").trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "P"}
-                </div>
-                <div className="pb-1">
-                  <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleProfilePhotoChange} />
-                  <button type="button" onClick={() => photoInputRef.current?.click()} disabled={photoSaving} className="rounded-full border border-violet-200 bg-white px-4 py-2 text-xs font-bold text-violet-700 shadow-sm transition hover:bg-violet-50 disabled:opacity-60">{photoSaving ? "Uploading…" : employeeProfile?.profilePhoto ? "Change photo" : "Add photo"}</button>
-                  <p className="mt-1.5 text-[10px] text-slate-400">JPG, PNG or WebP · max 8 MB</p>
-                </div>
+                  <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 text-white transition group-hover:bg-slate-950/30">
+                    <span className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-violet-700 shadow-md">
+                      {photoSaving ? <span className="text-[10px] font-bold">…</span> : <Camera size={17} />}
+                    </span>
+                  </span>
+                </button>
               </div>
               {photoError && <p role="alert" className="mt-2 text-xs text-rose-600">{photoError}</p>}
               <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-slate-900">{userInfo?.name || "Welcome"}</h2>
-              <p className="mt-2 text-sm font-semibold text-violet-700">{role === "admin" ? "Administrator" : role === "hr" ? "HR Manager" : employeeProfile?.designation?.name?.trim().toLowerCase() === "founder" ? "Founder" : employeeProfile?.designation?.name?.trim().toLowerCase() === "co-founder" ? "Co-Founder" : role === "manager" ? "Manager" : "Team Member"}</p>
+              <p className="mt-2 text-sm font-semibold text-violet-700">{employeeProfile?.designation?.name || "Team Member"}</p>
               <p className="mt-5 max-w-sm text-sm leading-7 text-slate-600">Building thoughtful products, enabling teams and driving the next chapter of Protoverge LLP through technology and execution.</p>
               <div className="mt-8 space-y-4 border-t border-slate-100 pt-6">
                 <div className="flex items-center gap-3 text-sm text-slate-600"><MapPin size={17} className="text-violet-500" /><span>Pune, India</span></div>
