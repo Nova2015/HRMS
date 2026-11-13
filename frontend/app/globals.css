@@ -420,3 +420,39 @@ main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="b
   .hrms-employee-hero-content a:hover { transform: none; }
   .hrms-employee-hero::after { display: none; }
 }
+
+
+/* Mobile-first data density: retain essential fields and keep secondary employee
+   attributes available on the employee detail page. */
+@media (max-width: 640px) {
+  .hrms-employee-table {
+    min-width: 0 !important;
+    table-layout: fixed;
+    font-size: 11px;
+  }
+  .hrms-employee-table th,
+  .hrms-employee-table td {
+    padding: 9px 6px !important;
+    overflow-wrap: anywhere;
+  }
+  .hrms-employee-table th:nth-child(4),
+  .hrms-employee-table td:nth-child(4),
+  .hrms-employee-table th:nth-child(5),
+  .hrms-employee-table td:nth-child(5),
+  .hrms-employee-table th:nth-child(7),
+  .hrms-employee-table td:nth-child(7),
+  .hrms-employee-table th:nth-child(8),
+  .hrms-employee-table td:nth-child(8) {
+    display: none;
+  }
+  .hrms-employee-table th:first-child,
+  .hrms-employee-table td:first-child { width: 42%; }
+  .hrms-employee-table th:nth-child(2),
+  .hrms-employee-table td:nth-child(2),
+  .hrms-employee-table th:nth-child(3),
+  .hrms-employee-table td:nth-child(3) { width: 19%; }
+  .hrms-employee-table th:nth-child(6),
+  .hrms-employee-table td:nth-child(6) { width: 13%; }
+  .hrms-employee-table th:last-child,
+  .hrms-employee-table td:last-child { width: 7%; }
+}
