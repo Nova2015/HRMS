@@ -176,12 +176,12 @@ function ShiftManagement() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6">
+    <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
       <div className="mx-auto max-w-7xl">
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <Link href="/" className="mb-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"><ArrowLeft size={16} /> Dashboard</Link>
-            <h1 className="text-3xl font-bold text-slate-900">Shift Management</h1>
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Shift Management</h1>
             <p className="mt-2 text-slate-500">Configure working hours and assign shifts to employees.</p>
           </div>
           <button type="button" onClick={loadData} disabled={loading} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-50"><RefreshCw size={16} /> Refresh</button>
@@ -192,7 +192,7 @@ function ShiftManagement() {
 
         {canManage ? (
           <>
-            <section className="mb-6 rounded-xl bg-white p-6 shadow-sm">
+            <section className="mb-6 rounded-xl bg-white p-4 shadow-sm sm:p-6">
               <h2 className="mb-4 text-xl font-bold text-slate-900">{editId ? "Edit Shift" : "Create Shift"}</h2>
               <form onSubmit={submitShift} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <input required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Shift name *" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
