@@ -211,7 +211,7 @@ export default function Home() {
               </div>
               {photoError && <p role="alert" className="mt-2 text-xs text-rose-600">{photoError}</p>}
               <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-slate-900">{userInfo?.name || "Welcome"}</h2>
-              <p className="mt-2 text-sm font-semibold text-violet-700">{role === "admin" ? "Administrator" : role === "hr" ? "HR Manager" : role === "manager" ? (userInfo?.name?.trim().toLowerCase() === "keshav" ? "Founder" : "Manager") : role === "founder" ? "Founder" : role === "co-founder" ? "Co-Founder" : "Team Member"}</p>
+              <p className="mt-2 text-sm font-semibold text-violet-700">{role === "admin" ? "Administrator" : role === "hr" ? "HR Manager" : role === "manager" ? (userInfo?.name?.trim().toLowerCase().split(/\s+/)[0] === "keshav" ? "Founder" : "Manager") : role === "founder" ? "Founder" : role === "co-founder" ? "Co-Founder" : "Team Member"}</p>
               <p className="mt-5 max-w-sm text-sm leading-7 text-slate-600">Building thoughtful products, enabling teams and driving the next chapter of Protoverge LLP through technology and execution.</p>
               <div className="mt-8 space-y-4 border-t border-slate-100 pt-6">
                 <div className="flex items-center gap-3 text-sm text-slate-600"><MapPin size={17} className="text-violet-500" /><span>Pune, India</span></div>
