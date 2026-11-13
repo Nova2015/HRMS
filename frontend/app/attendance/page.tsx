@@ -670,15 +670,12 @@ function AttendanceWorkspace() {
             </div>
           </section>
         )}
-        <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="hrms-card rounded-2xl p-5">
-            <div className="flex items-center justify-between text-blue-100"><span className="text-sm font-medium">Present</span><CheckCircle2 size={20} /></div>
-            <p className="mt-3 text-3xl font-bold tabular-nums">{summary.present}</p><p className="mt-1 text-xs text-blue-100">Recorded days this month</p>
+        <section className="mb-6 max-w-sm">
+          <div className="hrms-card rounded-2xl p-4 sm:p-5">
+            <div className="flex items-center justify-between text-emerald-700"><span className="text-sm font-semibold">Working Time</span><Clock3 size={20} /></div>
+            <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{formatHours(summary.hours)}</p>
+            <p className="mt-1 text-xs text-slate-500">Total recorded hours this month</p>
           </div>
-          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-amber-700"><span className="text-sm font-medium">Half Day</span><Timer size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.halfDay}</p><p className="mt-1 text-xs text-slate-500">Short working days</p></div>
-          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-rose-700"><span className="text-sm font-medium">Absent</span><AlertCircle size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.absent}</p><p className="mt-1 text-xs text-slate-500">Explicitly marked absent</p></div>
-          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-orange-700"><span className="text-sm font-medium">Late Arrivals</span><Clock3 size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.late}</p><p className="mt-1 text-xs text-slate-500">Late check-ins this month</p></div>
-          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-emerald-700"><span className="text-sm font-medium">Working Time</span><Clock3 size={20} /></div><p className="mt-3 text-2xl font-bold text-slate-900">{formatHours(summary.hours)}</p><p className="mt-1 text-xs text-slate-500">Total recorded hours</p></div>
         </section>
 
         {canSeeTeam && (
