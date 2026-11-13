@@ -148,34 +148,34 @@ function PerformanceContent() {
           <p className="mt-3 text-xs text-slate-500">Creates a review record for every active employee. Existing reviews for the same period are preserved.</p>
         </section>}
 
-        <section className="mb-6 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Review records</p><p className="mt-2 text-2xl font-bold text-slate-900">{reviews.length}</p></div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Pending self-review</p><p className="mt-2 text-2xl font-bold text-amber-600">{reviews.filter((item) => item.status === "pending").length}</p></div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">Finalized</p><p className="mt-2 text-2xl font-bold text-emerald-600">{reviews.filter((item) => item.status === "finalized").length}</p></div>
+        <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+          <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-1 sm:p-5"><p className="text-sm text-slate-500">Review records</p><p className="mt-2 text-2xl font-bold text-slate-900">{reviews.length}</p></div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><p className="text-xs text-slate-500 sm:text-sm">Pending self-review</p><p className="mt-2 text-2xl font-bold text-amber-600">{reviews.filter((item) => item.status === "pending").length}</p></div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><p className="text-xs text-slate-500 sm:text-sm">Finalized</p><p className="mt-2 text-2xl font-bold text-emerald-600">{reviews.filter((item) => item.status === "finalized").length}</p></div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="mb-5 flex items-center justify-between gap-3"><div><h2 className="text-lg font-bold text-slate-900">Review workspace</h2><p className="mt-1 text-sm text-slate-500">{isAdmin ? "All active employee reviews" : role === "manager" ? "Your reviews and assigned team" : "Your performance reviews"}</p></div><Users size={20} className="text-slate-400" /></div>
           {loading ? <p className="py-10 text-center text-sm text-slate-500">Loading reviews...</p> : reviews.length === 0 ? <div className="py-10 text-center text-sm text-slate-500">No review cycles available yet. Ask HR to create a review cycle.</div> : <div className="space-y-3">
             {reviews.map((review) => {
               const ownReview = review.employee?._id === employeeId;
               const canManagerReview = (isAdmin || role === "manager") && !ownReview && ["self_submitted", "manager_reviewed"].includes(review.status);
               const canSelfReview = ownReview && ["pending", "self_submitted"].includes(review.status);
-              return <div key={review._id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-                <div className="min-w-[220px] flex-1">
+              return <div key={review._id} className="flex flex-col items-stretch gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0 flex-1">
                   <p className="font-semibold text-slate-900">{review.employee?.firstName} {review.employee?.lastName} <span className="ml-1 text-xs font-medium text-slate-400">{review.employee?.employeeCode}</span></p>
                   <p className="mt-1 text-xs text-slate-500">{review.employee?.department?.name || "Department"} · {review.employee?.designation?.name || "Designation"} · {review.period}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2"><span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">{statusLabel[review.status]}</span>{review.managerReview?.rating ? <span className="text-xs font-semibold text-amber-700">Rating: {review.managerReview.rating}/5</span> : null}</div>
                 </div>
-                {(canSelfReview || canManagerReview) && <button type="button" onClick={() => openReview(review)} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700">{canSelfReview ? "Self review" : "Review employee"}</button>}
+                {(canSelfReview || canManagerReview) && <button type="button" onClick={() => openReview(review)} className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 sm:w-auto">{canSelfReview ? "Self review" : "Review employee"}</button>}
                 {review.status === "finalized" && <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><CheckCircle2 size={15} />Complete</span>}
               </div>;
             })}
           </div>}
         </section>
 
-        {selected && <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="Performance review">
-          <div className="my-8 w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+        {selected && <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-2 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Performance review">
+          <div className="my-2 max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl sm:my-8 sm:max-h-[calc(100dvh-4rem)] sm:p-6">
             <div className="mb-5 flex items-start justify-between gap-3"><div><h2 className="text-xl font-bold text-slate-900">{selected.employee.firstName} {selected.employee.lastName}</h2><p className="mt-1 text-sm text-slate-500">{selected.period} · {selected.employee.employeeCode}</p></div><button type="button" onClick={() => setSelectedId("")} className="rounded-lg px-3 py-1 text-sm font-semibold text-slate-500 hover:bg-slate-100">Close</button></div>
             {selected.employee._id === employeeId ? <form onSubmit={submitSelfReview} className="space-y-4">
               <p className="text-sm font-semibold text-slate-700">Employee self-assessment</p>
@@ -183,14 +183,14 @@ function PerformanceContent() {
               <label className={labelClass}>Key achievements<textarea required maxLength={3000} rows={3} value={achievements} onChange={(event) => setAchievements(event.target.value)} className={inputClass} placeholder="Describe measurable achievements..." /></label>
               <label className={labelClass}>Strengths<textarea maxLength={2000} rows={2} value={strengths} onChange={(event) => setStrengths(event.target.value)} className={inputClass} placeholder="Your key strengths..." /></label>
               <label className={labelClass}>Areas to improve<textarea maxLength={2000} rows={2} value={improvements} onChange={(event) => setImprovements(event.target.value)} className={inputClass} placeholder="Skills or areas to develop..." /></label>
-              <button disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"><Send size={16} />Submit self-review</button>
+              <button disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto"><Send size={16} />Submit self-review</button>
             </form> : <form onSubmit={submitManagerReview} className="space-y-4">
               <p className="text-sm font-semibold text-slate-700">Employee self-assessment</p>
               <div className="grid gap-3 sm:grid-cols-2">{[["Goals", selected.selfReview?.goals], ["Achievements", selected.selfReview?.achievements], ["Strengths", selected.selfReview?.strengths], ["Improvements", selected.selfReview?.improvements]].map(([label, value]) => <div key={label} className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{value || "—"}</p></div>)}</div>
               <label className={labelClass}>Performance rating<select value={rating} onChange={(event) => setRating(event.target.value)} className={inputClass}><option value="1">1 · Needs improvement</option><option value="2">2 · Developing</option><option value="3">3 · Meets expectations</option><option value="4">4 · Exceeds expectations</option><option value="5">5 · Outstanding</option></select></label>
               <label className={labelClass}>Manager comments<textarea required maxLength={3000} rows={4} value={comments} onChange={(event) => setComments(event.target.value)} className={inputClass} placeholder="Provide specific feedback and next steps..." /></label>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={finalize} onChange={(event) => setFinalize(event.target.checked)} className="h-4 w-4 rounded border-slate-300" />Finalize this review</label>
-              <button disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"><CheckCircle2 size={16} />Save manager review</button>
+              <button disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto"><CheckCircle2 size={16} />Save manager review</button>
             </form>}
           </div>
         </div>}
