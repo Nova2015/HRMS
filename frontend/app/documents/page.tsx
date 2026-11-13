@@ -230,6 +230,12 @@ function DocumentsContent() {
   const formatSize = (bytes: number) => bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   const statusClass = (status: string) => status === "approved" || status === "issued"
     ? "bg-emerald-50 text-emerald-700" : status === "rejected" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700";
+  const documentStats = [
+    { label: "Total Documents", value: documents.length, tone: "text-slate-900", surface: "bg-slate-50" },
+    { label: "Pending Review", value: documents.filter((item) => item.status === "pending").length, tone: "text-amber-700", surface: "bg-amber-50" },
+    { label: isHR ? "Approved / Issued" : "Received from HR", value: documents.filter((item) => item.status === "approved" || item.status === "issued").length, tone: "text-emerald-700", surface: "bg-emerald-50" },
+    { label: "Rejected", value: documents.filter((item) => item.status === "rejected").length, tone: "text-red-700", surface: "bg-red-50" },
+  ];
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-7 sm:px-6">
@@ -287,6 +293,16 @@ function DocumentsContent() {
             </div>
           </section>
         )}
+
+        <section aria-label="Document overview" className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {documentStats.map((stat) => (
+            <div key={stat.label} className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5`}>
+              <p className="text-xs font-semibold leading-5 text-slate-500 sm:text-sm">{stat.label}</p>
+              <p className={`mt-2 text-2xl font-bold tabular-nums sm:text-3xl ${stat.tone}`}>{stat.value}</p>
+              <div className={`mt-3 h-1.5 w-12 rounded-full ${stat.surface}`} />
+            </div>
+          ))}
+        </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
