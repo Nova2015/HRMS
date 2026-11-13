@@ -431,6 +431,7 @@ function EditEmployeeForm() {
                   </select>
                   <p className="mt-1 text-xs text-slate-500">Manager access to this employee&apos;s leave records follows this assignment.</p>
                 </div>
+                )}
 
                 <div>
                   <label className={labelClass}>Employment Status *</label>
@@ -448,7 +449,6 @@ function EditEmployeeForm() {
                     <option value="terminated">Terminated</option>
                   </select>
                 </div>
-                )}
               </div>
             </section>
 
