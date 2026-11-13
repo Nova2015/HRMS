@@ -41,7 +41,7 @@ function ScrollableList({ children, label, count }: { children: ReactNode; label
       mutationObserver.disconnect();
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
-  }, [children, updateOverflow]);
+  }, [children, expanded, updateOverflow]);
 
   const scrollList = (direction: "up" | "down") => {
     listRef.current?.scrollBy({ top: direction === "up" ? -120 : 120, behavior: "smooth" });
