@@ -4,7 +4,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Clock3, CalendarDays, Wallet, ArrowUpRight, ShieldCheck, Activity, BarChart3, CheckCircle2, ChevronRight,
+  Clock3, CalendarDays, Wallet, ArrowUpRight, ShieldCheck, Activity, BarChart3, CheckCircle2, ChevronRight,,
+  LayoutDashboard, Crown, MapPin, Mail, Sparkles, Target, Award, Rocket,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
@@ -127,7 +128,90 @@ export default function Home() {
   const isAdmin = role === "admin" || role === "hr";
   return (
     <AuthGuard>
-      <main className="hrms-home min-h-screen px-4 py-5 sm:px-6 lg:px-8">
+
+      <section className="hrms-command-center hidden min-h-screen overflow-hidden px-8 py-7 lg:block xl:px-12">
+        <div className="hrms-command-orb hrms-command-orb-one" />
+        <div className="hrms-command-orb hrms-command-orb-two" />
+        <div className="hrms-command-orb hrms-command-orb-three" />
+        <div className="relative z-10 mx-auto max-w-[1500px]">
+          <header className="mb-8 flex items-center justify-between gap-6">
+            <div>
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.28em] text-slate-500">PROTOVERGE LLP</p>
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">Founder Command Center</h1>
+              <p className="mt-1 text-sm text-slate-500">A clear view of people, progress and what comes next.</p>
+            </div>
+            <Link href="/" className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/75 px-5 py-3 text-sm font-bold text-slate-800 shadow-lg shadow-slate-900/5 backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white">
+              <LayoutDashboard size={16} /> Dashboard
+            </Link>
+          </header>
+
+          <div className="grid grid-cols-12 gap-5">
+            <article className="hrms-command-card hrms-command-profile col-span-4 row-span-2 flex min-h-[590px] flex-col p-7">
+              <div className="flex items-center justify-between">
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-emerald-700">Executive status</span>
+                <span className="rounded-2xl bg-violet-50 p-3 text-violet-600"><Crown size={20} /></span>
+              </div>
+              <div className="mt-9 flex h-28 w-28 items-center justify-center rounded-[30px] bg-gradient-to-br from-cyan-100 via-violet-100 to-orange-100 text-4xl font-black text-slate-700 shadow-inner">
+                {(userInfo?.name || "P").trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "P"}
+              </div>
+              <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-slate-900">{userInfo?.name || "Welcome"}</h2>
+              <p className="mt-2 text-sm font-semibold text-violet-700">{role === "admin" ? "Administrator" : role === "hr" ? "HR Manager" : role === "manager" ? "Manager" : role === "founder" ? "Founder" : role === "co-founder" ? "Co-Founder" : "Team Member"}</p>
+              <p className="mt-5 max-w-sm text-sm leading-7 text-slate-600">Building thoughtful products, enabling teams and driving the next chapter of Protoverge LLP through technology and execution.</p>
+              <div className="mt-8 space-y-4 border-t border-slate-100 pt-6">
+                <div className="flex items-center gap-3 text-sm text-slate-600"><MapPin size={17} className="text-violet-500" /><span>Pune, India</span></div>
+                <div className="flex min-w-0 items-center gap-3 text-sm text-slate-600"><Mail size={17} className="shrink-0 text-violet-500" /><span className="truncate">{userInfo?.email || "Work contact"}</span></div>
+                {userInfo?.employeeCode && <div className="flex items-center gap-3 text-sm text-slate-600"><ShieldCheck size={17} className="text-violet-500" /><span>{userInfo.employeeCode}</span></div>}
+              </div>
+              <div className="mt-auto pt-8">
+                <Link href="/profile" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-violet-700">Connect <ArrowUpRight size={16} /></Link>
+              </div>
+            </article>
+
+            <article className="hrms-command-card col-span-8 flex min-h-[245px] flex-col justify-between p-7">
+              <div className="flex items-center justify-between">
+                <div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-cyan-700">Direction & purpose</p><h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">Company Vision</h2></div>
+                <span className="rounded-2xl bg-cyan-50 p-3 text-cyan-700"><Target size={22} /></span>
+              </div>
+              <p className="max-w-3xl text-[15px] leading-8 text-slate-600">To build intelligent, reliable and human-centered technology that simplifies work, empowers people and helps businesses grow with confidence.</p>
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400"><Sparkles size={14} className="text-cyan-600" /> Innovation · People · Impact</div>
+            </article>
+
+            <article className="hrms-command-card col-span-4 min-h-[270px] p-7">
+              <div className="flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-violet-700">Milestones</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Key Achievements</h2></div><Award size={21} className="text-violet-600" /></div>
+              <div className="mt-7 space-y-5">
+                <div className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-violet-500 ring-4 ring-violet-50" /><div><p className="text-sm font-bold text-slate-800">Nexus HRMS V1</p><p className="mt-1 text-xs leading-5 text-slate-500">Building a unified people operations platform.</p></div></div>
+                <div className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-cyan-500 ring-4 ring-cyan-50" /><div><p className="text-sm font-bold text-slate-800">Predictive AI Models</p><p className="mt-1 text-xs leading-5 text-slate-500">Applying AI to turn data into useful decisions.</p></div></div>
+              </div>
+            </article>
+
+            <article className="hrms-command-card col-span-4 min-h-[270px] p-7">
+              <div className="flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-orange-700">What comes next</p><h2 className="mt-2 text-xl font-extrabold text-slate-900">Future Roadmap</h2></div><Rocket size={21} className="text-orange-600" /></div>
+              <div className="mt-7 space-y-5">
+                <div className="flex gap-3"><span className="rounded-xl bg-orange-50 px-2.5 py-1 text-[10px] font-extrabold text-orange-700">Q1 2027</span><div><p className="text-sm font-bold text-slate-800">Million Dollar ARR</p><p className="mt-1 text-xs leading-5 text-slate-500">Scale sustainable recurring revenue.</p></div></div>
+                <div className="flex gap-3"><span className="rounded-xl bg-violet-50 px-2.5 py-1 text-[10px] font-extrabold text-violet-700">Q2 2027</span><div><p className="text-sm font-bold text-slate-800">Global Expansion</p><p className="mt-1 text-xs leading-5 text-slate-500">Take products and services to new markets.</p></div></div>
+              </div>
+            </article>
+            <article className="hrms-command-card col-span-4 flex min-h-[125px] items-center justify-between gap-4 px-7 py-5">
+              <div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Your workspace</p><p className="mt-2 text-lg font-extrabold text-slate-900">People. Progress. Possibility.</p></div>
+              <Link href={isAdmin ? "/employees" : "/attendance"} className="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2.5 text-xs font-bold text-slate-700 transition hover:border-violet-200 hover:text-violet-700">{isAdmin ? "Employees" : "Attendance"} <ArrowUpRight size={14} /></Link>
+            </article>
+          </div>
+        </div>
+        <style jsx global>{`
+          .hrms-command-center { position: relative; isolation: isolate; background: linear-gradient(135deg,#f8fbff 0%,#f7f5ff 48%,#fffaf5 100%); font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+          .hrms-command-orb { position:absolute; z-index:-1; border-radius:9999px; filter:blur(2px); pointer-events:none; animation:hrms-orb-float 14s ease-in-out infinite alternate; }
+          .hrms-command-orb-one { width:380px;height:380px;top:-150px;right:8%;background:radial-gradient(circle,rgba(34,211,238,.17),transparent 68%); }
+          .hrms-command-orb-two { width:420px;height:420px;bottom:-180px;left:12%;background:radial-gradient(circle,rgba(139,92,246,.15),transparent 68%);animation-delay:-5s; }
+          .hrms-command-orb-three { width:300px;height:300px;top:36%;right:30%;background:radial-gradient(circle,rgba(251,146,60,.10),transparent 68%);animation-delay:-9s; }
+          .hrms-command-card { position:relative; overflow:hidden; border:1px solid rgba(255,255,255,.9); border-radius:28px; background:rgba(255,255,255,.76); box-shadow:0 18px 55px rgba(31,41,55,.055),inset 0 1px 0 rgba(255,255,255,.95); backdrop-filter:blur(22px); transition:transform .28s ease,box-shadow .28s ease,border-color .28s ease; }
+          .hrms-command-card:before { content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(135deg,rgba(255,255,255,.55),transparent 42%);opacity:.8; }
+          .hrms-command-card:hover { transform:translateY(-5px);border-color:rgba(196,181,253,.75);box-shadow:0 25px 65px rgba(31,41,55,.10); }
+          .hrms-command-card > * { position:relative; z-index:1; }
+          @keyframes hrms-orb-float { from { transform:translate3d(0,0,0) scale(1); } to { transform:translate3d(18px,-20px,0) scale(1.08); } }
+          @media (prefers-reduced-motion:reduce) { .hrms-command-orb,.hrms-command-card { animation:none;transition:none; } }
+        `}</style>
+      </section>
+      <main className="hrms-home min-h-screen px-4 py-5 sm:px-6 lg:px-8 lg:hidden">
         <div className="mx-auto max-w-[1440px]">
           <section className={`relative mb-6 overflow-hidden rounded-[28px] bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 px-5 py-6 text-white shadow-xl shadow-indigo-950/10 sm:px-8 sm:py-7 xl:min-h-[250px] ${role === "employee" ? "hrms-employee-hero" : ""}`}>
             <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full border-[40px] border-white/5" />
