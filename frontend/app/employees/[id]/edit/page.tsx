@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState, FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Crown, Gem } from "lucide-react";
 import AuthGuard from "../../../components/AuthGuard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -279,7 +279,7 @@ function EditEmployeeForm() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6">
+    <main className={`min-h-screen p-4 sm:p-6 ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "bg-amber-50/50" : "bg-violet-50/50" : "bg-slate-100"}`}>
       <div className="mx-auto max-w-5xl">
         <Link
           href={`/employees/${id}`}
@@ -289,7 +289,7 @@ function EditEmployeeForm() {
         </Link>
 
         <header className="mb-7">
-          <h1 className="text-3xl font-bold text-slate-900">Edit Employee</h1>
+          <h1 className={`flex items-center gap-2 text-3xl font-bold ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "text-amber-950" : "text-violet-950" : "text-slate-900"}`}>{isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? <Crown className="text-amber-500" /> : <Gem className="text-violet-500" /> : null}Edit Employee</h1>
           <p className="mt-2 text-slate-500">
             Update employee information and employment status.
           </p>
@@ -309,7 +309,7 @@ function EditEmployeeForm() {
 
         {!error || form.employeeCode ? (
           <form onSubmit={handleSubmit} className="space-y-6">
-            <section className="rounded-xl bg-white p-6 shadow-sm">
+            <section className={`rounded-xl border bg-white p-6 shadow-sm ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "border-amber-200 shadow-amber-100" : "border-violet-200 shadow-violet-100" : "border-transparent"}`}>
               <h2 className="mb-5 text-lg font-semibold text-slate-900">
                 Employee Information
               </h2>
@@ -450,6 +450,15 @@ function EditEmployeeForm() {
                   </select>
                 </div>
               </div>
+              {isFounderOrCoFounder && (
+                <div className={`mt-5 flex items-start gap-3 rounded-xl border p-4 ${selectedDesignationName.toLowerCase() === "founder" ? "border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-950" : "border-violet-300 bg-gradient-to-r from-violet-50 to-purple-50 text-violet-950"}`}>
+                  {selectedDesignationName.toLowerCase() === "founder" ? <Crown size={22} className="mt-0.5 shrink-0 text-amber-600" /> : <Gem size={22} className="mt-0.5 shrink-0 text-violet-600" />}
+                  <div>
+                    <p className="text-sm font-bold">{selectedDesignationName} · Executive Leadership</p>
+                    <p className="mt-1 text-xs opacity-80">Special executive profile styling is active. Reporting Manager is not required for this designation.</p>
+                  </div>
+                </div>
+              )}
             </section>
 
             <div className="flex flex-wrap justify-end gap-3">
