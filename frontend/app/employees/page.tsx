@@ -336,19 +336,19 @@ function EmployeeList() {
                 </article>
               ))}
             </div>
-            <div className="hidden overflow-x-auto sm:block">
-              <table className="hrms-employee-table w-full min-w-[1120px] text-left text-sm">
-                <thead className="bg-slate-50/90 text-[11px] uppercase tracking-wider text-slate-500">
+            <div className="hidden overflow-x-auto rounded-b-3xl sm:block">
+              <table className="hrms-employee-table w-full min-w-[1080px] text-left text-[13px] 2xl:min-w-full">
+                <thead className="bg-slate-50/95 text-[10px] uppercase tracking-[0.12em] text-slate-500">
                   <tr>
-                    <th className="px-5 py-4 font-bold">Employee</th>
-                    <th className="px-4 py-4 font-bold">Department</th>
-                    <th className="px-4 py-4 font-bold">Designation</th>
-                    <th className="px-4 py-4 font-bold">Reporting Manager</th>
-                    <th className="px-4 py-4 font-bold">Joining Date</th>
-                    <th className="px-4 py-4 font-bold">Employment</th>
-                    <th className="px-4 py-4 font-bold">Account Role</th>
-                    <th className="px-4 py-4 font-bold">Login Account</th>
-                    <th className="px-5 py-4 text-center font-bold">Actions</th>
+                    <th className="px-4 py-3.5 font-bold">Employee</th>
+                    <th className="px-3 py-3.5 font-bold">Department</th>
+                    <th className="px-3 py-3.5 font-bold">Designation</th>
+                    <th className="px-3 py-3.5 font-bold">Reporting Manager</th>
+                    <th className="px-3 py-3.5 font-bold">Joining Date</th>
+                    <th className="px-3 py-3.5 font-bold">Employment</th>
+                    <th className="px-3 py-3.5 font-bold">Account Role</th>
+                    <th className="px-3 py-3.5 font-bold">Login Account</th>
+                    <th className="px-4 py-3 text-center font-bold">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/90">
@@ -366,15 +366,15 @@ function EmployeeList() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-slate-600">{employee.department?.name || "-"}</td>
-                      <td className="px-4 py-4 text-slate-600">{employee.designation?.name || "-"}</td>
-                      <td className="px-4 py-4 text-slate-600">{employee.reportingManager ? `${employee.reportingManager.firstName} ${employee.reportingManager.lastName}` : <span className="text-slate-400">Not assigned</span>}</td>
-                      <td className="whitespace-nowrap px-4 py-4 text-slate-600">{formatDate(employee.joiningDate)}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-3 py-3 text-slate-600">{employee.department?.name || "-"}</td>
+                      <td className="px-3 py-3 text-slate-600">{employee.designation?.name || "-"}</td>
+                      <td className="px-3 py-3 text-slate-600">{employee.reportingManager ? `${employee.reportingManager.firstName} ${employee.reportingManager.lastName}` : <span className="text-slate-400">Not assigned</span>}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-600">{formatDate(employee.joiningDate)}</td>
+                      <td className="px-3 py-3">
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(employee.employmentStatus)}`}>{employee.employmentStatus}</span>
                       </td>
-                      <td className="px-4 py-4 font-medium capitalize text-slate-600">{employee.account?.role || "No account"}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-3 py-3 font-medium capitalize text-slate-600">{employee.account?.role || "No account"}</td>
+                      <td className="px-3 py-3">
                         {employee.account ? (
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${employee.account.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{employee.account.isActive ? "Active" : "Inactive"}</span>
                         ) : <span className="text-xs font-medium text-amber-600">Not linked</span>}
