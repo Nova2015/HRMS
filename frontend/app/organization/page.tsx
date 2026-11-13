@@ -54,7 +54,8 @@ function ScrollableList({ children }: { children: ReactNode }) {
         onScroll={revealArrows}
         onMouseEnter={revealArrows}
         onTouchStart={revealArrows}
-        className="h-[132px] overflow-y-auto overscroll-contain divide-y divide-slate-100 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ height: 180, maxHeight: 180, overflowY: "auto" }}
+        className="overscroll-contain divide-y divide-slate-100 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {children}
       </div>
@@ -280,7 +281,7 @@ function OrganizationManagement() {
             )}
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <section className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="mb-4 flex items-center gap-2.5">
               <div className="rounded-lg bg-purple-100 p-2"><Building2 size={18} className="text-purple-600" /></div>
               <div><h2 className="text-base font-bold text-slate-900">Designations</h2><p className="text-sm text-slate-500">{designations.length} total</p></div>
