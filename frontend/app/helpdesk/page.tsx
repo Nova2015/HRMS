@@ -214,12 +214,12 @@ function HelpdeskContent() {
         {error && <div role="alert" className="mb-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</div>}
         {message && <div role="status" className="mb-5 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800"><CheckCircle2 size={18} />{message}</div>}
 
-        <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
-            return <article key={stat.label} className="hrms-card hrms-enter rounded-2xl p-5" style={{ animationDelay: `${index * 70}ms` }}>
-              <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-500">{stat.label}</span><div className={`rounded-xl p-2.5 ${stat.tone}`}><Icon size={19} /></div></div>
-              <p className="mt-4 text-2xl font-bold tracking-tight text-slate-900">{loading ? "…" : stat.value}</p><p className="mt-1 text-xs text-slate-400">{stat.note}</p>
+            return <article key={stat.label} className="hrms-card hrms-enter rounded-2xl p-3.5 sm:p-5" style={{ animationDelay: `${index * 70}ms` }}>
+              <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-slate-500 sm:text-sm">{stat.label}</span><div className={`shrink-0 rounded-xl p-2 sm:p-2.5 ${stat.tone}`}><Icon size={17} /></div></div>
+              <p className="mt-3 text-xl font-bold tracking-tight text-slate-900 sm:mt-4 sm:text-2xl">{loading ? "…" : stat.value}</p><p className="mt-1 text-[11px] text-slate-400 sm:text-xs">{stat.note}</p>
             </article>;
           })}
         </section>
