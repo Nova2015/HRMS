@@ -220,18 +220,18 @@ function ShiftManagement() {
               </form>
             </section>
 
-            <section className="mb-6 rounded-xl bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-xl font-bold text-slate-900">Shift Definitions</h2>
+            <section className="mb-6 rounded-xl bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-bold text-slate-900">Shift Definitions</h2><p className="mt-1 text-sm text-slate-500">Manage working hours, grace periods and weekly offs.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{shifts.length} {shifts.length === 1 ? "shift" : "shifts"}</span></div>
               {loading ? <p className="py-6 text-center text-slate-500">Loading shifts...</p> : shifts.length === 0 ? <p className="py-6 text-center text-slate-500">No shifts created.</p> : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {shifts.map((shift) => (
-                    <article key={shift._id} className="rounded-lg border border-slate-200 p-4">
+                    <article key={shift._id} className="flex min-h-[245px] flex-col rounded-xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md xl:p-5">
                       <div className="flex items-start justify-between gap-2"><div><h3 className="font-bold text-slate-900">{shift.name}</h3><p className="text-xs text-slate-500">{shift.code}</p></div><span className={`rounded-full px-2 py-1 text-xs ${shift.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>{shift.isActive ? "Active" : "Inactive"}</span></div>
                       <p className="mt-3 flex items-center gap-2 text-lg font-semibold text-slate-800"><Clock3 size={18} /> {shift.startTime} – {shift.endTime}</p>
                       <p className="mt-1 text-sm text-slate-500">Grace period: {shift.gracePeriodMinutes} minutes</p>
                       <p className="mt-1 text-sm text-slate-500">Weekly off: {(shift.weeklyOffDays || []).length ? shift.weeklyOffDays.map((day) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day]).join(", ") : "Not configured"}</p>
                       <p className="mt-1 text-sm text-slate-500">{shift.description || "No description"}</p>
-                      <div className="mt-4 flex gap-2">
+                      <div className="mt-auto flex gap-2 border-t border-slate-100 pt-4">
                         <button type="button" onClick={() => { setEditId(shift._id); setForm({ name: shift.name, code: shift.code, startTime: shift.startTime, endTime: shift.endTime, gracePeriodMinutes: String(shift.gracePeriodMinutes), weeklyOffDays: shift.weeklyOffDays || [], description: shift.description || "" }); }} className="rounded-lg border border-slate-300 p-2 text-slate-600" title="Edit"><Pencil size={15} /></button>
                         <button type="button" disabled={saving} onClick={() => toggleShift(shift)} className="rounded-lg border border-slate-300 p-2 text-slate-600 disabled:opacity-50" title="Activate/deactivate"><Power size={15} /></button>
                         <button type="button" disabled={saving} onClick={() => deleteShift(shift)} className="rounded-lg border border-slate-300 p-2 text-red-600 disabled:opacity-50" title="Delete"><Trash2 size={15} /></button>
@@ -242,14 +242,14 @@ function ShiftManagement() {
               )}
             </section>
 
-            <section className="rounded-xl bg-white p-6 shadow-sm">
-              <h2 className="mb-2 text-xl font-bold text-slate-900">Employee Shift Assignment</h2>
-              <p className="mb-4 text-sm text-slate-500">Each employee can be assigned one active shift. Save each assignment separately.</p>
+            <section className="rounded-xl bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-bold text-slate-900">Employee Shift Assignment</h2>
+              <p className="mt-1 text-sm text-slate-500">Each employee can be assigned one active shift. Save each assignment separately.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{employees.filter((e) => e.employmentStatus === "active").length} active employees</span></div>
               {loading ? <p className="py-6 text-center text-slate-500">Loading employees...</p> : employees.length === 0 ? <p className="py-6 text-center text-slate-500">No employees found.</p> : (
-                <div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm">
-                  <thead className="border-b bg-slate-50 text-slate-600"><tr><th className="px-4 py-3">Employee</th><th className="px-4 py-3">Current Shift</th><th className="px-4 py-3">Assign Shift</th><th className="px-4 py-3">Action</th></tr></thead>
+                <div className="overflow-x-auto rounded-xl border border-slate-200"><table className="w-full min-w-[650px] text-left text-sm">
+                  <thead className="sticky top-0 border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3 font-semibold">Employee</th><th className="px-4 py-3 font-semibold">Current Shift</th><th className="px-4 py-3 font-semibold">Assign Shift</th><th className="px-4 py-3 font-semibold">Action</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">{employees.filter((e) => e.employmentStatus === "active").map((employee) => (
-                    <tr key={employee._id}>
+                    <tr key={employee._id} className="transition-colors hover:bg-slate-50/80">
                       <td className="px-4 py-3"><p className="font-semibold text-slate-900">{employee.firstName} {employee.lastName}</p><p className="text-xs text-slate-500">{employee.employeeCode}</p></td>
                       <td className="px-4 py-3">{employee.shift?.name || "Not assigned"}</td>
                       <td className="px-4 py-3"><select value={assignments[employee._id] || ""} onChange={(e) => setAssignments({ ...assignments, [employee._id]: e.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2"><option value="">No shift</option>{shifts.filter((s) => s.isActive).map((s) => <option key={s._id} value={s._id}>{s.name} ({s.startTime}–{s.endTime})</option>)}</select></td>
