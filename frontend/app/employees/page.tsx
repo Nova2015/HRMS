@@ -291,6 +291,7 @@ function EmployeeList() {
               <p className="mt-1 text-sm text-slate-400">Try changing your search or filter criteria.</p>
             </div>
           ) : (
+            <>
             <div className="space-y-3 p-4 sm:hidden">
               {filteredEmployees.map((employee) => (
                 <article key={employee._id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -393,6 +394,7 @@ function EmployeeList() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </section>
         <p className="pb-2 text-center text-xs text-slate-400">Employee records are managed securely within your HRMS workspace.</p>
