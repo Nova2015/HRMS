@@ -116,9 +116,6 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
             <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.2em] text-indigo-500">Human resources</p><h1 className="truncate text-[16px] font-extrabold tracking-tight text-slate-800">{pageTitle}</h1></div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/leaves" className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-indigo-100 bg-indigo-50 px-2.5 text-xs font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-100 lg:hidden" aria-label="Open Leave Management">
-              <CalendarDays size={15} /><span>Leave</span>
-            </Link>
             <span className="hidden rounded-full border border-emerald-100 bg-emerald-50/80 px-3 py-1.5 text-[10px] font-bold text-emerald-700 sm:inline-flex">Workspace active</span>
             <Link href="/profile" title="Profile" aria-label="Profile" className="flex h-9 w-9 items-center justify-center rounded-xl border border-white bg-white/85 text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:text-indigo-600"><UserCircle2 size={18} /></Link>
             {showLogout && <button type="button" onClick={onLogout} title="Logout" aria-label="Logout" className="flex h-9 w-9 items-center justify-center rounded-xl border border-white bg-white/85 text-slate-500 shadow-sm transition hover:-translate-y-0.5 hover:bg-rose-50 hover:text-rose-600"><LogOut size={17} /></button>}
