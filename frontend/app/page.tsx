@@ -191,10 +191,6 @@ export default function Home() {
                 <div className="flex gap-3"><span className="rounded-xl bg-violet-50 px-2.5 py-1 text-[10px] font-extrabold text-violet-700">Q2 2027</span><div><p className="text-sm font-bold text-slate-800">Global Expansion</p><p className="mt-1 text-xs leading-5 text-slate-500">Take products and services to new markets.</p></div></div>
               </div>
             </article>
-            <article className="hrms-command-card col-span-4 flex min-h-[125px] items-center justify-between gap-4 px-7 py-5">
-              <div><p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Your workspace</p><p className="mt-2 text-lg font-extrabold text-slate-900">People. Progress. Possibility.</p></div>
-              <Link href={isAdmin ? "/employees" : "/attendance"} className="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2.5 text-xs font-bold text-slate-700 transition hover:border-violet-200 hover:text-violet-700">{isAdmin ? "Employees" : "Attendance"} <ArrowUpRight size={14} /></Link>
-            </article>
           </div>
         </div>
         <style jsx global>{`
