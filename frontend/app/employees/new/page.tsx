@@ -253,7 +253,7 @@ function AddEmployeeForm() {
   const labelClass = "mb-1.5 block text-sm font-medium text-slate-700";
 
   return (
-    <main className={`min-h-screen p-4 sm:p-6 ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "bg-amber-50/50" : "bg-violet-50/50" : "bg-slate-100"}`}>
+    <main className={`min-h-screen p-4 sm:p-6 ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "bg-slate-100 sm:bg-amber-50/50" : "bg-slate-100 sm:bg-violet-50/50" : "bg-slate-100"}`}>
       <div className="mx-auto max-w-5xl">
         <header className="mb-7">
           <Link
@@ -264,8 +264,8 @@ function AddEmployeeForm() {
             Back to Employees
           </Link>
 
-          <h1 className={`flex items-center gap-2 text-3xl font-bold ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "text-amber-950" : "text-violet-950" : "text-slate-900"}`}>
-            {isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? <Crown className="text-amber-500" /> : <Gem className="text-violet-500" /> : null}
+          <h1 className={`flex items-center gap-2 text-3xl font-bold ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "text-slate-900 sm:text-amber-950" : "text-slate-900 sm:text-violet-950" : "text-slate-900"}`}>
+            {isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? <Crown className="hidden text-amber-500 sm:block" /> : <Gem className="hidden text-violet-500 sm:block" /> : null}
             Add Employee
           </h1>
 
@@ -287,7 +287,7 @@ function AddEmployeeForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <section className={`rounded-xl border bg-white p-6 shadow-sm ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "border-amber-200 shadow-amber-100" : "border-violet-200 shadow-violet-100" : "border-transparent"}`}>
+          <section className={`rounded-xl border bg-white p-6 shadow-sm ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "border-transparent sm:border-amber-200 sm:shadow-amber-100" : "border-transparent sm:border-violet-200 sm:shadow-violet-100" : "border-transparent"}`}>
             <h2 className="mb-5 text-lg font-semibold text-slate-900">
               Personal & Employment Information
             </h2>
