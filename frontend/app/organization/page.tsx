@@ -33,9 +33,11 @@ function ScrollableList({ children }: { children: ReactNode }) {
     if (!element || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(updateOverflow);
     observer.observe(element);
-    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    const mutationObserver = new MutationObserver(updateOverflow);
+    mutationObserver.observe(element, { childList: true, subtree: true, characterData: true });
     return () => {
       observer.disconnect();
+      mutationObserver.disconnect();
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
   }, [children, updateOverflow]);
