@@ -283,7 +283,7 @@ function EditEmployeeForm() {
   }
 
   return (
-    <main className={`min-h-screen p-4 sm:p-6 ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "bg-amber-50/50" : "bg-violet-50/50" : "bg-slate-100"}`}>
+    <main className={`min-h-screen p-4 sm:p-6 ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "bg-slate-100 sm:bg-amber-50/50" : "bg-slate-100 sm:bg-violet-50/50" : "bg-slate-100"}`}>
       <div className="mx-auto max-w-5xl">
         <Link
           href={`/employees/${id}`}
@@ -293,7 +293,7 @@ function EditEmployeeForm() {
         </Link>
 
         <header className="mb-7">
-          <h1 className={`flex items-center gap-2 text-3xl font-bold ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "text-amber-950" : "text-violet-950" : "text-slate-900"}`}>{isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? <Crown className="text-amber-500" /> : <Gem className="text-violet-500" /> : null}Edit Employee</h1>
+          <h1 className={`flex items-center gap-2 text-3xl font-bold ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "text-slate-900 sm:text-amber-950" : "text-slate-900 sm:text-violet-950" : "text-slate-900"}`}>{isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? <Crown className="hidden text-amber-500 sm:block" /> : <Gem className="hidden text-violet-500 sm:block" /> : null}Edit Employee</h1>
           <p className="mt-2 text-slate-500">
             Update employee information and employment status.
           </p>
@@ -313,7 +313,7 @@ function EditEmployeeForm() {
 
         {!error || form.employeeCode ? (
           <form onSubmit={handleSubmit} className="space-y-6">
-            <section className={`rounded-xl border bg-white p-6 shadow-sm ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "border-amber-200 shadow-amber-100" : "border-violet-200 shadow-violet-100" : "border-transparent"}`}>
+            <section className={`rounded-xl border bg-white p-6 shadow-sm ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "border-transparent sm:border-amber-200 sm:shadow-amber-100" : "border-transparent sm:border-violet-200 sm:shadow-violet-100" : "border-transparent"}`}>
               <h2 className="mb-5 text-lg font-semibold text-slate-900">
                 Employee Information
               </h2>
