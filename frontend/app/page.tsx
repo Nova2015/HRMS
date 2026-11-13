@@ -2,150 +2,12 @@
 
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
-  Users, Clock3, CalendarDays, Wallet, ArrowUpRight, Building2, ShieldCheck, Award,
-  CalendarCheck, BriefcaseBusiness, ChevronRight,
-  UserPlus, ClipboardList, FileText, ReceiptText, Activity, BarChart3, CheckCircle2, Headset, UserCircle2,
+  Clock3, CalendarDays, Wallet, ArrowUpRight, ShieldCheck, Activity, BarChart3, CheckCircle2,
 } from "lucide-react";
 import AuthGuard from "./components/AuthGuard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-
-const modules = [
-  {
-    title: "Update approvals",
-    description: "Review and decide employee data update proposals from Gmail and documents.",
-    href: "/employee-update-approvals",
-    action: "Review update requests",
-    icon: ShieldCheck,
-    iconStyle: "bg-emerald-50 text-emerald-700",
-    accent: "group-hover:border-emerald-200",
-  },
-  {
-    title: "Employee Documents",
-    description: "Send documents to HR or review employee submissions.",
-    href: "/documents",
-    action: "Open documents",
-    icon: FileText,
-    iconStyle: "bg-orange-50 text-orange-700",
-    accent: "group-hover:border-orange-200",
-  },
-  {
-    title: "Employees",
-    description: "Employee profiles, records and account access.",
-    href: "/employees",
-    action: "Manage employees",
-    icon: Users,
-    iconStyle: "bg-blue-50 text-blue-700",
-    accent: "group-hover:border-blue-200",
-  },
-  {
-    title: "Attendance",
-    description: "Daily attendance, check-in and attendance register.",
-    href: "/attendance",
-    action: "View attendance",
-    icon: Clock3,
-    iconStyle: "bg-violet-50 text-violet-700",
-    accent: "group-hover:border-violet-200",
-  },
-  {
-    title: "Leave Management",
-    description: "Review leave requests and manage employee leave.",
-    href: "/leaves",
-    action: "Manage leaves",
-    icon: CalendarDays,
-    iconStyle: "bg-amber-50 text-amber-700",
-    accent: "group-hover:border-amber-200",
-  },
-  {
-    title: "Payroll",
-    description: "Maintain salary structures and process monthly payroll.",
-    href: "/payroll",
-    action: "Open payroll",
-    icon: Wallet,
-    iconStyle: "bg-emerald-50 text-emerald-700",
-    accent: "group-hover:border-emerald-200",
-  },
-  {
-    title: "Expenses",
-    description: "Submit expense claims, review approvals and track reimbursements.",
-    href: "/expenses",
-    action: "Manage expenses",
-    icon: ReceiptText,
-    iconStyle: "bg-violet-50 text-violet-700",
-    accent: "group-hover:border-violet-200",
-  },
-  {
-    title: "IT support",
-    description: "Submit IT support requests and track ticket progress.",
-    href: "/helpdesk",
-    action: "Open helpdesk",
-    icon: Headset,
-    iconStyle: "bg-indigo-50 text-indigo-700",
-    accent: "group-hover:border-indigo-200",
-  },
-  {
-    title: "Shift Management",
-    description: "Configure work timings and employee shift assignments.",
-    href: "/shifts",
-    action: "Manage shifts",
-    icon: CalendarCheck,
-    iconStyle: "bg-cyan-50 text-cyan-700",
-    accent: "group-hover:border-cyan-200",
-  },
-  {
-    title: "Organization",
-    description: "Manage company departments and designations.",
-    href: "/organization",
-    action: "Manage organization",
-    icon: Building2,
-    iconStyle: "bg-indigo-50 text-indigo-700",
-    accent: "group-hover:border-indigo-200",
-  },
-  {
-    title: "Performance",
-    description: "Employee self-reviews, manager feedback and performance ratings.",
-    href: "/performance",
-    action: "Open performance reviews",
-    icon: Award,
-    iconStyle: "bg-amber-50 text-amber-700",
-    accent: "group-hover:border-amber-200",
-  },
-  {
-    title: "Reports & Analytics",
-    description: "Company-wide attendance, leave, payroll and performance insights.",
-    href: "/reports",
-    action: "View reports",
-    icon: BarChart3,
-    iconStyle: "bg-indigo-50 text-indigo-700",
-    accent: "group-hover:border-indigo-200",
-  },
-  {
-    title: "Audit Logs",
-    description: "Trace successful account, employee and HR workflow changes.",
-    href: "/audit-logs",
-    action: "View audit activity",
-    icon: ShieldCheck,
-    iconStyle: "bg-slate-100 text-slate-700",
-    accent: "group-hover:border-slate-300",
-  },
-  {
-    title: "Recruitment",
-    description: "Manage job openings, candidate selection and employee onboarding.",
-    href: "/recruitment",
-    action: "Manage recruitment",
-    icon: UserPlus,
-    iconStyle: "bg-fuchsia-50 text-fuchsia-700",
-    accent: "group-hover:border-fuchsia-200",
-  },
-];
-
-const quickActions = [
-  { title: "Add employee", href: "/employees/new", icon: UserPlus },
-  { title: "Attendance register", href: "/attendance", icon: ClipboardList },
-  { title: "Payroll processing", href: "/payroll", icon: Wallet },
-];
 
 type DashboardEmployee = {
   employeeCode: string;
@@ -258,17 +120,6 @@ export default function Home() {
   }, [role]);
 
   const isAdmin = role === "admin" || role === "hr";
-  const isManager = role === "manager";
-  const visibleModules = isAdmin
-    ? modules
-    : modules.filter((item) => ["Employee Documents", "Attendance", "Leave Management", "Payroll", "Expenses", "IT support", "Performance"].includes(item.title));
-  const visibleQuickActions = isAdmin
-    ? quickActions
-    : [
-        { title: "Apply for leave", href: "/leaves", icon: CalendarDays },
-        { title: "My attendance", href: "/attendance", icon: Clock3 },
-        { title: "My payslips", href: "/payroll", icon: Wallet },
-      ];
   return (
     <AuthGuard>
       <main className="hrms-home min-h-screen px-4 py-5 sm:px-6 lg:px-8">
@@ -391,57 +242,6 @@ export default function Home() {
               </div>
             </section>
           )}
-
-          <section className="mb-7">
-            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-              <div><h2 className="mt-1 text-lg font-extrabold tracking-tight text-slate-900">HR modules</h2></div>
-              <span className="text-xs font-medium text-slate-400">{visibleModules.length} modules available</span>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {visibleModules.map((item, index) => {
-                const Icon = item.icon;
-                const compactTitle = ({
-                  "Update approvals": "Approvals",
-                  "Employee Documents": "Documents",
-                  "Leave Management": "Leave",
-                  "Shift Management": "Shifts",
-                  "IT support": "IT Support",
-                } as Record<string, string>)[item.title] || item.title;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    style={{ animationDelay: `${index * 55}ms` }}
-                    className={`group hrms-module-card flex min-h-[124px] items-center gap-3.5 rounded-2xl p-4 ${item.accent}`}
-                  >
-                    <div className={`hrms-module-icon shrink-0 rounded-2xl p-3.5 ${item.iconStyle}`}>
-                      <Icon size={23} strokeWidth={1.9} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-sm font-extrabold tracking-tight text-slate-900">{compactTitle}</h3>
-                      <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">{item.description}</p>
-                      <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700">
-                        Open <ChevronRight size={13} className="transition-transform duration-300 group-hover:translate-x-1" />
-                      </span>
-                    </div>
-                    <span className="hrms-module-arrow shrink-0 rounded-xl p-2 text-slate-300 transition-colors group-hover:text-blue-700">
-                      <ArrowUpRight size={19} />
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="hrms-premium-card hrms-dashboard-3d-card rounded-2xl p-5 sm:p-6">
-            <div className="mb-4 flex items-center gap-3"><div className="rounded-xl bg-indigo-50 p-2.5 text-indigo-600"><BriefcaseBusiness size={19} /></div><div><h2 className="text-sm font-extrabold text-slate-900">Quick actions</h2><p className="mt-0.5 text-[11px] text-slate-500">Shortcuts to frequently used tasks</p></div></div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {visibleQuickActions.map((item) => {
-                const Icon = item.icon;
-                return <Link key={item.href} href={item.href} className="hrms-dashboard-3d-card flex items-center justify-between rounded-xl border border-slate-200/80 bg-white/80 px-4 py-3.5 text-xs font-bold text-slate-700 hover:border-blue-200 hover:bg-blue-50/60 hover:text-blue-700"><span className="flex items-center gap-3"><Icon size={18} className="text-blue-600" />{item.title}</span><ArrowUpRight size={16} className="text-slate-400" /></Link>;
-              })}
-            </div>
-          </section>
 
           <footer className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-white/80 py-4 text-[10px] font-medium text-slate-400">
             <span>HRMS</span>
