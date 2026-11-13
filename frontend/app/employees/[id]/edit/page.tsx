@@ -181,12 +181,23 @@ function EditEmployeeForm() {
 
     return departmentId === form.department;
   });
+  const selectedDesignationName =
+    designations.find((item) => item._id === form.designation)?.name || "";
+  const isFounderOrCoFounder = /^(co[\s-]?founder|founder)$/i.test(
+    selectedDesignationName.trim()
+  );
 
   const updateField = (field: string, value: string) => {
     setForm((previous) => ({
       ...previous,
       [field]: value,
-      ...(field === "department" ? { designation: "" } : {}),
+      ...(field === "department" ? { designation: "", reportingManager: "" } : {}),
+      ...(field === "designation" &&
+      /^(co[\s-]?founder|founder)$/i.test(
+        designations.find((item) => item._id === value)?.name?.trim() || ""
+      )
+        ? { reportingManager: "" }
+        : {}),
     }));
   };
 
@@ -225,7 +236,7 @@ function EditEmployeeForm() {
           designation: form.designation,
           joiningDate: form.joiningDate,
           employmentStatus: form.employmentStatus,
-          reportingManager: form.reportingManager || null,
+          reportingManager: isFounderOrCoFounder ? null : form.reportingManager || null,
         }),
       });
 
@@ -403,6 +414,7 @@ function EditEmployeeForm() {
                   </select>
                 </div>
 
+                {!isFounderOrCoFounder && (
                 <div>
                   <label className={labelClass}>Reporting Manager</label>
                   <select
@@ -436,6 +448,7 @@ function EditEmployeeForm() {
                     <option value="terminated">Terminated</option>
                   </select>
                 </div>
+                )}
               </div>
             </section>
 
