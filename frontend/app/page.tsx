@@ -44,7 +44,9 @@ export default function Home() {
   const [employeeProfile, setEmployeeProfile] = useState<DashboardEmployee | null>(null);
   const [employeeProfileLoading, setEmployeeProfileLoading] = useState(false);
   const [userInfo, setUserInfo] = useState<{ name?: string; email?: string; employeeCode?: string; role?: string } | null>(null);
-  const [photoSaving, setPhotoSaving] = useState(false);\n  const [photoError, setPhotoError] = useState("");\n  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoSaving, setPhotoSaving] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("hrms_user");
@@ -198,7 +200,7 @@ export default function Home() {
               </div>
               <div className="mt-9 flex flex-wrap items-end gap-4">
                 <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-[30px] bg-gradient-to-br from-cyan-100 via-violet-100 to-orange-100 text-4xl font-black text-slate-700 shadow-inner">
-                  {employeeProfile?.profilePhoto ? <img src={employeeProfile.profilePhoto} alt="Your profile" className="h-full w-full object-cover" /> : (userInfo?.name || "P").trim().split(/\\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "P"}
+                  {employeeProfile?.profilePhoto ? <img src={employeeProfile.profilePhoto} alt="Your profile" className="h-full w-full object-cover" /> : (userInfo?.name || "P").trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "P"}
                 </div>
                 <div className="pb-1">
                   <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleProfilePhotoChange} />
