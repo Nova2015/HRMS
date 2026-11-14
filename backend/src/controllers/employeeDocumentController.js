@@ -3,6 +3,7 @@ import path from "node:path";
 import mongoose from "mongoose";
 import EmployeeDocument from "../models/EmployeeDocument.js";
 import Employee from "../models/Employee.js";
+import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
 import { DOCUMENT_STORAGE_DIR } from "../middleware/documentUpload.js";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -135,6 +136,29 @@ export const issueDocumentToEmployee = async (req, res) => {
         await removeUploadedFile(file?.path);
         console.error("Issue employee document error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to send document to employee" });
+    }
+};
+
+export const generateAppointmentLetter = async (req, res) => {
+    try {
+        const { employeeId } = req.params;
+        if (!mongoose.isValidObjectId(employeeId)) {
+            return res.status(400).json({ success: false, message: "Invalid employee ID" });
+        }
+        const employee = await Employee.findOne({ _id: employeeId, employmentStatus: "active" })
+            .populate("department", "name")
+            .populate("designation", "name")
+            .populate("shift", "name")
+            .populate("reportingManager", "employeeCode firstName lastName");
+        if (!employee) {
+            return res.status(404).json({ success: false, message: "Active employee not found" });
+        }
+        const document = await generateAppointmentLetterDocument(employee, req.user.userId);
+        const data = await populateDocument(EmployeeDocument.findById(document._id));
+        return res.status(201).json({ success: true, message: "Appointment letter generated and issued successfully", data });
+    } catch (error) {
+        console.error("Generate appointment letter error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to generate appointment letter" });
     }
 };
 
