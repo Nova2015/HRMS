@@ -14,36 +14,106 @@ const money = (value) => "INR " + new Intl.NumberFormat("en-IN", {
 
 const safeText = (value) => String(value ?? "-").replace(/[\\r\\n]+/g, " ").slice(0, 500);
 const masked = (value) => value ? "*".repeat(Math.max(0, String(value).length - 4)) + String(value).slice(-4) : "-";
+const FONT_PATH = path.resolve(process.cwd(), "assets", "fonts", "NotoSansDevanagari[wdth,wght].ttf");
+const LOGO_PATH = path.resolve(process.cwd(), "assets", "company-logo.jpg");
 
 const writePdf = async (filePath, title, employee, sections, documentType) => {
     await fs.mkdir(DOCUMENT_STORAGE_DIR, { recursive: true });
+    await fs.access(FONT_PATH);
+    let logoAvailable = false;
+    try { await fs.access(LOGO_PATH); logoAvailable = true; } catch { /* Logo is optional. */ }
     await new Promise((resolve, reject) => {
         const output = createWriteStream(filePath, { flags: "wx" });
         const pdf = new PDFDocument({ size: "A4", margin: 38, bufferPages: true, info: { Title: title, Author: "HRMS" } });
+        pdf.registerFont("HRMS", FONT_PATH);
+        pdf.registerFont("HRMS-Bold", FONT_PATH);
         output.on("finish", resolve);
         output.on("error", reject);
         pdf.on("error", reject);
         pdf.pipe(output);
 
         if (documentType !== "payslip") {
-            pdf.font("Helvetica-Bold").fontSize(18).fillColor("#17365D").text("HRMS", { align: "center" });
-            pdf.moveDown(0.3);
-            pdf.fontSize(15).text(title, { align: "center" });
-            pdf.moveDown();
-            pdf.font("Helvetica").fontSize(10).fillColor("#222222");
-            pdf.text("Employee: " + safeText(employee.firstName + " " + employee.lastName));
-            pdf.text("Employee Code: " + safeText(employee.employeeCode));
-            pdf.text("Email: " + safeText(employee.email));
-            pdf.moveDown();
+            const pageWidth = pdf.page.width;
+            const pageHeight = pdf.page.height;
+            const left = 48;
+            const right = pageWidth - 48;
+            const width = right - left;
+            const navy = "#142D4E";
+            const blue = "#2563EB";
+            const line = "#DCE4EE";
+            const muted = "#64748B";
+            const ink = "#1E293B";
+            const companyName = "PROTOVERGE LLP";
+            const employeeName = safeText([employee.firstName, employee.lastName].filter(Boolean).join(" "));
+            const drawLetterHeader = () => {
+                pdf.rect(0, 0, pageWidth, 92).fill(navy);
+                if (logoAvailable) {
+                    try { pdf.image(LOGO_PATH, left, 18, { fit: [54, 54] }); } catch { /* Keep text header if logo cannot be read. */ }
+                }
+                pdf.font("HRMS-Bold").fontSize(18).fillColor("#FFFFFF").text(companyName, left + (logoAvailable ? 68 : 0), 28, { width: 280 });
+                pdf.font("HRMS").fontSize(8).fillColor("#DCE8F7").text("Human Resources", left + (logoAvailable ? 68 : 0), 55);
+                pdf.rect(0, 88, pageWidth, 4).fill(blue);
+                pdf.y = 112;
+            };
+            const ensureLetterSpace = (height) => {
+                if (pdf.y + height > pageHeight - 66) {
+                    pdf.addPage();
+                    drawLetterHeader();
+                }
+            };
+            drawLetterHeader();
+            pdf.font("HRMS-Bold").fontSize(17).fillColor(navy).text(title, left, pdf.y, { width, align: "center" });
+            pdf.moveDown(0.45);
+            pdf.font("HRMS").fontSize(9).fillColor(muted).text("Date: " + new Date().toLocaleDateString("en-IN"), { align: "right" });
+            pdf.moveDown(0.8);
+            pdf.font("HRMS-Bold").fontSize(10).fillColor(ink).text("Employee Details");
+            pdf.moveDown(0.35);
+            const identityRows = [
+                ["Employee Name", employeeName],
+                ["Employee Code", safeText(employee.employeeCode)],
+                ["Email Address", safeText(employee.email)],
+                ["Department", safeText(employee.department?.name)],
+                ["Designation", safeText(employee.designation?.name)],
+                ["Date of Joining", employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString("en-IN", { timeZone: "UTC" }) : "-"]
+            ];
+            const drawRows = (rows) => {
+                for (const [label, value] of rows) {
+                    const labelX = left + 10;
+                    const valueX = left + 155;
+                    const valueWidth = width - 170;
+                    const valueHeight = pdf.heightOfString(safeText(value), { width: valueWidth, font: "HRMS", fontSize: 9, lineGap: 2 });
+                    const rowHeight = Math.max(25, valueHeight + 12);
+                    ensureLetterSpace(rowHeight + 2);
+                    const top = pdf.y;
+                    pdf.rect(left, top, width, rowHeight).fill("#F8FAFC");
+                    pdf.moveTo(left, top + rowHeight).lineTo(right, top + rowHeight).strokeColor(line).lineWidth(0.5).stroke();
+                    pdf.font("HRMS-Bold").fontSize(8.5).fillColor(muted).text(safeText(label), labelX, top + 8, { width: 135 });
+                    pdf.font("HRMS").fontSize(9).fillColor(ink).text(safeText(value), valueX, top + 7, { width: valueWidth, lineGap: 2 });
+                    pdf.y = top + rowHeight + 1;
+                }
+            };
+            drawRows(identityRows);
+            pdf.moveDown(0.8);
             for (const section of sections) {
-                pdf.font("Helvetica-Bold").fontSize(11).fillColor("#17365D").text(safeText(section.heading));
-                pdf.moveDown(0.25);
-                pdf.font("Helvetica").fontSize(10).fillColor("#222222");
-                for (const [label, value] of section.rows) pdf.text(safeText(label) + ": " + safeText(value));
-                pdf.moveDown(0.7);
+                ensureLetterSpace(42);
+                pdf.font("HRMS-Bold").fontSize(11).fillColor(navy).text(safeText(section.heading), left, pdf.y, { width });
+                pdf.moveDown(0.35);
+                drawRows(section.rows || []);
+                pdf.moveDown(0.6);
             }
-            pdf.moveDown();
-            pdf.fontSize(8).fillColor("gray").text("This is a system-generated document. Please contact HR for corrections.", { align: "center" });
+            ensureLetterSpace(110);
+            pdf.moveDown(1.2);
+            pdf.font("HRMS").fontSize(9).fillColor(ink).text("For " + companyName, left, pdf.y, { width: width / 2 });
+            pdf.moveDown(3);
+            pdf.font("HRMS-Bold").fontSize(9).text("Authorized Signatory", left, pdf.y, { width: width / 2 });
+            pdf.font("HRMS").fontSize(8).fillColor(muted).text("Employee Acknowledgement", right - 170, pdf.y - 13, { width: 170, align: "right" });
+            const pageRange = pdf.bufferedPageRange();
+            for (let page = pageRange.start; page < pageRange.start + pageRange.count; page += 1) {
+                pdf.switchToPage(page);
+                pdf.font("HRMS").fontSize(7).fillColor(muted)
+                    .text("CONFIDENTIAL  |  " + companyName, left, pageHeight - 30, { width: width / 2, lineBreak: false });
+                pdf.text("Page " + (page + 1) + " of " + pageRange.count, right - 90, pageHeight - 30, { width: 90, align: "right", lineBreak: false });
+            }
             pdf.end();
             return;
         }
@@ -82,25 +152,26 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
         const drawPageHeader = (compact = false) => {
             if (compact) {
                 pdf.rect(0, 0, pageWidth, 48).fill(colors.navy);
-                pdf.font("Helvetica-Bold").fontSize(9).fillColor(colors.white).text("COMPANY NAME", left, 17);
-                pdf.font("Helvetica").fontSize(8).fillColor("#DCE8F7").text("PAYSLIP  |  " + period, right - 180, 18, { width: 180, align: "right" });
+                pdf.font("HRMS-Bold").fontSize(9).fillColor(colors.white).text("PROTOVERGE LLP", left, 17);
+                pdf.font("HRMS").fontSize(8).fillColor("#DCE8F7").text("PAYSLIP  |  " + period, right - 180, 18, { width: 180, align: "right" });
                 y = 62;
                 return;
             }
             pdf.rect(0, 0, pageWidth, 116).fill(colors.navy);
             pdf.rect(0, 110, pageWidth, 6).fill(colors.blue);
-            pdf.roundedRect(left, 27, 55, 55, 8).lineWidth(1.2).strokeColor("#8FB5E8").stroke();
-            pdf.font("Helvetica-Bold").fontSize(8).fillColor("#DCE8F7").text("LOGO", left + 8, 49, { width: 39, align: "center" });
-            pdf.font("Helvetica-Bold").fontSize(17).fillColor(colors.white).text("COMPANY NAME", left + 70, 30, { width: 285 });
-            pdf.font("Helvetica").fontSize(8).fillColor("#DCE8F7").text("Company address  |  Phone  |  Email", left + 70, 55, { width: 300 });
-            pdf.font("Helvetica-Bold").fontSize(21).fillColor(colors.white).text("PAYSLIP", right - 145, 31, { width: 145, align: "right" });
-            pdf.font("Helvetica").fontSize(9).fillColor("#DCE8F7").text(period, right - 145, 61, { width: 145, align: "right" });
+            if (logoAvailable) {
+                try { pdf.image(LOGO_PATH, left, 27, { fit: [55, 55] }); } catch { /* Continue with company name. */ }
+            }
+            pdf.font("HRMS-Bold").fontSize(17).fillColor(colors.white).text("PROTOVERGE LLP", left + (logoAvailable ? 70 : 0), 30, { width: 285 });
+            pdf.font("HRMS").fontSize(8).fillColor("#DCE8F7").text("Human Resources", left + (logoAvailable ? 70 : 0), 55, { width: 300 });
+            pdf.font("HRMS-Bold").fontSize(21).fillColor(colors.white).text("PAYSLIP", right - 145, 31, { width: 145, align: "right" });
+            pdf.font("HRMS").fontSize(9).fillColor("#DCE8F7").text(period, right - 145, 61, { width: 145, align: "right" });
             y = 132;
         };
 
         const drawSectionTitle = (label, x, top, w, accent = colors.blue) => {
             pdf.roundedRect(x, top, w, 22, 4).fill(accent);
-            pdf.font("Helvetica-Bold").fontSize(8).fillColor(colors.white).text(label.toUpperCase(), x + 10, top + 7, { width: w - 20 });
+            pdf.font("HRMS-Bold").fontSize(8).fillColor(colors.white).text(label.toUpperCase(), x + 10, top + 7, { width: w - 20 });
         };
 
         const drawTable = (label, tableRows, x, top, w, accent) => {
@@ -117,8 +188,8 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
                 }
                 if (isTotal) pdf.rect(x, cursor, w, rowH).fill("#EAF0F7");
                 else if (index % 2 === 0) pdf.rect(x, cursor, w, rowH).fill("#F8FAFC");
-                pdf.font(isTotal ? "Helvetica-Bold" : "Helvetica").fontSize(8.5).fillColor(colors.ink).text(safeText(name), x + 8, cursor + 7, { width: labelW - 12 });
-                pdf.font(isTotal ? "Helvetica-Bold" : "Helvetica").fontSize(8.5).fillColor(colors.ink).text(safeText(amount), x + labelW, cursor + 7, { width: w - labelW - 8, align: "right" });
+                pdf.font(isTotal ? "HRMS-Bold" : "HRMS").fontSize(8.5).fillColor(colors.ink).text(safeText(name), x + 8, cursor + 7, { width: labelW - 12 });
+                pdf.font(isTotal ? "HRMS-Bold" : "HRMS").fontSize(8.5).fillColor(colors.ink).text(safeText(amount), x + labelW, cursor + 7, { width: w - labelW - 8, align: "right" });
                 pdf.moveTo(x, cursor + rowH).lineTo(x + w, cursor + rowH).strokeColor(colors.line).lineWidth(0.4).stroke();
                 cursor += rowH;
             });
@@ -129,7 +200,7 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
 
         // Employee details panel
         pdf.roundedRect(left, y, width, 82, 7).fillAndStroke("#F5F8FC", colors.line);
-        pdf.font("Helvetica-Bold").fontSize(8).fillColor(colors.navy).text("EMPLOYEE DETAILS", left + 13, y + 10);
+        pdf.font("HRMS-Bold").fontSize(8).fillColor(colors.navy).text("EMPLOYEE DETAILS", left + 13, y + 10);
         const info = [
             ["EMPLOYEE NAME", employeeName],
             ["EMPLOYEE CODE", safeText(employee.employeeCode)],
@@ -144,8 +215,8 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
             const row = Math.floor(index / 3);
             const x = left + 13 + col * infoColW;
             const top = y + 29 + row * 25;
-            pdf.font("Helvetica").fontSize(6.5).fillColor(colors.muted).text(label, x, top, { width: infoColW - 8 });
-            pdf.font("Helvetica-Bold").fontSize(8).fillColor(colors.ink).text(value, x, top + 9, { width: infoColW - 8, ellipsis: true });
+            pdf.font("HRMS").fontSize(6.5).fillColor(colors.muted).text(label, x, top, { width: infoColW - 8 });
+            pdf.font("HRMS-Bold").fontSize(8).fillColor(colors.ink).text(value, x, top + 9, { width: infoColW - 8, ellipsis: true });
         });
         y += 96;
 
@@ -161,8 +232,8 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
             const x = left + index * (cardW + summaryGap);
             pdf.roundedRect(x, y, cardW, 62, 7).fill(fill);
             pdf.rect(x, y, 4, 62).fill(accent);
-            pdf.font("Helvetica-Bold").fontSize(7).fillColor(colors.muted).text(label, x + 12, y + 12, { width: cardW - 22 });
-            pdf.font("Helvetica-Bold").fontSize(index === 2 ? 14 : 12).fillColor(accent).text(safeText(value), x + 12, y + 31, { width: cardW - 22 });
+            pdf.font("HRMS-Bold").fontSize(7).fillColor(colors.muted).text(label, x + 12, y + 12, { width: cardW - 22 });
+            pdf.font("HRMS-Bold").fontSize(index === 2 ? 14 : 12).fillColor(accent).text(safeText(value), x + 12, y + 31, { width: cardW - 22 });
         });
         y += 77;
 
@@ -178,10 +249,10 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
         // Net pay emphasis panel
         ensureSpace(72);
         pdf.roundedRect(left, y, width, 62, 7).fill(colors.navy);
-        pdf.font("Helvetica-Bold").fontSize(8).fillColor("#DCE8F7").text("FINAL NET PAY", left + 15, y + 12);
-        pdf.font("Helvetica-Bold").fontSize(19).fillColor(colors.white).text(safeText(valueOf("Net Pay", "Net Payable")), left + 15, y + 28, { width: width * 0.55 });
-        pdf.font("Helvetica-Bold").fontSize(8).fillColor("#DCE8F7").text("PAYMENT STATUS", right - 135, y + 13, { width: 120, align: "right" });
-        pdf.font("Helvetica-Bold").fontSize(10).fillColor(colors.white).text(safeText(valueOf("Net Pay", "Payment Status")).toUpperCase(), right - 135, y + 30, { width: 120, align: "right" });
+        pdf.font("HRMS-Bold").fontSize(8).fillColor("#DCE8F7").text("FINAL NET PAY", left + 15, y + 12);
+        pdf.font("HRMS-Bold").fontSize(19).fillColor(colors.white).text(safeText(valueOf("Net Pay", "Net Payable")), left + 15, y + 28, { width: width * 0.55 });
+        pdf.font("HRMS-Bold").fontSize(8).fillColor("#DCE8F7").text("PAYMENT STATUS", right - 135, y + 13, { width: 120, align: "right" });
+        pdf.font("HRMS-Bold").fontSize(10).fillColor(colors.white).text(safeText(valueOf("Net Pay", "Payment Status")).toUpperCase(), right - 135, y + 30, { width: 120, align: "right" });
         y += 77;
 
         // Bank and statutory information in a compact two-column table
@@ -197,15 +268,15 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
                 const x = left + 10 + col * statColW;
                 const top = y + row * 31;
                 if (index % 2 === 0) pdf.rect(left, top, width, 31).fill("#F8FAFC");
-                pdf.font("Helvetica").fontSize(7).fillColor(colors.muted).text(safeText(label).toUpperCase(), x, top + 5, { width: statColW - 12 });
-                pdf.font("Helvetica-Bold").fontSize(8).fillColor(colors.ink).text(safeText(value), x, top + 16, { width: statColW - 12 });
+                pdf.font("HRMS").fontSize(7).fillColor(colors.muted).text(safeText(label).toUpperCase(), x, top + 5, { width: statColW - 12 });
+                pdf.font("HRMS-Bold").fontSize(8).fillColor(colors.ink).text(safeText(value), x, top + 16, { width: statColW - 12 });
             });
             y += Math.ceil(statutory.length / 2) * 31 + 14;
         }
 
         ensureSpace(30);
         pdf.moveTo(left, y).lineTo(right, y).strokeColor(colors.line).lineWidth(0.8).stroke();
-        pdf.font("Helvetica").fontSize(7).fillColor(colors.muted).text(
+        pdf.font("HRMS").fontSize(7).fillColor(colors.muted).text(
             "This is a system-generated payslip. Banking and identity numbers are masked for security. Contact HR for corrections.",
             left, y + 9, { width, align: "center" }
         );
@@ -213,7 +284,7 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
         const pageRange = pdf.bufferedPageRange();
         for (let page = pageRange.start; page < pageRange.start + pageRange.count; page += 1) {
             pdf.switchToPage(page);
-            pdf.font("Helvetica").fontSize(7).fillColor(colors.muted)
+            pdf.font("HRMS").fontSize(7).fillColor(colors.muted)
                 .text("CONFIDENTIAL  |  HRMS", left, pageHeight - 27, { width: width / 2, lineBreak: false });
             pdf.text("Page " + (page + 1) + " of " + pageRange.count, right - 100, pageHeight - 27, { width: 100, align: "right", lineBreak: false });
         }
@@ -281,7 +352,7 @@ export const generatePayslipDocument = async (payroll, issuedBy = null) => {
     return createGeneratedEmployeeDocument({
         employee,
         documentType: "payslip",
-        title: "Monthly Payslip - " + month + " - Premium Corporate",
+        title: "Monthly Payslip - " + month + " - PROTOVERGE LLP",
         sourceKey: "payroll:" + payroll._id + ":template-v3",
         issuedBy,
         sections: [
