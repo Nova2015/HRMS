@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createWriteStream } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import PDFDocument from "pdfkit";
@@ -14,8 +15,10 @@ const money = (value) => "INR " + new Intl.NumberFormat("en-IN", {
 
 const safeText = (value) => String(value ?? "-").replace(/[\\r\\n]+/g, " ").slice(0, 500);
 const masked = (value) => value ? "*".repeat(Math.max(0, String(value).length - 4)) + String(value).slice(-4) : "-";
-const FONT_PATH = path.resolve(process.cwd(), "assets", "fonts", "NotoSansDevanagari[wdth,wght].ttf");
-const LOGO_PATH = path.resolve(process.cwd(), "assets", "company-logo.jpg");
+const SERVICE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const BACKEND_DIR = path.resolve(SERVICE_DIR, "../..");
+const FONT_PATH = path.join(BACKEND_DIR, "assets", "fonts", "NotoSansDevanagari[wdth,wght].ttf");
+const LOGO_PATH = path.join(BACKEND_DIR, "assets", "company-logo.jpg");
 
 const writePdf = async (filePath, title, employee, sections, documentType) => {
     await fs.mkdir(DOCUMENT_STORAGE_DIR, { recursive: true });
