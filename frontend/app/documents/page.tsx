@@ -40,6 +40,8 @@ const documentLabels: Record<string, string> = {
   leave_letter: "Leave Approval Letter",
   leave_rejection_notice: "Leave Rejection Notice",
   relieving_letter: "Relieving Letter",
+  offer_letter: "Offer Letter",
+  confirmation_letter: "Confirmation Letter",
 };
 
 function DocumentsContent() {
@@ -64,7 +66,7 @@ function DocumentsContent() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [issuing, setIssuing] = useState(false);
-  const [generatingAppointment, setGeneratingAppointment] = useState(false);
+  const [generatingType, setGeneratingType] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -183,22 +185,23 @@ function DocumentsContent() {
     } finally { setIssuing(false); }
   };
 
-  const generateAppointmentLetter = async () => {
+  const generateEmploymentDocument = async (documentType: "appointment_letter" | "offer_letter" | "confirmation_letter") => {
     if (!targetEmployee) { setError("Select an employee."); return; }
     const headers = authHeaders();
     if (!headers) { router.push("/login"); return; }
-    setGeneratingAppointment(true); setError(""); setNotice("");
+    setGeneratingType(documentType); setError(""); setNotice("");
     try {
-      const response = await fetch(`${API_URL}/documents/generate/${encodeURIComponent(targetEmployee)}/appointment`, {
+      const response = await fetch(`${API_URL}/documents/generate/${encodeURIComponent(targetEmployee)}/${documentType}`, {
         method: "POST", headers,
       });
       const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.message || "Unable to generate appointment letter");
-      setNotice("Appointment letter generated and issued successfully.");
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to generate employment document");
+      const label = documentLabels[documentType];
+      setNotice(`${label} generated and issued successfully.`);
       await loadDocuments();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to generate appointment letter");
-    } finally { setGeneratingAppointment(false); }
+      setError(err instanceof Error ? err.message : "Unable to generate employment document");
+    } finally { setGeneratingType(null); }
   };
 
   const reviewResignation = async (item: EmployeeDocument, decision: "approved" | "rejected") => {
@@ -285,7 +288,7 @@ function DocumentsContent() {
               </label>
               <label className="text-sm font-semibold text-slate-700">Document Type
                 <select value={issueType} onChange={(event) => setIssueType(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white p-3 font-normal">
-                  <option value="payslip">Payslip</option><option value="appointment_letter">Appointment Letter</option><option value="leave_letter">Leave Letter</option><option value="relieving_letter">Relieving Letter</option><option value="other">Other Official Document</option>
+                  <option value="payslip">Payslip</option><option value="appointment_letter">Appointment Letter</option><option value="offer_letter">Offer Letter</option><option value="confirmation_letter">Confirmation Letter</option><option value="leave_letter">Leave Letter</option><option value="relieving_letter">Relieving Letter</option><option value="other">Other Official Document</option>
                 </select>
               </label>
             </div>
@@ -293,10 +296,12 @@ function DocumentsContent() {
               <input id="hr-document-file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setIssueFile(event.target.files?.[0] || null)} className="block w-full rounded-xl border border-slate-200 p-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700" />
               <button type="button" onClick={issueDocument} disabled={!issueFile || !targetEmployee || issuing} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{issuing ? "Sending..." : "Send to Employee"} <Upload size={16} /></button>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
-              <button type="button" onClick={generateAppointmentLetter} disabled={!targetEmployee || generatingAppointment} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">{generatingAppointment ? "Generating..." : "Generate Appointment Letter"} <FileText size={16} /></button>
-              <p className="text-xs text-slate-500">Create a branded PDF using the employee's saved HRMS details.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+              <button type="button" onClick={() => generateEmploymentDocument("offer_letter")} disabled={!targetEmployee || generatingType !== null} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">{generatingType === "offer_letter" ? "Generating..." : "Generate Offer Letter"} <FileText size={15} /></button>
+              <button type="button" onClick={() => generateEmploymentDocument("appointment_letter")} disabled={!targetEmployee || generatingType !== null} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">{generatingType === "appointment_letter" ? "Generating..." : "Generate Appointment Letter"} <FileText size={15} /></button>
+              <button type="button" onClick={() => generateEmploymentDocument("confirmation_letter")} disabled={!targetEmployee || generatingType !== null} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">{generatingType === "confirmation_letter" ? "Generating..." : "Generate Confirmation Letter"} <FileText size={15} /></button>
             </div>
+            <p className="mt-2 text-xs text-slate-500">Generate branded PDFs from saved employee details and the current salary structure.</p>
           </section>
         ) : (
           <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
