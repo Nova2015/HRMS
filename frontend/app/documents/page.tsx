@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileText, Download, Upload, RefreshCw, ShieldCheck, Send, Check, X } from "lucide-react";
+import { ArrowLeft, FileText, Download, Upload, RefreshCw, ShieldCheck, Send, Check, X, Eye, Printer } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -69,6 +69,9 @@ function DocumentsContent() {
   const [generatingType, setGeneratingType] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState("");
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
 
   const isHR = role === "admin" || role === "hr";
 
@@ -224,6 +227,30 @@ function DocumentsContent() {
     }
   };
 
+  const previewDocument = async (item: EmployeeDocument) => {
+    const headers = authHeaders();
+    if (!headers) { router.push("/login"); return; }
+    setError(""); setPreviewingId(item._id);
+    try {
+      const response = await fetch(`${API_URL}/documents/${encodeURIComponent(item._id)}/download`, { headers });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.message || "Unable to preview document");
+      }
+      const blob = await response.blob();
+      if (previewUrl) window.URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(window.URL.createObjectURL(blob));
+      setPreviewName(item.originalName);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to preview document");
+    } finally { setPreviewingId(null); }
+  };
+
+  const closePreview = () => {
+    if (previewUrl) window.URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null); setPreviewName("");
+  };
+
   const downloadDocument = async (item: EmployeeDocument) => {
     const headers = authHeaders();
     if (!headers) { router.push("/login"); return; }
@@ -361,6 +388,7 @@ function DocumentsContent() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(item.status)}`}>{item.status}</span>
+                      <button type="button" onClick={() => void previewDocument(item)} disabled={previewingId === item._id} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"><Eye size={16} /> {previewingId === item._id ? "Opening..." : "Preview"}</button>
                       <button type="button" onClick={() => void downloadDocument(item)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download size={16} /> Download</button>
                     </div>
                   </div>
@@ -376,6 +404,20 @@ function DocumentsContent() {
             </div>
           )}
         </section>
+        {previewUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-2 sm:p-6" role="dialog" aria-modal="true" aria-label="Document preview">
+            <div className="flex h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                <p className="min-w-0 truncate text-sm font-semibold text-slate-800">{previewName}</p>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button type="button" onClick={() => document.getElementById("hrms-document-preview")?.contentWindow?.print()} className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800"><Printer size={15} /> Print</button>
+                  <button type="button" onClick={closePreview} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" aria-label="Close preview"><X size={18} /></button>
+                </div>
+              </div>
+              <iframe id="hrms-document-preview" title={previewName} src={previewUrl} className="min-h-0 flex-1 bg-slate-100" />
+            </div>
+          </div>
+        )}
         <p className="mt-5 flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 p-4 text-xs leading-5 text-blue-800"><ShieldCheck size={16} className="mt-0.5 shrink-0" /> Documents remain in private storage. Employees can access only their own documents; HR/Admin can issue and review company documents.</p>
       </div>
     </main>
