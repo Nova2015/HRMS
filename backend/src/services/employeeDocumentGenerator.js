@@ -96,13 +96,51 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
                     pdf.y = top + rowHeight + 1;
                 }
             };
+            const drawCompensationTable = (rows) => {
+                const colWidths = [width * 0.48, width * 0.26, width * 0.26];
+                const headers = ["Salary Component", "Per Month", "Annualized"];
+                const rowHeight = 25;
+                ensureLetterSpace((rows.length + 1) * rowHeight + 4);
+                let top = pdf.y;
+                pdf.rect(left, top, width, rowHeight).fill(navy);
+                let x = left;
+                headers.forEach((header, index) => {
+                    pdf.font("HRMS-Bold").fontSize(8).fillColor("#FFFFFF")
+                        .text(header, x + 7, top + 8, { width: colWidths[index] - 14, align: index === 0 ? "left" : "right" });
+                    x += colWidths[index];
+                });
+                top += rowHeight;
+                rows.forEach((row, index) => {
+                    if (top + rowHeight > pageHeight - 66) {
+                        pdf.addPage();
+                        drawLetterHeader();
+                        top = pdf.y;
+                    }
+                    if (index % 2 === 0) pdf.rect(left, top, width, rowHeight).fill("#F8FAFC");
+                    pdf.moveTo(left, top + rowHeight).lineTo(right, top + rowHeight).strokeColor(line).lineWidth(0.5).stroke();
+                    let cellX = left;
+                    row.forEach((value, cellIndex) => {
+                        pdf.font(cellIndex === 0 && /gross|net|total/i.test(String(row[0])) ? "HRMS-Bold" : "HRMS")
+                            .fontSize(8.5).fillColor(ink)
+                            .text(safeText(value), cellX + 7, top + 8, {
+                                width: colWidths[cellIndex] - 14,
+                                align: cellIndex === 0 ? "left" : "right",
+                                ellipsis: true
+                            });
+                        cellX += colWidths[cellIndex];
+                    });
+                    top += rowHeight;
+                });
+                pdf.y = top + 5;
+            };
             drawRows(identityRows);
             pdf.moveDown(0.8);
             for (const section of sections) {
                 ensureLetterSpace(42);
                 pdf.font("HRMS-Bold").fontSize(11).fillColor(navy).text(safeText(section.heading), left, pdf.y, { width });
                 pdf.moveDown(0.35);
-                drawRows(section.rows || []);
+                if (section.heading === "Compensation Annexure") drawCompensationTable(section.rows || []);
+                else drawRows(section.rows || []);
                 pdf.moveDown(0.6);
             }
             ensureLetterSpace(110);
@@ -426,18 +464,18 @@ export const generateSalaryRevisionDocument = async (employee, previousStructure
 
 const getEmployeeSalaryRows = async (employeeId) => {
     const salary = await SalaryStructure.findOne({ employee: employeeId, isActive: true }).lean();
-    if (!salary) return [["Compensation", "Salary structure not yet configured in HRMS"]];
+    if (!salary) return [["Compensation", "Salary structure not configured", "-"]];
+    const annual = (amount) => money(Number(amount || 0) * 12);
     const monthlyEarnings = Number(salary.monthlyBasic || 0) +
         (salary.earnings || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const monthlyDeductions = (salary.deductions || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
     return [
-        ["Monthly Basic", money(salary.monthlyBasic)],
-        ...(salary.earnings || []).map((item) => [item.name, money(item.amount)]),
-        ["Gross Monthly Earnings", money(monthlyEarnings)],
-        ...(salary.deductions || []).map((item) => ["Deduction - " + item.name, money(item.amount)]),
-        ["Net Monthly Estimate", money(monthlyEarnings - monthlyDeductions)],
-        ["Annual Gross Compensation", money(monthlyEarnings * 12)],
-        ["Effective From", new Date(salary.effectiveFrom).toLocaleDateString("en-IN", { timeZone: "UTC" })]
+        ["Basic Salary", money(salary.monthlyBasic), annual(salary.monthlyBasic)],
+        ...(salary.earnings || []).map((item) => [item.name, money(item.amount), annual(item.amount)]),
+        ["Gross Monthly Earnings", money(monthlyEarnings), annual(monthlyEarnings)],
+        ...(salary.deductions || []).map((item) => ["Deduction - " + item.name, money(item.amount), annual(item.amount)]),
+        ["Estimated Net After Listed Deductions", money(monthlyEarnings - monthlyDeductions), annual(monthlyEarnings - monthlyDeductions)],
+        ["Effective From", new Date(salary.effectiveFrom).toLocaleDateString("en-IN", { timeZone: "UTC" }), "-"]
     ];
 };
 
@@ -465,7 +503,7 @@ export const generateAppointmentLetterDocument = async (employee, issuedBy = nul
         employee,
         documentType: "appointment_letter",
         title: "Appointment Letter",
-        sourceKey: "appointment:" + employee._id + ":template-v2:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
+        sourceKey: "appointment:" + employee._id + ":template-v3:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
         issuedBy,
         sections: [
             { heading: "Appointment Details", rows: getEmployeeLetterDetails(employee) },
@@ -487,7 +525,7 @@ export const generateOfferLetterDocument = async (employee, issuedBy = null) => 
         employee,
         documentType: "offer_letter",
         title: "Offer of Employment",
-        sourceKey: "offer:" + employee._id + ":template-v1:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
+        sourceKey: "offer:" + employee._id + ":template-v2:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
         issuedBy,
         sections: [
             { heading: "Offer Details", rows: getEmployeeLetterDetails(employee) },
