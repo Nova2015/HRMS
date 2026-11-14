@@ -12,7 +12,7 @@ import { DOCUMENT_STORAGE_DIR } from "../middleware/documentUpload.js";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
-const DOCUMENT_TYPES = new Set(["other", "resignation_letter", "payslip", "appointment_letter", "leave_letter", "relieving_letter"]);
+const DOCUMENT_TYPES = new Set(["other", "resignation_letter", "payslip", "appointment_letter", "offer_letter", "confirmation_letter", "salary_revision_letter", "leave_letter", "leave_rejection_notice", "relieving_letter"]);
 const HR_ISSUED_TYPES = new Set(["payslip", "appointment_letter", "leave_letter", "relieving_letter", "other"]);
 
 const removeUploadedFile = async (filePath) => {
