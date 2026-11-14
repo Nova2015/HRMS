@@ -384,7 +384,7 @@ function DocumentsContent() {
                         <p className="mt-1 text-xs font-medium text-slate-600">{documentLabels[item.documentType] || "Document"} · {item.direction === "hr_to_employee" ? "Sent by HR" : "Submitted by Employee"}</p>
                         {isHR && item.employee && <p className="mt-1 text-xs text-slate-600">{item.employee.firstName} {item.employee.lastName} · {item.employee.employeeCode} · {item.employee.email}</p>}
                         <p className="mt-1 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString("en-IN")} · {formatSize(item.size)}</p>
-                        {item.fileAvailable === false && <p className="mt-1 text-xs font-medium text-amber-700">Stored file is missing. Contact HR to re-upload this document.</p>}
+                        {item.fileAvailable === false && <p className="mt-1 text-xs font-medium text-amber-700">{isHR ? "Stored file is missing from server storage. Re-upload the document if an original copy is available." : "Stored file is missing. Contact HR to re-upload this document."}</p>}
                         {item.reviewComment && <p className="mt-1 text-xs text-slate-600">HR comment: {item.reviewComment}</p>}
                       </div>
                     </div>
