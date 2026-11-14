@@ -435,7 +435,7 @@ export const generateAppointmentLetterDocument = async (employee, issuedBy = nul
         employee,
         documentType: "appointment_letter",
         title: "Appointment Letter",
-        sourceKey: "appointment:" + employee._id,
+        sourceKey: "appointment:" + employee._id + ":template-v2",
         issuedBy,
         sections: [
             { heading: "Appointment Details", rows: [["Employee Code", employee.employeeCode], ["Date of Birth", employee.dateOfBirth ? new Date(employee.dateOfBirth).toLocaleDateString("en-IN", { timeZone: "UTC" }) : "-"], ["Designation", designationName], ["Department", departmentName], ["Date of Joining", joiningDate], ["Work Shift", shiftName], ["Employment Status", employee.employmentStatus || "active"]] },
