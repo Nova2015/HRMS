@@ -2,6 +2,7 @@ import express from "express";
 import {
     uploadMyDocument,
     issueDocumentToEmployee,
+    generateAppointmentLetter,
     getMyDocuments,
     getAllEmployeeDocuments,
     reviewEmployeeDocument,
@@ -30,6 +31,7 @@ const router = express.Router();
 router.use(protect);
 router.post("/my", handleDocumentUpload, uploadMyDocument);
 router.post("/issue", authorizeRoles("admin", "hr"), handleDocumentUpload, issueDocumentToEmployee);
+router.post("/generate/:employeeId/appointment", authorizeRoles("admin", "hr"), generateAppointmentLetter);
 router.get("/my", getMyDocuments);
 router.get("/", authorizeRoles("admin", "hr"), getAllEmployeeDocuments);
 router.patch("/:id/review", authorizeRoles("admin", "hr"), reviewEmployeeDocument);
