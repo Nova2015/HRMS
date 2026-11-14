@@ -28,6 +28,7 @@ type EmployeeDocument = {
   direction: "employee_to_hr" | "hr_to_employee";
   status: "pending" | "approved" | "rejected" | "issued";
   reviewComment?: string;
+  fileAvailable?: boolean;
   employee?: EmployeeInfo;
 };
 
@@ -383,13 +384,15 @@ function DocumentsContent() {
                         <p className="mt-1 text-xs font-medium text-slate-600">{documentLabels[item.documentType] || "Document"} · {item.direction === "hr_to_employee" ? "Sent by HR" : "Submitted by Employee"}</p>
                         {isHR && item.employee && <p className="mt-1 text-xs text-slate-600">{item.employee.firstName} {item.employee.lastName} · {item.employee.employeeCode} · {item.employee.email}</p>}
                         <p className="mt-1 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString("en-IN")} · {formatSize(item.size)}</p>
+                        {item.fileAvailable === false && <p className="mt-1 text-xs font-medium text-amber-700">Stored file is missing. Contact HR to re-upload this document.</p>}
                         {item.reviewComment && <p className="mt-1 text-xs text-slate-600">HR comment: {item.reviewComment}</p>}
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(item.status)}`}>{item.status}</span>
-                      <button type="button" onClick={() => void previewDocument(item)} disabled={previewingId === item._id} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"><Eye size={16} /> {previewingId === item._id ? "Opening..." : "Preview"}</button>
-                      <button type="button" onClick={() => void downloadDocument(item)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download size={16} /> Download</button>
+                      {item.fileAvailable === false && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">File Missing</span>}
+                      <button type="button" onClick={() => void previewDocument(item)} disabled={previewingId === item._id || item.fileAvailable === false} title={item.fileAvailable === false ? "Stored file is missing" : "Preview document"} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"><Eye size={16} /> Preview</button>
+                      <button type="button" onClick={() => void downloadDocument(item)} disabled={item.fileAvailable === false} title={item.fileAvailable === false ? "Stored file is missing" : "Download document"} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"><Download size={16} /> Download</button>
                     </div>
                   </div>
                   {isHR && item.direction === "employee_to_hr" && item.documentType === "resignation_letter" && item.status === "pending" && (
