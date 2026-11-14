@@ -46,6 +46,20 @@ const safeOriginalName = (name) =>
 const populateDocument = (query) =>
     query.populate("employee", "employeeCode firstName lastName email");
 
+const includeFileAvailability = async (documents) => Promise.all(
+    documents.map(async (document) => {
+        const record = document.toObject();
+        const filePath = path.join(DOCUMENT_STORAGE_DIR, path.basename(record.storedName || ""));
+        try {
+            await fs.access(filePath);
+            record.fileAvailable = true;
+        } catch {
+            record.fileAvailable = false;
+        }
+        return record;
+    })
+);
+
 const validateUploadedFile = async (file, res) => {
     if (!file) {
         res.status(400).json({ success: false, message: "Choose a PDF, JPG or PNG document" });
@@ -200,7 +214,8 @@ export const generateEmploymentDocument = async (req, res) => {
 
 export const getMyDocuments = async (req, res) => {
     try {
-        const data = await EmployeeDocument.find({ employee: req.user.employeeId }).sort({ createdAt: -1 }).limit(100);
+        const documents = await EmployeeDocument.find({ employee: req.user.employeeId }).sort({ createdAt: -1 }).limit(100);
+        const data = await includeFileAvailability(documents);
         return res.status(200).json({ success: true, count: data.length, data });
     } catch (error) {
         console.error("Get my documents error:", error.message);
@@ -210,7 +225,8 @@ export const getMyDocuments = async (req, res) => {
 
 export const getAllEmployeeDocuments = async (req, res) => {
     try {
-        const data = await populateDocument(EmployeeDocument.find({}).sort({ createdAt: -1 }).limit(500));
+        const documents = await populateDocument(EmployeeDocument.find({}).sort({ createdAt: -1 }).limit(500));
+        const data = await includeFileAvailability(documents);
         return res.status(200).json({ success: true, count: data.length, data });
     } catch (error) {
         console.error("Get employee documents error:", error.message);
