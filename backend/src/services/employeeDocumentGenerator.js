@@ -6,6 +6,7 @@ import { createHash, randomUUID } from "node:crypto";
 import PDFDocument from "pdfkit";
 import EmployeeDocument from "../models/EmployeeDocument.js";
 import Employee from "../models/Employee.js";
+import SalaryStructure from "../models/SalaryStructure.js";
 import { decryptHrDetails } from "./hrDetailsCrypto.js";
 import { DOCUMENT_STORAGE_DIR } from "../middleware/documentUpload.js";
 
@@ -356,7 +357,7 @@ export const generatePayslipDocument = async (payroll, issuedBy = null) => {
         employee,
         documentType: "payslip",
         title: "Monthly Payslip - " + month + " - PROTOVERGE LLP",
-        sourceKey: "payroll:" + payroll._id + ":template-v3",
+        sourceKey: "payroll:" + payroll._id + ":template-v4",
         issuedBy,
         sections: [
             { heading: "Pay Period", rows: [["Month", month], ["Working Days", payroll.workingDays], ["Paid Days", payroll.paidDays]] },
@@ -423,14 +424,42 @@ export const generateSalaryRevisionDocument = async (employee, previousStructure
     });
 };
 
+const getEmployeeSalaryRows = async (employeeId) => {
+    const salary = await SalaryStructure.findOne({ employee: employeeId, isActive: true }).lean();
+    if (!salary) return [["Compensation", "Salary structure not yet configured in HRMS"]];
+    const monthlyEarnings = Number(salary.monthlyBasic || 0) +
+        (salary.earnings || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const monthlyDeductions = (salary.deductions || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    return [
+        ["Monthly Basic", money(salary.monthlyBasic)],
+        ...(salary.earnings || []).map((item) => [item.name, money(item.amount)]),
+        ["Gross Monthly Earnings", money(monthlyEarnings)],
+        ...(salary.deductions || []).map((item) => ["Deduction - " + item.name, money(item.amount)]),
+        ["Net Monthly Estimate", money(monthlyEarnings - monthlyDeductions)],
+        ["Annual Gross Compensation", money(monthlyEarnings * 12)],
+        ["Effective From", new Date(salary.effectiveFrom).toLocaleDateString("en-IN", { timeZone: "UTC" })]
+    ];
+};
+
+const getEmployeeLetterDetails = (employee) => {
+    const date = (value) => value ? new Date(value).toLocaleDateString("en-IN", { timeZone: "UTC" }) : "-";
+    return [
+        ["Employee Code", employee.employeeCode],
+        ["Employee Name", [employee.firstName, employee.lastName].filter(Boolean).join(" ")],
+        ["Email Address", employee.email],
+        ["Phone Number", employee.phone || "-"],
+        ["Department", employee.department?.name || "-"],
+        ["Designation", employee.designation?.name || "-"],
+        ["Reporting Manager", employee.reportingManager
+            ? [employee.reportingManager.firstName, employee.reportingManager.lastName].filter(Boolean).join(" ") + " (" + employee.reportingManager.employeeCode + ")"
+            : "As assigned by HR"],
+        ["Date of Joining", date(employee.joiningDate)]
+    ];
+};
+
 export const generateAppointmentLetterDocument = async (employee, issuedBy = null) => {
     if (!employee?._id) throw new Error("Employee details are required");
-    const departmentName = employee.department?.name || "As assigned by HR";
-    const designationName = employee.designation?.name || "As assigned by HR";
-    const shiftName = employee.shift?.name || "As assigned by HR";
-    const joiningDate = employee.joiningDate
-        ? new Date(employee.joiningDate).toLocaleDateString("en-IN", { timeZone: "UTC" })
-        : "-";
+    const salaryRows = await getEmployeeSalaryRows(employee._id);
     return createGeneratedEmployeeDocument({
         employee,
         documentType: "appointment_letter",
@@ -438,8 +467,55 @@ export const generateAppointmentLetterDocument = async (employee, issuedBy = nul
         sourceKey: "appointment:" + employee._id + ":template-v2",
         issuedBy,
         sections: [
-            { heading: "Appointment Details", rows: [["Employee Code", employee.employeeCode], ["Date of Birth", employee.dateOfBirth ? new Date(employee.dateOfBirth).toLocaleDateString("en-IN", { timeZone: "UTC" }) : "-"], ["Designation", designationName], ["Department", departmentName], ["Date of Joining", joiningDate], ["Work Shift", shiftName], ["Employment Status", employee.employmentStatus || "active"]] },
-            { heading: "Employment Confirmation", rows: [["Appointment", "You are appointed to the above position with effect from the date of joining recorded in HRMS."], ["Terms and Conditions", "Your employment will be governed by the company's applicable policies and terms communicated by HR."]] }
+            { heading: "Appointment Details", rows: getEmployeeLetterDetails(employee) },
+            { heading: "Compensation Annexure", rows: salaryRows },
+            { heading: "Employment Terms", rows: [
+                ["Appointment", "Your appointment is effective from the date of joining stated in this letter."],
+                ["Work Location and Schedule", "Your assigned work location and working schedule will be communicated by the company."],
+                ["Company Policies", "Your employment is governed by the applicable policies and procedures of PROTOVERGE LLP, as communicated by HR."]
+            ] }
+        ]
+    });
+};
+
+export const generateOfferLetterDocument = async (employee, issuedBy = null) => {
+    if (!employee?._id) throw new Error("Employee details are required");
+    const salaryRows = await getEmployeeSalaryRows(employee._id);
+    return createGeneratedEmployeeDocument({
+        employee,
+        documentType: "offer_letter",
+        title: "Offer of Employment",
+        sourceKey: "offer:" + employee._id + ":template-v1",
+        issuedBy,
+        sections: [
+            { heading: "Offer Details", rows: getEmployeeLetterDetails(employee) },
+            { heading: "Compensation Annexure", rows: salaryRows },
+            { heading: "Offer and Acceptance", rows: [
+                ["Offer", "PROTOVERGE LLP is pleased to offer employment for the designation and department stated above."],
+                ["Joining Date", employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString("en-IN", { timeZone: "UTC" }) : "To be confirmed by HR"],
+                ["Acceptance", "Please sign the acknowledgement section to confirm that you have reviewed this offer. Any additional employment terms will be provided by HR in writing."]
+            ] }
+        ]
+    });
+};
+
+export const generateConfirmationLetterDocument = async (employee, issuedBy = null) => {
+    if (!employee?._id) throw new Error("Employee details are required");
+    const salaryRows = await getEmployeeSalaryRows(employee._id);
+    return createGeneratedEmployeeDocument({
+        employee,
+        documentType: "confirmation_letter",
+        title: "Employment Confirmation Letter",
+        sourceKey: "confirmation:" + employee._id + ":template-v1",
+        issuedBy,
+        sections: [
+            { heading: "Employment Details", rows: getEmployeeLetterDetails(employee) },
+            { heading: "Compensation Annexure", rows: salaryRows },
+            { heading: "Confirmation", rows: [
+                ["Confirmation", "This letter confirms your employment with PROTOVERGE LLP in the designation and department stated above."],
+                ["Effective Date", employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString("en-IN", { timeZone: "UTC" }) : "To be confirmed by HR"],
+                ["Terms", "Your employment will continue in accordance with the applicable company policies and employment terms communicated by HR."]
+            ] }
         ]
     });
 };
