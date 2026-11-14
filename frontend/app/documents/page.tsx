@@ -410,7 +410,7 @@ function DocumentsContent() {
               <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
                 <p className="min-w-0 truncate text-sm font-semibold text-slate-800">{previewName}</p>
                 <div className="flex shrink-0 items-center gap-2">
-                  <button type="button" onClick={() => document.getElementById("hrms-document-preview")?.contentWindow?.print()} className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800"><Printer size={15} /> Print</button>
+                  <button type="button" onClick={() => (document.getElementById("hrms-document-preview") as HTMLIFrameElement | null)?.contentWindow?.print()} className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800"><Printer size={15} /> Print</button>
                   <button type="button" onClick={closePreview} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" aria-label="Close preview"><X size={18} /></button>
                 </div>
               </div>
