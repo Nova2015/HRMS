@@ -64,6 +64,7 @@ function DocumentsContent() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [issuing, setIssuing] = useState(false);
+  const [generatingAppointment, setGeneratingAppointment] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -182,6 +183,24 @@ function DocumentsContent() {
     } finally { setIssuing(false); }
   };
 
+  const generateAppointmentLetter = async () => {
+    if (!targetEmployee) { setError("Select an employee."); return; }
+    const headers = authHeaders();
+    if (!headers) { router.push("/login"); return; }
+    setGeneratingAppointment(true); setError(""); setNotice("");
+    try {
+      const response = await fetch(`${API_URL}/documents/generate/${encodeURIComponent(targetEmployee)}/appointment`, {
+        method: "POST", headers,
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to generate appointment letter");
+      setNotice("Appointment letter generated and issued successfully.");
+      await loadDocuments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to generate appointment letter");
+    } finally { setGeneratingAppointment(false); }
+  };
+
   const reviewResignation = async (item: EmployeeDocument, decision: "approved" | "rejected") => {
     const headers = authHeaders();
     if (!headers) { router.push("/login"); return; }
@@ -273,6 +292,10 @@ function DocumentsContent() {
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
               <input id="hr-document-file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(event) => setIssueFile(event.target.files?.[0] || null)} className="block w-full rounded-xl border border-slate-200 p-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-blue-700" />
               <button type="button" onClick={issueDocument} disabled={!issueFile || !targetEmployee || issuing} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{issuing ? "Sending..." : "Send to Employee"} <Upload size={16} /></button>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
+              <button type="button" onClick={generateAppointmentLetter} disabled={!targetEmployee || generatingAppointment} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">{generatingAppointment ? "Generating..." : "Generate Appointment Letter"} <FileText size={16} /></button>
+              <p className="text-xs text-slate-500">Create a branded PDF using the employee's saved HRMS details.</p>
             </div>
           </section>
         ) : (
