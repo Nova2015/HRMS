@@ -547,7 +547,7 @@ export const generateConfirmationLetterDocument = async (employee, issuedBy = nu
         employee,
         documentType: "confirmation_letter",
         title: "Employment Confirmation Letter",
-        sourceKey: "confirmation:" + employee._id + ":template-v1:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
+        sourceKey: "confirmation:" + employee._id + ":template-v2:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
         issuedBy,
         sections: [
             { heading: "Employment Details", rows: getEmployeeLetterDetails(employee) },
