@@ -3,6 +3,7 @@ import {
     uploadMyDocument,
     issueDocumentToEmployee,
     generateAppointmentLetter,
+    generateEmploymentDocument,
     getMyDocuments,
     getAllEmployeeDocuments,
     reviewEmployeeDocument,
@@ -32,6 +33,7 @@ router.use(protect);
 router.post("/my", handleDocumentUpload, uploadMyDocument);
 router.post("/issue", authorizeRoles("admin", "hr"), handleDocumentUpload, issueDocumentToEmployee);
 router.post("/generate/:employeeId/appointment", authorizeRoles("admin", "hr"), generateAppointmentLetter);
+router.post("/generate/:employeeId/:documentType", authorizeRoles("admin", "hr"), generateEmploymentDocument);
 router.get("/my", getMyDocuments);
 router.get("/", authorizeRoles("admin", "hr"), getAllEmployeeDocuments);
 router.patch("/:id/review", authorizeRoles("admin", "hr"), reviewEmployeeDocument);
