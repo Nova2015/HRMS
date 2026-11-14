@@ -14,7 +14,7 @@ const money = (value) => "INR " + new Intl.NumberFormat("en-IN", {
     maximumFractionDigits: 2
 }).format(Number(value) || 0);
 
-const safeText = (value) => String(value ?? "-").replace(/[\\r\\n]+/g, " ").slice(0, 500);
+const safeText = (value) => String(value ?? "-").normalize("NFC").replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim() || "-";
 const masked = (value) => value ? "*".repeat(Math.max(0, String(value).length - 4)) + String(value).slice(-4) : "-";
 const SERVICE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const BACKEND_DIR = path.resolve(SERVICE_DIR, "../..");
@@ -111,25 +111,40 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
                 });
                 top += rowHeight;
                 rows.forEach((row, index) => {
-                    if (top + rowHeight > pageHeight - 66) {
+                    const cellHeights = row.map((value, cellIndex) => pdf.heightOfString(safeText(value), {
+                        width: colWidths[cellIndex] - 14,
+                        font: cellIndex === 0 && /gross|net|total/i.test(String(row[0])) ? "HRMS-Bold" : "HRMS",
+                        fontSize: 8.5,
+                        lineGap: 1
+                    }));
+                    const currentRowHeight = Math.max(rowHeight, ...cellHeights.map((height) => height + 14));
+                    if (top + currentRowHeight > pageHeight - 66) {
                         pdf.addPage();
                         drawLetterHeader();
                         top = pdf.y;
+                        pdf.rect(left, top, width, rowHeight).fill(navy);
+                        let headerX = left;
+                        headers.forEach((header, headerIndex) => {
+                            pdf.font("HRMS-Bold").fontSize(8).fillColor("#FFFFFF")
+                                .text(header, headerX + 7, top + 8, { width: colWidths[headerIndex] - 14, align: headerIndex === 0 ? "left" : "right" });
+                            headerX += colWidths[headerIndex];
+                        });
+                        top += rowHeight;
                     }
-                    if (index % 2 === 0) pdf.rect(left, top, width, rowHeight).fill("#F8FAFC");
-                    pdf.moveTo(left, top + rowHeight).lineTo(right, top + rowHeight).strokeColor(line).lineWidth(0.5).stroke();
+                    if (index % 2 === 0) pdf.rect(left, top, width, currentRowHeight).fill("#F8FAFC");
+                    pdf.moveTo(left, top + currentRowHeight).lineTo(right, top + currentRowHeight).strokeColor(line).lineWidth(0.5).stroke();
                     let cellX = left;
                     row.forEach((value, cellIndex) => {
                         pdf.font(cellIndex === 0 && /gross|net|total/i.test(String(row[0])) ? "HRMS-Bold" : "HRMS")
                             .fontSize(8.5).fillColor(ink)
-                            .text(safeText(value), cellX + 7, top + 8, {
+                            .text(safeText(value), cellX + 7, top + 7, {
                                 width: colWidths[cellIndex] - 14,
                                 align: cellIndex === 0 ? "left" : "right",
-                                ellipsis: true
+                                lineGap: 1
                             });
                         cellX += colWidths[cellIndex];
                     });
-                    top += rowHeight;
+                    top += currentRowHeight;
                 });
                 pdf.y = top + 5;
             };
@@ -258,7 +273,7 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
             const x = left + 13 + col * infoColW;
             const top = y + 29 + row * 25;
             pdf.font("HRMS").fontSize(6.5).fillColor(colors.muted).text(label, x, top, { width: infoColW - 8 });
-            pdf.font("HRMS-Bold").fontSize(8).fillColor(colors.ink).text(value, x, top + 9, { width: infoColW - 8, ellipsis: true });
+            pdf.font("HRMS-Bold").fontSize(8).fillColor(colors.ink).text(value, x, top + 9, { width: infoColW - 8 });
         });
         y += 96;
 
