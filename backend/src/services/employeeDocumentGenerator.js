@@ -410,7 +410,7 @@ export const generatePayslipDocument = async (payroll, issuedBy = null) => {
         employee,
         documentType: "payslip",
         title: "Monthly Payslip - " + month + " - PROTOVERGE LLP",
-        sourceKey: "payroll:" + payroll._id + ":template-v4",
+        sourceKey: "payroll:" + payroll._id + ":template-v5",
         issuedBy,
         sections: [
             { heading: "Pay Period", rows: [["Month", month], ["Working Days", payroll.workingDays], ["Paid Days", payroll.paidDays]] },
@@ -431,7 +431,7 @@ export const generateLeaveDecisionDocument = async (leave, decision, issuedBy = 
         employee,
         documentType: approved ? "leave_letter" : "leave_rejection_notice",
         title: approved ? "Leave Approval Letter" : "Leave Rejection Notice",
-        sourceKey: "leave:" + leave._id + ":" + decision,
+        sourceKey: "leave:" + leave._id + ":" + decision + ":template-v2",
         issuedBy,
         sections: [
             { heading: "Leave Details", rows: [["Leave Type", leave.leaveType], ["Leave Dates", dateRange], ["Working Days", leave.totalDays], ["Decision", approved ? "Approved" : "Rejected"]] },
@@ -467,7 +467,7 @@ export const generateSalaryRevisionDocument = async (employee, previousStructure
         employee,
         documentType: "salary_revision_letter",
         title: "Salary Revision Letter",
-        sourceKey: "salary-revision:" + employee._id + ":" + effectiveDate + ":" + fingerprint,
+        sourceKey: "salary-revision:" + employee._id + ":" + effectiveDate + ":" + fingerprint + ":template-v2",
         issuedBy,
         sections: [
             { heading: "Revision Details", rows: [["Effective From", effectiveDate], ["Currency", "INR"]] },
@@ -518,7 +518,7 @@ export const generateAppointmentLetterDocument = async (employee, issuedBy = nul
         employee,
         documentType: "appointment_letter",
         title: "Appointment Letter",
-        sourceKey: "appointment:" + employee._id + ":template-v3:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
+        sourceKey: "appointment:" + employee._id + ":template-v4:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
         issuedBy,
         sections: [
             { heading: "Appointment Details", rows: getEmployeeLetterDetails(employee) },
@@ -540,7 +540,7 @@ export const generateOfferLetterDocument = async (employee, issuedBy = null) => 
         employee,
         documentType: "offer_letter",
         title: "Offer of Employment",
-        sourceKey: "offer:" + employee._id + ":template-v2:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
+        sourceKey: "offer:" + employee._id + ":template-v3:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
         issuedBy,
         sections: [
             { heading: "Offer Details", rows: getEmployeeLetterDetails(employee) },
@@ -562,7 +562,7 @@ export const generateConfirmationLetterDocument = async (employee, issuedBy = nu
         employee,
         documentType: "confirmation_letter",
         title: "Employment Confirmation Letter",
-        sourceKey: "confirmation:" + employee._id + ":template-v2:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
+        sourceKey: "confirmation:" + employee._id + ":template-v3:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
         issuedBy,
         sections: [
             { heading: "Employment Details", rows: getEmployeeLetterDetails(employee) },
