@@ -459,12 +459,13 @@ const getEmployeeLetterDetails = (employee) => {
 
 export const generateAppointmentLetterDocument = async (employee, issuedBy = null) => {
     if (!employee?._id) throw new Error("Employee details are required");
+    const salaryStructure = await SalaryStructure.findOne({ employee: employee._id, isActive: true }).select("_id updatedAt").lean();
     const salaryRows = await getEmployeeSalaryRows(employee._id);
     return createGeneratedEmployeeDocument({
         employee,
         documentType: "appointment_letter",
         title: "Appointment Letter",
-        sourceKey: "appointment:" + employee._id + ":template-v2",
+        sourceKey: "appointment:" + employee._id + ":template-v2:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
         issuedBy,
         sections: [
             { heading: "Appointment Details", rows: getEmployeeLetterDetails(employee) },
@@ -480,12 +481,13 @@ export const generateAppointmentLetterDocument = async (employee, issuedBy = nul
 
 export const generateOfferLetterDocument = async (employee, issuedBy = null) => {
     if (!employee?._id) throw new Error("Employee details are required");
+    const salaryStructure = await SalaryStructure.findOne({ employee: employee._id, isActive: true }).select("_id updatedAt").lean();
     const salaryRows = await getEmployeeSalaryRows(employee._id);
     return createGeneratedEmployeeDocument({
         employee,
         documentType: "offer_letter",
         title: "Offer of Employment",
-        sourceKey: "offer:" + employee._id + ":template-v1",
+        sourceKey: "offer:" + employee._id + ":template-v1:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
         issuedBy,
         sections: [
             { heading: "Offer Details", rows: getEmployeeLetterDetails(employee) },
@@ -501,19 +503,20 @@ export const generateOfferLetterDocument = async (employee, issuedBy = null) => 
 
 export const generateConfirmationLetterDocument = async (employee, issuedBy = null) => {
     if (!employee?._id) throw new Error("Employee details are required");
+    const salaryStructure = await SalaryStructure.findOne({ employee: employee._id, isActive: true }).select("_id updatedAt").lean();
     const salaryRows = await getEmployeeSalaryRows(employee._id);
     return createGeneratedEmployeeDocument({
         employee,
         documentType: "confirmation_letter",
         title: "Employment Confirmation Letter",
-        sourceKey: "confirmation:" + employee._id + ":template-v1",
+        sourceKey: "confirmation:" + employee._id + ":template-v1:" + (salaryStructure?.updatedAt?.getTime() || "no-salary"),
         issuedBy,
         sections: [
             { heading: "Employment Details", rows: getEmployeeLetterDetails(employee) },
             { heading: "Compensation Annexure", rows: salaryRows },
             { heading: "Confirmation", rows: [
                 ["Confirmation", "This letter confirms your employment with PROTOVERGE LLP in the designation and department stated above."],
-                ["Effective Date", employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString("en-IN", { timeZone: "UTC" }) : "To be confirmed by HR"],
+                ["Confirmation Effective Date", "Not recorded in HRMS - HR must confirm the effective date before issue"],
                 ["Terms", "Your employment will continue in accordance with the applicable company policies and employment terms communicated by HR."]
             ] }
         ]
