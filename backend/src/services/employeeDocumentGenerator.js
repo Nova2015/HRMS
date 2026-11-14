@@ -49,15 +49,18 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
             const ink = "#1E293B";
             const companyName = "PROTOVERGE LLP";
             const employeeName = safeText([employee.firstName, employee.lastName].filter(Boolean).join(" "));
-            const drawLetterHeader = () => {
-                pdf.rect(0, 0, pageWidth, 92).fill(navy);
-                if (logoAvailable) {
-                    try { pdf.image(LOGO_PATH, left, 18, { fit: [54, 54] }); } catch { /* Keep text header if logo cannot be read. */ }
+            const drawLetterHeader = (firstPage = false) => {
+                if (firstPage) {
+                    if (logoAvailable) {
+                        try { pdf.image(LOGO_PATH, left, 30, { fit: [38, 38] }); } catch { /* Keep company name if logo cannot be read. */ }
+                    }
+                    pdf.font("HRMS-Bold").fontSize(15).fillColor(navy)
+                        .text(companyName, left + (logoAvailable ? 48 : 0), 39, { width: 300 });
+                    pdf.moveTo(left, 82).lineTo(right, 82).strokeColor(line).lineWidth(0.8).stroke();
+                    pdf.y = 98;
+                } else {
+                    pdf.y = 48;
                 }
-                pdf.font("HRMS-Bold").fontSize(18).fillColor("#FFFFFF").text(companyName, left + (logoAvailable ? 68 : 0), 28, { width: 280 });
-                pdf.font("HRMS").fontSize(8).fillColor("#DCE8F7").text("Human Resources", left + (logoAvailable ? 68 : 0), 55);
-                pdf.rect(0, 88, pageWidth, 4).fill(blue);
-                pdf.y = 112;
             };
             const ensureLetterSpace = (height) => {
                 if (pdf.y + height > pageHeight - 66) {
@@ -65,7 +68,7 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
                     drawLetterHeader();
                 }
             };
-            drawLetterHeader();
+            drawLetterHeader(true);
             pdf.font("HRMS-Bold").fontSize(17).fillColor(navy).text(title, left, pdf.y, { width, align: "center" });
             pdf.moveDown(0.45);
             pdf.font("HRMS").fontSize(9).fillColor(muted).text("Date: " + new Date().toLocaleDateString("en-IN"), { align: "right" });
@@ -120,7 +123,7 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
                     const currentRowHeight = Math.max(rowHeight, ...cellHeights.map((height) => height + 14));
                     if (top + currentRowHeight > pageHeight - 66) {
                         pdf.addPage();
-                        drawLetterHeader();
+                        drawLetterHeader(false);
                         top = pdf.y;
                         pdf.rect(left, top, width, rowHeight).fill(navy);
                         let headerX = left;
@@ -203,27 +206,25 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
         const ensureSpace = (height) => {
             if (y + height > bottom) {
                 pdf.addPage();
-                drawPageHeader(true);
+                drawPageHeader(false);
             }
         };
-        const drawPageHeader = (compact = false) => {
-            if (compact) {
-                pdf.rect(0, 0, pageWidth, 48).fill(colors.navy);
-                pdf.font("HRMS-Bold").fontSize(9).fillColor(colors.white).text("PROTOVERGE LLP", left, 17);
-                pdf.font("HRMS").fontSize(8).fillColor("#DCE8F7").text("PAYSLIP  |  " + period, right - 180, 18, { width: 180, align: "right" });
-                y = 62;
-                return;
+        const drawPageHeader = (firstPage = false) => {
+            if (firstPage) {
+                if (logoAvailable) {
+                    try { pdf.image(LOGO_PATH, left, 26, { fit: [40, 40] }); } catch { /* Continue with company name. */ }
+                }
+                pdf.font("HRMS-Bold").fontSize(15).fillColor(colors.navy)
+                    .text("PROTOVERGE LLP", left + (logoAvailable ? 50 : 0), 35, { width: 280 });
+                pdf.font("HRMS-Bold").fontSize(17).fillColor(colors.navy)
+                    .text("PAYSLIP", right - 140, 30, { width: 140, align: "right" });
+                pdf.font("HRMS").fontSize(8).fillColor(colors.muted)
+                    .text(period, right - 140, 52, { width: 140, align: "right" });
+                pdf.moveTo(left, 78).lineTo(right, 78).strokeColor(colors.line).lineWidth(0.8).stroke();
+                y = 94;
+            } else {
+                y = 48;
             }
-            pdf.rect(0, 0, pageWidth, 116).fill(colors.navy);
-            pdf.rect(0, 110, pageWidth, 6).fill(colors.blue);
-            if (logoAvailable) {
-                try { pdf.image(LOGO_PATH, left, 27, { fit: [55, 55] }); } catch { /* Continue with company name. */ }
-            }
-            pdf.font("HRMS-Bold").fontSize(17).fillColor(colors.white).text("PROTOVERGE LLP", left + (logoAvailable ? 70 : 0), 30, { width: 285 });
-            pdf.font("HRMS").fontSize(8).fillColor("#DCE8F7").text("Human Resources", left + (logoAvailable ? 70 : 0), 55, { width: 300 });
-            pdf.font("HRMS-Bold").fontSize(21).fillColor(colors.white).text("PAYSLIP", right - 145, 31, { width: 145, align: "right" });
-            pdf.font("HRMS").fontSize(9).fillColor("#DCE8F7").text(period, right - 145, 61, { width: 145, align: "right" });
-            y = 132;
         };
 
         const drawSectionTitle = (label, x, top, w, accent = colors.blue) => {
@@ -240,7 +241,7 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
                 const rowH = 24;
                 if (cursor + rowH > bottom) {
                     pdf.addPage();
-                    drawPageHeader(true);
+                    drawPageHeader(false);
                     cursor = y;
                 }
                 if (isTotal) pdf.rect(x, cursor, w, rowH).fill("#EAF0F7");
@@ -253,7 +254,7 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
             return cursor;
         };
 
-        drawPageHeader(false);
+        drawPageHeader(true);
 
         // Employee details panel
         pdf.roundedRect(left, y, width, 82, 7).fillAndStroke("#F5F8FC", colors.line);
