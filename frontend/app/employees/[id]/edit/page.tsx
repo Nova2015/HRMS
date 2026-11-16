@@ -502,7 +502,7 @@ function EditEmployeeForm() {
                     <option value="employee">Employee</option>
                     <option value="manager">{isFounderOrCoFounder ? "Founder" : "Manager"}</option>
                     <option value="hr">HR</option>
-                    {currentUserRole === "admin" && <option value="admin">Admin</option>}
+                    <option value="admin" disabled={currentUserRole !== "admin"}>Admin{currentUserRole !== "admin" ? " (Admin access required)" : ""}</option>
                   </select>
                   <p className="mt-1 text-xs text-slate-500">
                     Controls this user&apos;s access and permissions in HRMS.
