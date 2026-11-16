@@ -14,7 +14,7 @@ const resetPassword = async () => {
 
         await connectDB();
 
-        const email = "keshavb0@gmail.com";
+        const email = "protoverge.organisation@gmail.com";
         const user = await User.findOne({ email });
 
         if (!user) {

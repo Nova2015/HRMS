@@ -17,8 +17,8 @@ const createAdminAccount = async () => {
     try {
         await connectDB();
 
-        const employeeCode = "PTVG003";
-        const email = "keshavb0@gmail.com";
+        const employeeCode = "PTVG0000";
+        const email = "protoverge.organisation@gmail.com";
 
         // Check duplicate records
         const existingEmployee = await Employee.findOne({
@@ -68,8 +68,8 @@ const createAdminAccount = async () => {
         // Create Employee
         createdEmployee = await Employee.create({
             employeeCode,
-            firstName: "Keshav",
-            lastName: "Bansode",
+            firstName: "System",
+            lastName: "Admin",
             email,
             phone: "",
             department: department._id,
