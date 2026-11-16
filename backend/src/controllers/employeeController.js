@@ -9,7 +9,7 @@ import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
 import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
 
-const ALLOWED_ROLES = ["employee", "manager", "hr"];
+const ALLOWED_ROLES = ["employee", "manager", "hr", "admin"];
 const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
 
 const populateEmployee = (query) => {
@@ -86,6 +86,13 @@ export const createEmployee = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Invalid employee role"
+            });
+        }
+
+        if (role === "admin" && req.user.role !== "admin") {
+            return res.status(403).json({
+                success: false,
+                message: "Only an Admin can create another Admin account"
             });
         }
 
@@ -366,6 +373,17 @@ export const updateEmployee = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Invalid account role"
+            });
+        }
+
+        if (
+            requestedRole !== undefined &&
+            String(requestedRole).trim().toLowerCase() === "admin" &&
+            req.user.role !== "admin"
+        ) {
+            return res.status(403).json({
+                success: false,
+                message: "Only an Admin can assign the Admin account role"
             });
         }
 
