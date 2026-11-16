@@ -531,6 +531,11 @@ export const updateEmployee = async (req, res) => {
 
         if (updates.employmentStatus !== undefined) {
             userUpdate.isActive = updates.employmentStatus === "active";
+            // Invalidate existing sessions when an account is closed/inactivated.
+            // Keep the increment permanent so reactivation cannot revive old tokens.
+            if (updates.employmentStatus !== "active" && linkedUser.isActive) {
+                userUpdate.tokenVersion = (linkedUser.tokenVersion || 0) + 1;
+            }
         }
 
         if (Object.keys(userUpdate).length > 0) {
@@ -628,7 +633,10 @@ export const deactivateEmployee = async (req, res) => {
 
         const linkedUser = await User.findOneAndUpdate(
             { employee: employee._id },
-            { $set: { isActive: false } },
+            {
+                $set: { isActive: false },
+                $inc: { tokenVersion: 1 }
+            },
             { new: true }
         );
         if (!linkedUser) {
