@@ -80,7 +80,7 @@ function HelpdeskContent() {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [category, setCategory] = useState<Category>("software");
+  const [category, setCategory] = useState<Category>("software");\n  const [ticketType, setTicketType] = useState<"work_task" | "helpdesk" | "hr_private">("helpdesk");\n  const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -144,11 +144,11 @@ function HelpdeskContent() {
       const result = await apiRequest("/helpdesk/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, priority, subject, description }),
+        body: JSON.stringify({ category, priority, subject, description, ticketType, dueDate: dueDate || null }),
       });
       setMessage(result.message);
       setShowForm(false);
-      setSubject(""); setDescription(""); setCategory("software"); setPriority("medium");
+      setSubject(""); setDescription(""); setCategory("software"); setPriority("medium"); setTicketType("helpdesk"); setDueDate("");
       await loadWorkspace();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to submit ticket");
@@ -259,8 +259,8 @@ function HelpdeskContent() {
           <section role="dialog" aria-modal="true" aria-labelledby="new-ticket-title" className="hrms-enter my-auto w-full max-w-2xl rounded-[26px] border border-white/80 bg-white p-6 shadow-[0_28px_90px_rgba(15,23,42,0.24)] sm:p-8">
             <div className="mb-6 flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">Support request</p><h2 id="new-ticket-title" className="mt-1 text-2xl font-bold text-slate-900">Submit New Ticket</h2><p className="mt-1 text-sm text-slate-500">Provide enough detail for the support team to investigate.</p></div><button type="button" onClick={() => setShowForm(false)} className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close"><X size={20} /></button></div>
             <form onSubmit={submitTicket} className="grid gap-4 sm:grid-cols-2">
-              <label className={labelClass}>Issue category<select required value={category} onChange={(e) => setCategory(e.target.value as Category)} className={inputClass}>{categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-              <label className={labelClass}>Priority<select required value={priority} onChange={(e) => setPriority(e.target.value as Priority)} className={inputClass}>{priorities.map((item) => <option key={item} value={item}>{item.charAt(0).toUpperCase() + item.slice(1)}</option>)}</select></label>
+              <label className={labelClass}>Request type<select value={ticketType} onChange={(e) => setTicketType(e.target.value as typeof ticketType)} className={inputClass}><option value="helpdesk">Employee Helpdesk</option>{role === "manager" || isAdmin ? <option value="work_task">Work Task</option> : null}{isAdmin ? <option value="hr_private">Private HR Request</option> : null}</select></label>\n              <label className={labelClass}>Issue category<select required value={category} onChange={(e) => setCategory(e.target.value as Category)} className={inputClass}>{categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+              <label className={labelClass}>Due date<input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputClass} /></label>\n              <label className={labelClass}>Priority<select required value={priority} onChange={(e) => setPriority(e.target.value as Priority)} className={inputClass}>{priorities.map((item) => <option key={item} value={item}>{item.charAt(0).toUpperCase() + item.slice(1)}</option>)}</select></label>
               <label className={`${labelClass} sm:col-span-2`}>Subject<input required maxLength={140} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Briefly describe the issue" className={inputClass} /></label>
               <label className={`${labelClass} sm:col-span-2`}>Description<textarea required minLength={5} maxLength={3000} rows={5} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What happened? Include any error message and steps to reproduce." className={`${inputClass} resize-y`} /></label>
               <div className="mt-2 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-5 sm:col-span-2"><button type="button" onClick={() => setShowForm(false)} className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">Cancel</button><button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700 disabled:opacity-50">{busy ? <LoaderCircle size={17} className="animate-spin" /> : <Plus size={17} />}{busy ? "Submitting..." : "Submit Ticket"}</button></div>
@@ -281,10 +281,10 @@ function HelpdeskContent() {
               {visibleTickets.map((item) => <article key={item._id} className="px-5 py-5 transition hover:bg-indigo-50/20 sm:px-7">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="mb-2 flex flex-wrap items-center gap-2"><span className="font-mono text-xs font-bold text-indigo-700">{item.ticketNumber}</span><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${priorityStyle(item.priority)}`}>{item.priority}</span><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${statusStyle(item.status)}`}>{item.status.replace("_", " ")}</span></div>
+                    <div className="mb-2 flex flex-wrap items-center gap-2"><span className="font-mono text-xs font-bold text-indigo-700">{item.ticketNumber}</span><span className="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-bold uppercase text-violet-700">{(item.ticketType || "helpdesk").replace("_", " ")}</span><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${priorityStyle(item.priority)}`}>{item.priority}</span><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${statusStyle(item.status)}`}>{item.status.replace("_", " ")}</span></div>
                     <h3 className="text-base font-bold text-slate-900">{item.subject}</h3>
                     <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-500">{item.description}</p>
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400"><span>{categories.find((entry) => entry.value === item.category)?.label || item.category}</span><span>Submitted by {employeeName(item.createdBy)}</span><span>{dateLabel(item.createdAt)}</span></div>
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400"><span>{categories.find((entry) => entry.value === item.category)?.label || item.category}</span><span>Submitted by {employeeName(item.createdBy)}</span><span>{dateLabel(item.createdAt)}</span>{item.dueDate && <span className="font-semibold text-slate-500">Due {new Date(item.dueDate).toLocaleDateString("en-IN")}</span>}</div>
                     {item.resolutionNote && <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Resolution note</p><p className="mt-1 text-sm text-emerald-900">{item.resolutionNote}</p></div>}
                   </div>
                   {canManage && item.status !== "closed" && <div className="w-full space-y-2 sm:w-56">
