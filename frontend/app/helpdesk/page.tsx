@@ -82,7 +82,9 @@ function HelpdeskContent() {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [category, setCategory] = useState<Category>("software");\n  const [ticketType, setTicketType] = useState<"work_task" | "helpdesk" | "hr_private">("helpdesk");\n  const [dueDate, setDueDate] = useState("");
+  const [category, setCategory] = useState<Category>("software");
+  const [ticketType, setTicketType] = useState<"work_task" | "helpdesk" | "hr_private">("helpdesk");
+  const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
