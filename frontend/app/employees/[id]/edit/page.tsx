@@ -231,6 +231,7 @@ function EditEmployeeForm() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          employeeCode: form.employeeCode,
           firstName: form.firstName,
           lastName: form.lastName,
           email: form.email,
@@ -322,9 +323,11 @@ function EditEmployeeForm() {
                 <div>
                   <label className={labelClass}>Employee Code</label>
                   <input
-                    readOnly
-                    className={`${inputClass} bg-slate-100 text-slate-500`}
+                    required
+                    maxLength={30}
+                    className={inputClass}
                     value={form.employeeCode}
+                    onChange={(e) => updateField("employeeCode", e.target.value)}
                   />
                 </div>
 
