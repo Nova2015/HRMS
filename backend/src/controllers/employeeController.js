@@ -378,12 +378,12 @@ export const updateEmployee = async (req, res) => {
 
         if (
             requestedRole !== undefined &&
-            String(requestedRole).trim().toLowerCase() === "admin" &&
-            req.user.role !== "admin"
+            req.user.role !== "admin" &&
+            (String(requestedRole).trim().toLowerCase() === "admin" || linkedUser.role === "admin")
         ) {
             return res.status(403).json({
                 success: false,
-                message: "Only an Admin can assign the Admin account role"
+                message: "Only an Admin can assign or change an Admin account role"
             });
         }
 
