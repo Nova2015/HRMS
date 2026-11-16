@@ -432,8 +432,9 @@ function AddEmployeeForm() {
                   onChange={(e) => updateField("role", e.target.value)}
                 >
                   <option value="employee">Employee</option>
-                  <option value="manager">Manager</option>
+                  <option value="manager">{isFounderOrCoFounder ? "Founder" : "Manager"}</option>
                   <option value="hr">HR</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
 
