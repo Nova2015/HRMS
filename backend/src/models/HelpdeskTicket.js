@@ -4,6 +4,8 @@ const helpdeskTicketSchema = new mongoose.Schema(
     {
         ticketNumber: { type: String, unique: true },
         createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee", required: true, index: true },
+        ticketType: { type: String, enum: ["work_task", "helpdesk", "hr_private"], default: "helpdesk", index: true },
+        dueDate: { type: Date, default: null, index: true },
         category: { type: String, enum: ["hardware", "software", "ui_error", "network", "access", "other"], required: true },
         priority: { type: String, enum: ["low", "medium", "high", "urgent"], default: "medium", required: true },
         subject: { type: String, required: true, trim: true, maxlength: 140 },
