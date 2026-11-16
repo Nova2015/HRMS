@@ -23,7 +23,7 @@ const adminLinks = [
   { label: "Payroll", href: "/payroll", icon: Wallet },
   { label: "Expenses", href: "/expenses", icon: ReceiptText },
   { label: "Documents", href: "/documents", icon: FileText },
-  { label: "IT Support", href: "/helpdesk", icon: Headset },
+  { label: "Work & Helpdesk", href: "/helpdesk", icon: Headset },
   { label: "Shift Management", href: "/shifts", icon: CalendarCheck },
   { label: "Organization", href: "/organization", icon: Building2 },
   { label: "Performance", href: "/performance", icon: Award },
@@ -41,7 +41,7 @@ const employeeLinks = [
   { label: "Payroll", href: "/payroll", icon: Wallet },
   { label: "Expenses", href: "/expenses", icon: ReceiptText },
   { label: "Documents", href: "/documents", icon: FileText },
-  { label: "IT Support", href: "/helpdesk", icon: Headset },
+  { label: "Work & Helpdesk", href: "/helpdesk", icon: Headset },
   { label: "Performance", href: "/performance", icon: Award },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
