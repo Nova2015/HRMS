@@ -65,12 +65,19 @@ function EmployeeList() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const loadEmployees = useCallback(async () => {
     setLoading(true);
     setError("");
 
     const token = sessionStorage.getItem("hrms_token");
+    try {
+      const storedUser = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
+      setIsAdmin(String(storedUser.role || "").toLowerCase() === "admin");
+    } catch {
+      setIsAdmin(false);
+    }
 
     if (!token) {
       router.replace("/login");
@@ -364,9 +371,9 @@ function EmployeeList() {
                       <button type="button" onClick={() => router.push(`/employees/${employee._id}/edit`)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
                         <Pencil size={14} /> Edit
                       </button>
-                      <button type="button" onClick={() => archiveEmployee(employee)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                      {isAdmin && <button type="button" onClick={() => archiveEmployee(employee)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
                         <Archive size={14} /> Archive
-                      </button>
+                      </button>}
                     </div>
                   </div>
                 </article>
@@ -423,9 +430,9 @@ function EmployeeList() {
                           <button type="button" title="Edit Employee" aria-label={`Edit ${employee.firstName} ${employee.lastName}`} onClick={() => router.push(`/employees/${employee._id}/edit`)} className="rounded-lg border border-transparent p-2 text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-slate-800 hover:shadow-sm">
                             <Pencil size={17} />
                           </button>
-                          <button type="button" title="Archive Employee" aria-label={`Archive ${employee.firstName} ${employee.lastName}`} onClick={() => archiveEmployee(employee)} className="rounded-lg border border-transparent p-2 text-rose-600 transition hover:border-rose-100 hover:bg-rose-50 hover:shadow-sm">
+                          {isAdmin && <button type="button" title="Archive Employee" aria-label={`Archive ${employee.firstName} ${employee.lastName}`} onClick={() => archiveEmployee(employee)} className="rounded-lg border border-transparent p-2 text-rose-600 transition hover:border-rose-100 hover:bg-rose-50 hover:shadow-sm">
                             <Archive size={17} />
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>
