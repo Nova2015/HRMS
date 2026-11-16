@@ -3,11 +3,9 @@ import HelpdeskTicket from "../models/HelpdeskTicket.js";
 import User from "../models/User.js";
 import Employee from "../models/Employee.js";
 
-const isPrivileged = (role) => ["admin", "hr"].includes(role);
-
 const getWorkspaceAccess = async (req) => {
     if (req.user.role === "admin" || req.user.role === "hr") {
-        return { filter: {}, canManage: true, organizationWide: true, departmentId: null };
+        return { filter: {}, canManage: true, organizationWide: true, departmentId: null, role: req.user.role };
     }
 
     const employee = await Employee.findById(req.user.employeeId)
@@ -18,7 +16,7 @@ const getWorkspaceAccess = async (req) => {
 
     const isFounder = String(employee.designation?.name || "").trim().toLowerCase() === "founder";
     if (req.user.role === "manager" && isFounder) {
-        return { filter: {}, canManage: true, organizationWide: true, departmentId: null };
+        return { filter: { ticketType: { $ne: "hr_private" } }, canManage: true, organizationWide: true, departmentId: null, role: req.user.role };
     }
 
     if (req.user.role === "manager") {
@@ -32,6 +30,7 @@ const getWorkspaceAccess = async (req) => {
         }).distinct("_id");
         return {
             filter: {
+                ticketType: { $ne: "hr_private" },
                 $or: [
                     { createdBy: { $in: departmentEmployees } },
                     { assignedTo: { $in: departmentUsers } }
@@ -123,7 +122,19 @@ export const getHelpdeskWorkspace = async (req, res) => {
 
 export const createHelpdeskTicket = async (req, res) => {
     try {
-        const { category, priority = "medium", subject, description } = req.body || {};
+        const { category, priority = "medium", subject, description, ticketType = "helpdesk", dueDate = null } = req.body || {};
+        const access = await getWorkspaceAccess(req);
+        const allowedTypes = req.user.role === "admin" || req.user.role === "hr"
+            ? new Set(["work_task", "helpdesk", "hr_private"])
+            : req.user.role === "manager"
+                ? new Set(["work_task", "helpdesk"])
+                : new Set(["helpdesk"]);
+        if (!allowedTypes.has(ticketType)) {
+            return res.status(403).json({ success: false, message: "You are not allowed to create this ticket type" });
+        }
+        if (dueDate && (Number.isNaN(Date.parse(dueDate)) || new Date(dueDate) < new Date("2000-01-01"))) {
+            return res.status(400).json({ success: false, message: "Provide a valid due date" });
+        }
         const cleanSubject = String(subject || "").trim();
         const cleanDescription = String(description || "").trim();
 
@@ -138,6 +149,8 @@ export const createHelpdeskTicket = async (req, res) => {
 
         const ticket = await HelpdeskTicket.create({
             createdBy: req.user.employeeId,
+            ticketType,
+            dueDate: dueDate ? new Date(dueDate) : null,
             category,
             priority,
             subject: cleanSubject,
@@ -183,6 +196,9 @@ export const assignHelpdeskTicket = async (req, res) => {
 
             if (!assignee?.employee) {
                 return res.status(400).json({ success: false, message: "Assignee must be an active Admin or HR account" });
+            }
+            if (!access.organizationWide && assignee.employee.department?.toString() !== access.departmentId) {
+                return res.status(403).json({ success: false, message: "You can assign work only within your department" });
             }
         }
 
