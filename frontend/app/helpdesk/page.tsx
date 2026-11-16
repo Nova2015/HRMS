@@ -27,6 +27,8 @@ type Employee = { _id: string; employeeCode?: string; firstName: string; lastNam
 type Assignee = { _id: string; email: string; role: "admin" | "hr" | "manager" | "employee"; employee: Employee };
 type TicketItem = {
   _id: string;
+  ticketType?: "work_task" | "helpdesk" | "hr_private";
+  dueDate?: string | null;
   ticketNumber: string;
   createdBy: Employee | string;
   category: Category;
