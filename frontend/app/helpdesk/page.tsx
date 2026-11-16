@@ -24,7 +24,7 @@ type Category = (typeof categories)[number]["value"];
 type Priority = (typeof priorities)[number];
 type Status = "open" | "in_progress" | "resolved" | "closed";
 type Employee = { _id: string; employeeCode?: string; firstName: string; lastName: string };
-type Assignee = { _id: string; email: string; role: "admin" | "hr"; employee: Employee };
+type Assignee = { _id: string; email: string; role: "admin" | "hr" | "manager" | "employee"; employee: Employee };
 type TicketItem = {
   _id: string;
   ticketNumber: string;
@@ -43,6 +43,7 @@ type Workspace = {
   tickets: TicketItem[];
   assignees: Assignee[];
   summary: { total: number; open: number; inProgress: number; resolved: number; closed: number };
+  permissions?: { canManage: boolean; organizationWide: boolean; departmentId: string | null };
 };
 
 const inputClass = "mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10";
@@ -85,6 +86,8 @@ function HelpdeskContent() {
   const [description, setDescription] = useState("");
 
   const isAdmin = role === "admin" || role === "hr";
+  const canManage = isAdmin || Boolean(workspace?.permissions?.canManage);
+  const isFounderManager = role === "manager" && Boolean(workspace?.permissions?.organizationWide);
   const token = () => sessionStorage.getItem("hrms_token") || "";
 
   const apiRequest = useCallback(async (path: string, options: RequestInit = {}) => {
@@ -202,7 +205,7 @@ function HelpdeskContent() {
             <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-indigo-700"><ArrowLeft size={16} />Dashboard <span className="text-slate-300">/</span> IT Helpdesk &amp; Support</Link>
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 p-3 text-white shadow-lg shadow-indigo-600/20"><Headset size={25} /></div>
-              <div><h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">IT Helpdesk &amp; Support</h1><p className="mt-1 text-sm text-slate-500">{isAdmin ? "Manage, assign and resolve employee support requests." : "Raise a support request and track its progress."}</p></div>
+              <div><h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">IT Helpdesk &amp; Support</h1><p className="mt-1 text-sm text-slate-500">{canManage ? (isFounderManager ? "Organization-wide work and support visibility." : role === "manager" ? "Manage work and support requests within your department." : "Manage company support requests.") : "Raise a support request and track its progress."}</p></div>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -229,7 +232,7 @@ function HelpdeskContent() {
             <div className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-indigo-200/30 blur-3xl" />
             <div className="relative flex items-start gap-4">
               <div className="rounded-2xl bg-white p-3 text-indigo-700 shadow-sm"><MessageSquareText size={23} /></div>
-              <div><p className="text-sm font-semibold text-indigo-700">Support desk</p><h2 className="mt-2 text-xl font-bold text-slate-900">{isAdmin ? "One place to manage every request" : "Need help with your work tools?"}</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">{isAdmin ? "Review incoming tickets, assign them to an Admin or HR teammate, and keep employees informed with clear status updates." : "Describe the issue, choose its category and priority, then follow the ticket from Open through Resolution."}</p></div>
+              <div><p className="text-sm font-semibold text-indigo-700">Support desk</p><h2 className="mt-2 text-xl font-bold text-slate-900">{canManage ? (isFounderManager ? "Organization-wide work management" : role === "manager" ? "Manage your department work" : "One place to manage every request") : "Need help with your work tools?"}</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">{canManage ? "Review requests, assign work to permitted team members, and keep progress up to date." : "Describe the issue, choose its category and priority, then follow the ticket from Open through Resolution."}</p></div>
             </div>
             <div className="relative mt-6 flex flex-wrap items-center gap-3 border-t border-indigo-100 pt-5 text-xs font-medium text-slate-500">
               <span className="inline-flex items-center gap-1.5"><ShieldCheck size={15} className="text-emerald-600" />Role-based private access</span>
@@ -267,7 +270,7 @@ function HelpdeskContent() {
 
         <section className="hrms-card overflow-hidden rounded-2xl">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-5 sm:px-7">
-            <div><h2 className="text-lg font-bold text-slate-900">{isAdmin ? "All Support Tickets" : "My Recent Tickets"}</h2><p className="mt-1 text-sm text-slate-500">{isAdmin ? "Assign requests and manage the support workflow." : "Only your submitted requests are visible here."}</p></div>
+            <div><h2 className="text-lg font-bold text-slate-900">{canManage ? (isFounderManager || isAdmin ? "All Support Tickets" : "Department Support Tickets") : "My Recent Tickets"}</h2><p className="mt-1 text-sm text-slate-500">{canManage ? (isFounderManager || isAdmin ? "View and manage company-wide requests." : "View and manage requests within your department.") : "Only tickets you created or were assigned are visible here."}</p></div>
             <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               <div className="relative w-full sm:w-52"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tickets" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-indigo-400" /></div>
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-indigo-400 sm:w-auto"><option value="all">All statuses</option><option value="open">Open</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>
@@ -284,8 +287,8 @@ function HelpdeskContent() {
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400"><span>{categories.find((entry) => entry.value === item.category)?.label || item.category}</span><span>Submitted by {employeeName(item.createdBy)}</span><span>{dateLabel(item.createdAt)}</span></div>
                     {item.resolutionNote && <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Resolution note</p><p className="mt-1 text-sm text-emerald-900">{item.resolutionNote}</p></div>}
                   </div>
-                  {isAdmin && item.status !== "closed" && <div className="w-full space-y-2 sm:w-56">
-                    <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-400">Assign to Admin / HR</label>
+                  {canManage && item.status !== "closed" && <div className="w-full space-y-2 sm:w-56">
+                    <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-400">Assign to team member</label>
                     <select value={item.assignedTo?._id || ""} disabled={busy} onChange={(e) => void assignTicket(item._id, e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-indigo-400 disabled:opacity-50"><option value="">Unassigned</option>{(workspace?.assignees || []).map((person) => <option key={person._id} value={person._id}>{employeeName(person.employee)} · {person.role.toUpperCase()}</option>)}</select>
                     <div className="flex flex-wrap gap-1.5">
                       {item.status === "open" && <button type="button" disabled={busy} onClick={() => void updateStatus(item, "in_progress")} className="rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white hover:bg-blue-700 disabled:opacity-50">Start work</button>}
@@ -293,14 +296,14 @@ function HelpdeskContent() {
                       {item.status === "resolved" && <><button type="button" disabled={busy} onClick={() => void updateStatus(item, "in_progress")} className="rounded-lg border border-blue-200 px-3 py-2 text-[11px] font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-50">Reopen</button><button type="button" disabled={busy} onClick={() => void updateStatus(item, "closed")} className="rounded-lg bg-slate-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-slate-800 disabled:opacity-50">Close</button></>}
                     </div>
                   </div>}
-                  {!isAdmin && <div className="shrink-0 text-right"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Assigned to</p><p className="mt-1 text-xs font-semibold text-slate-600">{item.assignedTo ? `${employeeName(item.assignedTo.employee)} · ${item.assignedTo.role.toUpperCase()}` : "Awaiting assignment"}</p></div>}
+                  {!canManage && <div className="shrink-0 text-right"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Assigned to</p><p className="mt-1 text-xs font-semibold text-slate-600">{item.assignedTo ? `${employeeName(item.assignedTo.employee)} · ${item.assignedTo.role.toUpperCase()}` : "Awaiting assignment"}</p></div>}
                 </div>
               </article>)}
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-5 py-3 text-xs text-slate-400"><span>Showing up to 200 latest tickets</span><span className="inline-flex items-center gap-1"><ShieldCheck size={13} />Private ticket access</span></div>
         </section>
-        <p className="mt-4 text-center text-xs text-slate-400">Employees can view only their own tickets. Admin / HR can view, assign and manage all support requests.</p>
+        <p className="mt-4 text-center text-xs text-slate-400">Employees can view tickets they created or were assigned. Managers are limited to their department; Founder Manager and Admin have organization-wide access.</p>
       </div>
     </main>
   );
