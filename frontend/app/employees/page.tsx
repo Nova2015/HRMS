@@ -13,6 +13,7 @@ import {
   Pencil,
   Crown,
   Gem,
+  Archive,
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
@@ -107,6 +108,29 @@ function EmployeeList() {
   useEffect(() => {
     void Promise.resolve().then(loadEmployees);
   }, [loadEmployees]);
+
+  const archiveEmployee = async (employee: Employee) => {
+    const confirmed = window.confirm(
+      `Archive ${employee.firstName} ${employee.lastName} (${employee.employeeCode})? Login access will be disabled. Attendance, Leave, Payroll and Documents history will be retained.`
+    );
+    if (!confirmed) return;
+    const token = sessionStorage.getItem("hrms_token");
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+    try {
+      const response = await fetch(`${API_URL}/employees/${employee._id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to archive employee");
+      await loadEmployees();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Unable to archive employee");
+    }
+  };
 
   const departments = useMemo(() => {
     const unique = new Map<string, Department>();
@@ -340,6 +364,9 @@ function EmployeeList() {
                       <button type="button" onClick={() => router.push(`/employees/${employee._id}/edit`)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
                         <Pencil size={14} /> Edit
                       </button>
+                      <button type="button" onClick={() => archiveEmployee(employee)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                        <Archive size={14} /> Archive
+                      </button>
                     </div>
                   </div>
                 </article>
@@ -395,6 +422,9 @@ function EmployeeList() {
                           </button>
                           <button type="button" title="Edit Employee" aria-label={`Edit ${employee.firstName} ${employee.lastName}`} onClick={() => router.push(`/employees/${employee._id}/edit`)} className="rounded-lg border border-transparent p-2 text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-slate-800 hover:shadow-sm">
                             <Pencil size={17} />
+                          </button>
+                          <button type="button" title="Archive Employee" aria-label={`Archive ${employee.firstName} ${employee.lastName}`} onClick={() => archiveEmployee(employee)} className="rounded-lg border border-transparent p-2 text-rose-600 transition hover:border-rose-100 hover:bg-rose-50 hover:shadow-sm">
+                            <Archive size={17} />
                           </button>
                         </div>
                       </td>
