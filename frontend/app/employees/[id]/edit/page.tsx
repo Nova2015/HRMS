@@ -43,7 +43,7 @@ type Employee = {
   reportingManager: { _id: string } | null;
   joiningDate: string;
   employmentStatus: "active" | "inactive" | "resigned" | "terminated";
-  account?: { email: string; role: "employee" | "manager" | "hr"; isActive: boolean } | null;
+  account?: { email: string; role: "employee" | "manager" | "hr" | "admin"; isActive: boolean } | null;
 };
 
 function EditEmployeeForm() {
@@ -58,6 +58,7 @@ function EditEmployeeForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [currentUserRole, setCurrentUserRole] = useState("");
 
   const [form, setForm] = useState({
     employeeCode: "",
@@ -75,6 +76,12 @@ function EditEmployeeForm() {
 
   const loadData = useCallback(async () => {
     const token = sessionStorage.getItem("hrms_token");
+    try {
+      const currentUser = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
+      setCurrentUserRole(String(currentUser.role || "").toLowerCase());
+    } catch {
+      setCurrentUserRole("");
+    }
 
     if (!token) {
       router.replace("/login");
@@ -493,8 +500,9 @@ function EditEmployeeForm() {
                     onChange={(e) => updateField("role", e.target.value)}
                   >
                     <option value="employee">Employee</option>
-                    <option value="manager">Manager</option>
+                    <option value="manager">{isFounderOrCoFounder ? "Founder" : "Manager"}</option>
                     <option value="hr">HR</option>
+                    {currentUserRole === "admin" && <option value="admin">Admin</option>}
                   </select>
                   <p className="mt-1 text-xs text-slate-500">
                     Controls this user&apos;s access and permissions in HRMS.
