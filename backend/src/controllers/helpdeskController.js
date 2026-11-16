@@ -204,6 +204,9 @@ export const assignHelpdeskTicket = async (req, res) => {
 
         const ticket = await HelpdeskTicket.findOne({ _id: id, ...access.filter });
         if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
+        if (ticket.ticketType === "hr_private" && assignee && !["admin", "hr"].includes(assignee.role)) {
+            return res.status(403).json({ success: false, message: "Private HR requests can be assigned only to Admin or HR" });
+        }
         if (ticket.status === "closed") {
             return res.status(409).json({ success: false, message: "Closed tickets cannot be reassigned" });
         }
