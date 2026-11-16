@@ -32,7 +32,7 @@ const employeeDocumentSchema = new mongoose.Schema(
         },
         documentType: {
             type: String,
-            enum: ["other", "resignation_letter", "payslip", "appointment_letter", "salary_revision_letter", "leave_letter", "leave_rejection_notice", "relieving_letter"],
+            enum: ["other", "resignation_letter", "payslip", "appointment_letter", "offer_letter", "confirmation_letter", "salary_revision_letter", "leave_letter", "leave_rejection_notice", "relieving_letter"],
             default: "other",
             index: true
         },

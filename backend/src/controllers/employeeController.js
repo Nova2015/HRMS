@@ -9,7 +9,7 @@ import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
 import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
 
-const ALLOWED_ROLES = ["employee", "manager", "hr"];
+const ALLOWED_ROLES = ["employee", "manager", "hr", "admin"];
 const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
 
 const populateEmployee = (query) => {
@@ -86,6 +86,13 @@ export const createEmployee = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Invalid employee role"
+            });
+        }
+
+        if (role === "admin" && req.user.role !== "admin") {
+            return res.status(403).json({
+                success: false,
+                message: "Only an Admin can create another Admin account"
             });
         }
 
@@ -239,7 +246,7 @@ export const createEmployee = async (req, res) => {
 export const getEmployees = async (req, res) => {
     try {
         const employees = await populateEmployee(
-            Employee.find({ isTestRecord: { $ne: true } }).sort({ createdAt: -1 })
+            Employee.find({ isTestRecord: { $ne: true }, isArchived: { $ne: true } }).sort({ createdAt: -1 })
         );
 
         const employeeIds = employees.map((employee) => employee._id);
@@ -345,6 +352,7 @@ export const updateEmployee = async (req, res) => {
         }
 
         const allowedFields = [
+            "employeeCode",
             "firstName",
             "lastName",
             "email",
@@ -356,6 +364,28 @@ export const updateEmployee = async (req, res) => {
             "joiningDate",
             "employmentStatus"
         ];
+
+        const requestedRole = req.body.role;
+        if (
+            requestedRole !== undefined &&
+            !ALLOWED_ROLES.includes(String(requestedRole).trim().toLowerCase())
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid account role"
+            });
+        }
+
+        if (
+            requestedRole !== undefined &&
+            req.user.role !== "admin" &&
+            (String(requestedRole).trim().toLowerCase() === "admin" || linkedUser.role === "admin")
+        ) {
+            return res.status(403).json({
+                success: false,
+                message: "Only an Admin can assign or change an Admin account role"
+            });
+        }
 
         const updates = {};
 
@@ -370,6 +400,17 @@ export const updateEmployee = async (req, res) => {
                 success: false,
                 message: "No valid fields provided for update"
             });
+        }
+
+        if (updates.employeeCode !== undefined) {
+            updates.employeeCode = String(updates.employeeCode).trim().toUpperCase();
+            if (!updates.employeeCode) {
+                return res.status(400).json({ success: false, message: "Employee ID is required" });
+            }
+            const duplicateCode = await Employee.findOne({ employeeCode: updates.employeeCode, _id: { $ne: employee._id } });
+            if (duplicateCode) {
+                return res.status(409).json({ success: false, message: "Employee ID already exists" });
+            }
         }
 
         if (updates.email !== undefined) {
@@ -480,6 +521,10 @@ export const updateEmployee = async (req, res) => {
 
         const userUpdate = {};
 
+        if (requestedRole !== undefined) {
+            userUpdate.role = String(requestedRole).trim().toLowerCase();
+        }
+
         if (updates.email !== undefined) {
             userUpdate.email = updates.email;
         }
@@ -525,6 +570,38 @@ export const updateEmployee = async (req, res) => {
                 ? "Employee email already exists"
                 : "Unable to update employee"
         });
+    }
+};
+
+// SOFT DELETE / ARCHIVE EMPLOYEE WITHOUT DELETING HR HISTORY
+export const archiveEmployee = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!mongoose.isValidObjectId(id)) {
+            return res.status(400).json({ success: false, message: "Invalid employee ID" });
+        }
+        const employee = await Employee.findOne({ _id: id, isArchived: { $ne: true } });
+        if (!employee) {
+            return res.status(404).json({ success: false, message: "Active employee record not found" });
+        }
+        const linkedUser = await User.findOne({ employee: employee._id });
+        if (!linkedUser) {
+            return res.status(409).json({ success: false, message: "Employee login account is missing; cannot safely archive employee" });
+        }
+        linkedUser.isActive = false;
+        linkedUser.tokenVersion = (linkedUser.tokenVersion || 0) + 1;
+        await linkedUser.save();
+
+        employee.isArchived = true;
+        employee.archivedAt = new Date();
+        employee.archivedBy = req.user.userId;
+        employee.employmentStatus = "inactive";
+        await employee.save();
+
+        return res.status(200).json({ success: true, message: "Employee archived. Login disabled; historical records retained." });
+    } catch (error) {
+        console.error("Archive employee error:", error);
+        return res.status(500).json({ success: false, message: "Unable to archive employee" });
     }
 };
 

@@ -11,6 +11,9 @@ import {
   UserPlus,
   Eye,
   Pencil,
+  Crown,
+  Gem,
+  Archive,
 } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
@@ -46,6 +49,13 @@ type Employee = {
   } | null;
 };
 
+function getExecutiveType(name?: string | null): "founder" | "cofounder" | null {
+  const normalized = name?.trim().toLowerCase().replace(/[\s-]+/g, "") || "";
+  if (normalized === "founder") return "founder";
+  if (normalized === "cofounder") return "cofounder";
+  return null;
+}
+
 function EmployeeList() {
   const router = useRouter();
 
@@ -55,12 +65,19 @@ function EmployeeList() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const loadEmployees = useCallback(async () => {
     setLoading(true);
     setError("");
 
     const token = sessionStorage.getItem("hrms_token");
+    try {
+      const storedUser = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
+      setIsAdmin(String(storedUser.role || "").toLowerCase() === "admin");
+    } catch {
+      setIsAdmin(false);
+    }
 
     if (!token) {
       router.replace("/login");
@@ -98,6 +115,29 @@ function EmployeeList() {
   useEffect(() => {
     void Promise.resolve().then(loadEmployees);
   }, [loadEmployees]);
+
+  const archiveEmployee = async (employee: Employee) => {
+    const confirmed = window.confirm(
+      `Archive ${employee.firstName} ${employee.lastName} (${employee.employeeCode})? Login access will be disabled. Attendance, Leave, Payroll and Documents history will be retained.`
+    );
+    if (!confirmed) return;
+    const token = sessionStorage.getItem("hrms_token");
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+    try {
+      const response = await fetch(`${API_URL}/employees/${employee._id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to archive employee");
+      await loadEmployees();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Unable to archive employee");
+    }
+  };
 
   const departments = useMemo(() => {
     const unique = new Map<string, Department>();
@@ -291,50 +331,98 @@ function EmployeeList() {
               <p className="mt-1 text-sm text-slate-400">Try changing your search or filter criteria.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1120px] text-left text-sm">
-                <thead className="bg-slate-50/90 text-[11px] uppercase tracking-wider text-slate-500">
+            <>
+            <div className="space-y-3 p-4 sm:hidden">
+              {filteredEmployees.map((employee) => (
+                <article key={employee._id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 text-sm font-bold uppercase text-indigo-700">
+                      {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="flex flex-wrap items-center gap-1.5 truncate text-sm font-bold text-slate-900">{employee.firstName} {employee.lastName}</h4>
+                          <p className="mt-0.5 text-xs font-medium text-slate-500">{employee.employeeCode}</p>
+                        </div>
+                        <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold capitalize ${statusClass(employee.employmentStatus)}`}>{employee.employmentStatus}</span>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-slate-500">{employee.email}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Department</p>
+                      <p className="mt-1 truncate text-xs font-semibold text-slate-700">{employee.department?.name || "-"}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Designation</p>
+                      <p className="mt-1 truncate text-xs font-semibold text-slate-700">{employee.designation?.name || "-"}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className={`text-[11px] font-medium ${employee.account?.isActive ? "text-emerald-700" : employee.account ? "text-rose-700" : "text-amber-700"}`}>
+                      {employee.account ? (employee.account.isActive ? "Login active" : "Login inactive") : "No login account"}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => router.push(`/employees/${employee._id}`)} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700">
+                        <Eye size={14} /> View
+                      </button>
+                      <button type="button" onClick={() => router.push(`/employees/${employee._id}/edit`)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
+                        <Pencil size={14} /> Edit
+                      </button>
+                      {isAdmin && <button type="button" onClick={() => archiveEmployee(employee)} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                        <Archive size={14} /> Archive
+                      </button>}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto rounded-b-3xl sm:block">
+              <table className="hrms-employee-table w-full min-w-[1080px] text-left text-[13px] 2xl:min-w-full">
+                <thead className="bg-slate-50/95 text-[10px] uppercase tracking-[0.12em] text-slate-500">
                   <tr>
-                    <th className="px-5 py-4 font-bold">Employee</th>
-                    <th className="px-4 py-4 font-bold">Department</th>
-                    <th className="px-4 py-4 font-bold">Designation</th>
-                    <th className="px-4 py-4 font-bold">Reporting Manager</th>
-                    <th className="px-4 py-4 font-bold">Joining Date</th>
-                    <th className="px-4 py-4 font-bold">Employment</th>
-                    <th className="px-4 py-4 font-bold">Account Role</th>
-                    <th className="px-4 py-4 font-bold">Login Account</th>
-                    <th className="px-5 py-4 text-center font-bold">Actions</th>
+                    <th className="px-4 py-3.5 font-bold">Employee</th>
+                    <th className="px-3 py-3.5 font-bold">Department</th>
+                    <th className="px-3 py-3.5 font-bold">Designation</th>
+                    <th className="px-3 py-3.5 font-bold">Reporting Manager</th>
+                    <th className="px-3 py-3.5 font-bold">Joining Date</th>
+                    <th className="px-3 py-3.5 font-bold">Employment</th>
+                    <th className="px-3 py-3.5 font-bold">Account Role</th>
+                    <th className="px-3 py-3.5 font-bold">Login Account</th>
+                    <th className="px-4 py-3 text-center font-bold">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/90">
                   {filteredEmployees.map((employee) => (
-                    <tr key={employee._id} className="group transition-colors hover:bg-indigo-50/40">
-                      <td className="px-5 py-4">
+                    <tr key={employee._id} className={`group transition-colors ${getExecutiveType(employee.designation?.name) === "founder" ? "bg-amber-50/70 hover:bg-amber-100/70" : getExecutiveType(employee.designation?.name) === "cofounder" ? "bg-violet-50/70 hover:bg-violet-100/70" : "hover:bg-indigo-50/40"}`}>
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 text-xs font-bold uppercase text-indigo-700">
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold uppercase ${getExecutiveType(employee.designation?.name) === "founder" ? "bg-amber-100 text-amber-700" : getExecutiveType(employee.designation?.name) === "cofounder" ? "bg-violet-100 text-violet-700" : "bg-gradient-to-br from-indigo-100 to-violet-100 text-indigo-700"}`}>
                             {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate font-semibold text-slate-800">{employee.firstName} {employee.lastName}</p>
+                            <p className="flex flex-wrap items-center gap-1.5 truncate font-semibold text-slate-800">{employee.firstName} {employee.lastName}</p>
                             <p className="mt-0.5 text-xs text-slate-400">{employee.employeeCode}</p>
                             <p className="max-w-[210px] truncate text-xs text-slate-500">{employee.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-slate-600">{employee.department?.name || "-"}</td>
-                      <td className="px-4 py-4 text-slate-600">{employee.designation?.name || "-"}</td>
-                      <td className="px-4 py-4 text-slate-600">{employee.reportingManager ? `${employee.reportingManager.firstName} ${employee.reportingManager.lastName}` : <span className="text-slate-400">Not assigned</span>}</td>
-                      <td className="whitespace-nowrap px-4 py-4 text-slate-600">{formatDate(employee.joiningDate)}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-3 py-3 text-slate-600">{employee.department?.name || "-"}</td>
+                      <td className="px-3 py-3 text-slate-600">{employee.designation?.name || "-"}</td>
+                      <td className="px-3 py-3 text-slate-600">{employee.reportingManager ? `${employee.reportingManager.firstName} ${employee.reportingManager.lastName}` : <span className="text-slate-400">Not assigned</span>}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-600">{formatDate(employee.joiningDate)}</td>
+                      <td className="px-3 py-3">
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(employee.employmentStatus)}`}>{employee.employmentStatus}</span>
                       </td>
-                      <td className="px-4 py-4 font-medium capitalize text-slate-600">{employee.account?.role || "No account"}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-3 py-3 font-medium capitalize text-slate-600">{employee.account?.role === "manager" && /^(co[\s-]?founder|founder)$/i.test(employee.designation?.name?.trim() || "") ? "Founder" : employee.account?.role || "No account"}</td>
+                      <td className="px-3 py-3">
                         {employee.account ? (
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${employee.account.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{employee.account.isActive ? "Active" : "Inactive"}</span>
                         ) : <span className="text-xs font-medium text-amber-600">Not linked</span>}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
                           <button type="button" title="View Employee" aria-label={`View ${employee.firstName} ${employee.lastName}`} onClick={() => router.push(`/employees/${employee._id}`)} className="rounded-lg border border-transparent p-2 text-indigo-600 transition hover:border-indigo-100 hover:bg-white hover:shadow-sm">
                             <Eye size={17} />
@@ -342,6 +430,9 @@ function EmployeeList() {
                           <button type="button" title="Edit Employee" aria-label={`Edit ${employee.firstName} ${employee.lastName}`} onClick={() => router.push(`/employees/${employee._id}/edit`)} className="rounded-lg border border-transparent p-2 text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-slate-800 hover:shadow-sm">
                             <Pencil size={17} />
                           </button>
+                          {isAdmin && <button type="button" title="Archive Employee" aria-label={`Archive ${employee.firstName} ${employee.lastName}`} onClick={() => archiveEmployee(employee)} className="rounded-lg border border-transparent p-2 text-rose-600 transition hover:border-rose-100 hover:bg-rose-50 hover:shadow-sm">
+                            <Archive size={17} />
+                          </button>}
                         </div>
                       </td>
                     </tr>
@@ -349,6 +440,7 @@ function EmployeeList() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </section>
         <p className="pb-2 text-center text-xs text-slate-400">Employee records are managed securely within your HRMS workspace.</p>

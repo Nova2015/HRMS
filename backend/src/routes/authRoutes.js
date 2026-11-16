@@ -3,6 +3,7 @@ import express from "express";
 import {
     login,
     getMe,
+    updateProfilePhoto,
     changePassword
 } from "../controllers/authController.js";
 
@@ -14,6 +15,7 @@ const router = express.Router();
 
 router.post("/login", loginRateLimit, login);
 router.get("/me", protect, getMe);
+router.put("/me/photo", protect, updateProfilePhoto);
 router.put("/change-password", protect, auditAction("auth", "password.changed"), changePassword);
 
 export default router;

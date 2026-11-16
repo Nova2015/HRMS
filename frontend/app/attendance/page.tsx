@@ -124,10 +124,6 @@ function AttendanceWorkspace() {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [clockTime, setClockTime] = useState(() => new Date());
   const previousDateRef = useRef(currentDate);
-  const hoverPreviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hoverPreviewHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [hoverPreviewClosing, setHoverPreviewClosing] = useState(false);
-  const [hoverPreview, setHoverPreview] = useState<{ day: string; top: number; left: number } | null>(null);
   const [selectedDay, setSelectedDay] = useState(todayKey());
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -576,7 +572,6 @@ function AttendanceWorkspace() {
 
   return (
     <>
-      <style jsx global>{`@keyframes calendarPreviewIn { from { opacity: 0; transform: translateY(7px) scale(0.96); filter: blur(5px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } } @keyframes calendarPreviewOut { from { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } to { opacity: 0; transform: translateY(5px) scale(0.97); filter: blur(7px); } }`}</style>
       <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1440px]">
         <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
@@ -663,22 +658,19 @@ function AttendanceWorkspace() {
                 {(today?.isLate || today?.isEarlyLeaving) && <p className="mt-3 text-xs font-semibold text-orange-700">{today.isLate ? "Late arrival recorded. " : ""}{today.isEarlyLeaving ? "Early leaving recorded." : ""}</p>}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Check-in</p><p className="mt-2 text-xl font-bold text-slate-900">{formatTime(today?.checkIn || null)}</p><p className="mt-1 text-xs text-slate-400">Today</p></div>
+                <div className="rounded-xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-2.5 sm:rounded-2xl sm:p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Check-in</p><p className="mt-1 text-base font-bold text-slate-900 sm:mt-2 sm:text-xl">{formatTime(today?.checkIn || null)}</p><p className="mt-1 text-xs text-slate-400">Today</p></div>
                 <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Check-out</p><p className="mt-2 text-xl font-bold text-slate-900">{formatTime(today?.checkOut || null)}</p><p className="mt-1 text-xs text-slate-400">Today</p></div>
                 <div className="col-span-2 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-blue-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Total working time</p><p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">{formatHours(today?.workMinutes || 0)}</p></div>
               </div>
             </div>
           </section>
         )}
-        <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="hrms-card rounded-2xl p-5">
-            <div className="flex items-center justify-between text-blue-100"><span className="text-sm font-medium">Present</span><CheckCircle2 size={20} /></div>
-            <p className="mt-3 text-3xl font-bold tabular-nums">{summary.present}</p><p className="mt-1 text-xs text-blue-100">Recorded days this month</p>
+        <section className="mb-6 max-w-sm">
+          <div className="hrms-card rounded-2xl p-4 sm:p-5">
+            <div className="flex items-center justify-between text-emerald-700"><span className="text-sm font-semibold">Working Time</span><Clock3 size={20} /></div>
+            <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{formatHours(summary.hours)}</p>
+            <p className="mt-1 text-xs text-slate-500">Total recorded hours this month</p>
           </div>
-          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-amber-700"><span className="text-sm font-medium">Half Day</span><Timer size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.halfDay}</p><p className="mt-1 text-xs text-slate-500">Short working days</p></div>
-          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-rose-700"><span className="text-sm font-medium">Absent</span><AlertCircle size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.absent}</p><p className="mt-1 text-xs text-slate-500">Explicitly marked absent</p></div>
-          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-orange-700"><span className="text-sm font-medium">Late Arrivals</span><Clock3 size={20} /></div><p className="mt-3 text-3xl font-bold text-slate-900">{summary.late}</p><p className="mt-1 text-xs text-slate-500">Late check-ins this month</p></div>
-          <div className="hrms-card rounded-2xl p-5"><div className="flex items-center justify-between text-emerald-700"><span className="text-sm font-medium">Working Time</span><Clock3 size={20} /></div><p className="mt-3 text-2xl font-bold text-slate-900">{formatHours(summary.hours)}</p><p className="mt-1 text-xs text-slate-500">Total recorded hours</p></div>
         </section>
 
         {canSeeTeam && (
@@ -741,7 +733,7 @@ function AttendanceWorkspace() {
         </div>}
         <div className="block">
           <section className="overflow-hidden rounded-[28px] border border-white/90 bg-white/80 shadow-[0_18px_55px_rgba(31,41,55,0.08)] backdrop-blur-2xl">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6 lg:px-7 lg:py-6">
               <div><p className="text-xs font-bold uppercase tracking-[0.15em] text-indigo-600">Attendance Calendar</p><h2 className="mt-1 text-xl font-bold text-slate-900">{month.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h2></div>
               <div className="flex flex-wrap items-center gap-2">
                 <CalendarExportActions month={month} selectedDay={selectedDay} records={records} holidays={holidays} leaves={leaves} events={companyEvents} />
@@ -754,8 +746,8 @@ function AttendanceWorkspace() {
                 <button type="button" aria-label="Next month" onClick={() => { const next = new Date(month.getFullYear(), month.getMonth() + 1, 1); setMonth(next); setSelectedDay(localDateKey(next)); }} className="rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50"><ChevronRight size={18} /></button>
               </div>
             </div>
-            <div className="grid grid-cols-7 gap-1.5 border-b border-slate-100 bg-white/70 px-2 pb-3 text-center text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400 sm:gap-2 sm:text-[11px]">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className={`py-3 ${day === "Sun" ? "text-rose-600" : ""}`}>{day}</div>)}</div>
-            <div className="mt-2 grid grid-cols-7 gap-1.5 p-2 sm:gap-2 sm:p-3">
+            <div className="grid grid-cols-7 gap-1 border-b border-slate-100 bg-white/70 px-1 pb-2 text-center text-[9px] font-extrabold uppercase tracking-normal text-slate-400 sm:gap-2 sm:px-2 sm:pb-3 sm:text-[11px] sm:tracking-[0.16em] lg:gap-3 lg:px-4 lg:pb-4">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className={`py-3 ${day === "Sun" ? "text-rose-600" : ""}`}>{day}</div>)}</div>
+            <div className="mt-1 grid grid-cols-7 gap-1 p-1 sm:mt-2 sm:gap-2 sm:p-3 lg:gap-3 lg:p-4">
               {calendarCells.map((cell) => {
                 const dayRecords = records.filter((record) => record.dateKey === cell.key);
                 const dayHoliday = holidays.filter((holiday) => holiday.dateKey === cell.key && holiday.isActive);
@@ -765,23 +757,16 @@ function AttendanceWorkspace() {
                 const isHoliday = dayHoliday.length > 0;
                 const isSelected = cell.key === selectedDay;
                 return (
-                  <div key={cell.key} className={`relative flex min-h-[78px] flex-col items-start rounded-2xl border p-1.5 text-left transition-all duration-200 sm:min-h-[112px] sm:p-2.5 ${!cell.inMonth ? "border-transparent bg-slate-50/50 text-slate-300" : isSunday || isHoliday ? "border-rose-100 bg-rose-50/60 text-slate-700" : "border-slate-100/90 bg-white/70 text-slate-700 hover:border-indigo-200 hover:shadow-md"} ${isSelected ? "border-indigo-300 bg-indigo-50/90 shadow-[0_5px_18px_rgba(99,102,241,0.12)] ring-1 ring-indigo-200" : ""} ${!isAdmin ? "cursor-pointer" : ""}`} onMouseEnter={(event) => { if (hoverPreviewTimer.current) clearTimeout(hoverPreviewTimer.current); if (hoverPreviewHideTimer.current) clearTimeout(hoverPreviewHideTimer.current); setHoverPreviewClosing(false); setHoverPreview(null); const rect = event.currentTarget.getBoundingClientRect(); hoverPreviewTimer.current = setTimeout(() => { const width = Math.min(304, window.innerWidth - 24); const height = 224; const left = Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12)); const below = rect.bottom + 10; const top = below + height <= window.innerHeight - 12 ? below : Math.max(12, rect.top - height - 10); setHoverPreview({ day: cell.key, top, left }); }, 3000); }} onMouseLeave={() => { if (hoverPreviewTimer.current) clearTimeout(hoverPreviewTimer.current); hoverPreviewTimer.current = null; if (hoverPreview?.day === cell.key) { setHoverPreviewClosing(true); if (hoverPreviewHideTimer.current) clearTimeout(hoverPreviewHideTimer.current); hoverPreviewHideTimer.current = setTimeout(() => { setHoverPreview(null); setHoverPreviewClosing(false); }, 420); } }} onClick={() => { if (!isAdmin) openLeaveForDate(cell.key); }}>
-                    <div className="flex w-full items-center justify-between"><button type="button" aria-label={`Select date ${cell.key}`} onClick={(event) => { event.stopPropagation(); if (isAdmin) setSelectedDay(cell.key); else openLeaveForDate(cell.key); }} className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition hover:ring-2 hover:ring-indigo-200 ${isToday ? (isSunday || isHoliday ? "bg-rose-600 text-white" : "bg-indigo-600 text-white") : isSunday || isHoliday ? "bg-rose-100 text-rose-700" : cell.inMonth ? "text-slate-700" : "text-slate-400"}`}>{cell.day}</button><div className="flex items-center gap-2">{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}{dayRecords.length > 0 && <button type="button" title="View attendance details" aria-label={`View attendance details for ${cell.key}`} onClick={(event) => { event.stopPropagation(); setSelectedDay(cell.key); setShowDayDetails(true); }} className={`h-3.5 w-3.5 rounded-full ring-2 ring-white shadow-sm transition hover:scale-125 focus:outline-none focus:ring-4 focus:ring-indigo-200 ${statuses.includes("absent") ? "bg-rose-500" : statuses.includes("half-day") ? "bg-amber-500" : "bg-emerald-500"}`} />}</div></div>
-                    <div className="mt-1.5 w-full space-y-1">
-                      {companyEvents.filter((event) => event.status === "scheduled" && event.eventType === "company_event" && new Date(event.startAt) <= new Date(`${cell.key}T23:59:59.999`) && new Date(event.endAt) >= new Date(`${cell.key}T00:00:00`)).slice(0, 1).map((event) => isAdmin ? <button type="button" key={event._id} title="Edit function" aria-label={`Edit function ${event.title}`} onClick={(clickEvent) => { clickEvent.stopPropagation(); openEventEditor(event); }} className="w-full min-w-0 truncate rounded-lg border border-violet-100 bg-violet-50 px-1.5 py-1.5 text-left text-[9px] font-bold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100 sm:text-[10px]">{event.title}</button> : <div key={event._id} title={event.title} className="w-full min-w-0 truncate rounded-lg border border-violet-100 bg-violet-50 px-1.5 py-1.5 text-[9px] font-bold text-violet-700 sm:text-[10px]">{event.title}</div>)}
+                  <div key={cell.key} className={`relative flex min-h-[48px] flex-col items-start rounded-lg border p-1 text-left transition-all duration-200 sm:min-h-[112px] sm:rounded-2xl sm:p-2.5 lg:min-h-[136px] lg:p-3 xl:min-h-[148px] ${!cell.inMonth ? "border-transparent bg-slate-50/50 text-slate-300" : isSunday || isHoliday ? "border-rose-100 bg-rose-50/60 text-slate-700" : "border-slate-100/90 bg-white/70 text-slate-700 hover:border-indigo-200 hover:shadow-md"} ${isSelected ? "border-indigo-300 bg-indigo-50/90 shadow-[0_5px_18px_rgba(99,102,241,0.12)] ring-1 ring-indigo-200" : ""} ${!isAdmin ? "cursor-pointer" : ""}`} onClick={() => { if (!isAdmin) openLeaveForDate(cell.key); }}>
+                    <div className="flex w-full items-center justify-between"><button type="button" aria-label={`Select date ${cell.key}`} onClick={(event) => { event.stopPropagation(); if (isAdmin) setSelectedDay(cell.key); else openLeaveForDate(cell.key); }} className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold transition hover:ring-2 hover:ring-indigo-200 sm:h-7 sm:w-7 sm:text-xs lg:h-8 lg:w-8 lg:text-sm ${isToday ? (isSunday || isHoliday ? "bg-rose-600 text-white" : "bg-indigo-600 text-white") : isSunday || isHoliday ? "bg-rose-100 text-rose-700" : cell.inMonth ? "text-slate-700" : "text-slate-400"}`}>{cell.day}</button><div className="flex items-center gap-2">{dayRecords.length > 1 && <span className="text-[9px] font-semibold text-slate-400">{dayRecords.length}</span>}{dayRecords.length > 0 && <button type="button" title="View attendance details" aria-label={`View attendance details for ${cell.key}`} onClick={(event) => { event.stopPropagation(); setSelectedDay(cell.key); setShowDayDetails(true); }} className={`h-1.5 w-1.5 rounded-full ring-1 ring-white shadow-sm transition sm:h-3.5 sm:w-3.5 sm:ring-2 hover:scale-110 focus:outline-none focus:ring-2 sm:focus:ring-4 focus:ring-indigo-200 ${statuses.includes("absent") ? "bg-rose-500" : statuses.includes("half-day") ? "bg-amber-500" : "bg-emerald-500"}`} />}</div></div>
+                    <div className="mt-1 hidden w-full space-y-1 sm:block lg:mt-2 lg:space-y-2">
+                      {companyEvents.filter((event) => event.status === "scheduled" && event.eventType === "company_event" && new Date(event.startAt) <= new Date(`${cell.key}T23:59:59.999`) && new Date(event.endAt) >= new Date(`${cell.key}T00:00:00`)).slice(0, 1).map((event) => isAdmin ? <button type="button" key={event._id} title="Edit function" aria-label={`Edit function ${event.title}`} onClick={(clickEvent) => { clickEvent.stopPropagation(); openEventEditor(event); }} className="w-full min-w-0 truncate rounded-lg border border-violet-100 bg-violet-50 px-1.5 py-1.5 text-left text-[9px] font-bold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100 sm:text-[10px] lg:px-2 lg:py-2 lg:text-xs">{event.title}</button> : <div key={event._id} title={event.title} className="w-full min-w-0 truncate rounded-lg border border-violet-100 bg-violet-50 px-1.5 py-1.5 text-[9px] font-bold text-violet-700 sm:text-[10px]">{event.title}</div>)}
                     </div>
                   </div>
                 );
               })}
             </div>
-            {hoverPreview && (() => {
-              const previewDay = hoverPreview.day;
-              const previewHoliday = holidays.filter((item) => item.dateKey === previewDay && item.isActive);
-              const previewEvents = companyEvents.filter((item) => item.status === "scheduled" && new Date(item.startAt) <= new Date(`${previewDay}T23:59:59.999`) && new Date(item.endAt) >= new Date(`${previewDay}T00:00:00`));
-              const previewLeaves = leaves.filter((item) => (item.status === "pending" || item.status === "approved") && item.startDate <= previewDay && item.endDate >= previewDay);
-              return createPortal(<div className="pointer-events-none fixed z-[9999] w-[304px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[22px] border border-white/80 bg-white/65 p-4 text-slate-800 shadow-[0_20px_60px_rgba(71,85,105,0.20)] backdrop-blur-2xl" style={{ top: hoverPreview.top, left: hoverPreview.left, animation: hoverPreviewClosing ? "calendarPreviewOut 420ms ease-out forwards" : "calendarPreviewIn 360ms cubic-bezier(0.2,0.8,0.2,1)" }}><p className="mb-3 border-b border-white/80 pb-2.5 text-[11px] font-extrabold uppercase tracking-wider text-indigo-700">{new Date(`${previewDay}T00:00:00`).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })} <span className="ml-1 font-semibold text-slate-400">· DAY DETAILS</span></p><div className="max-h-40 space-y-2 overflow-y-auto">{previewHoliday.map((item) => <p key={item._id} className="truncate rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">Holiday · {item.name}</p>)}{previewEvents.map((item) => <div key={item._id} className="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2"><p className="truncate text-[11px] font-bold text-violet-800">{item.title}</p><p className="mt-0.5 text-[10px] capitalize text-violet-600">{item.eventType.replace("_", " ")} · {item.allDay ? "All day" : formatTime(item.startAt)}</p></div>)}{previewLeaves.map((item) => <p key={item._id} className="truncate rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">Leave · {item.employee ? `${item.employee.firstName} ${item.employee.lastName}` : item.leaveType}</p>)}{!previewHoliday.length && !previewEvents.length && !previewLeaves.length && <p className="py-3 text-center text-[11px] text-slate-400">No events or meetings</p>}</div></div>, document.body);
-            })()}
-            <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 px-5 py-4 text-xs text-slate-600">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 px-5 py-4 text-xs text-slate-600 lg:gap-x-6 lg:px-7 lg:py-5">
               <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-violet-500" />Company events / Meetings</span>
               <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Present</span>
               <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />Absent</span>

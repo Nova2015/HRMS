@@ -3,12 +3,17 @@ import path from "node:path";
 import mongoose from "mongoose";
 import EmployeeDocument from "../models/EmployeeDocument.js";
 import Employee from "../models/Employee.js";
+import {
+    generateAppointmentLetterDocument,
+    generateOfferLetterDocument,
+    generateConfirmationLetterDocument
+} from "../services/employeeDocumentGenerator.js";
 import { DOCUMENT_STORAGE_DIR } from "../middleware/documentUpload.js";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
-const DOCUMENT_TYPES = new Set(["other", "resignation_letter", "payslip", "appointment_letter", "leave_letter", "relieving_letter"]);
-const HR_ISSUED_TYPES = new Set(["payslip", "appointment_letter", "leave_letter", "relieving_letter", "other"]);
+const DOCUMENT_TYPES = new Set(["other", "resignation_letter", "payslip", "appointment_letter", "offer_letter", "confirmation_letter", "salary_revision_letter", "leave_letter", "leave_rejection_notice", "relieving_letter"]);
+const HR_ISSUED_TYPES = new Set(["payslip", "appointment_letter", "offer_letter", "confirmation_letter", "salary_revision_letter", "leave_letter", "leave_rejection_notice", "relieving_letter", "other"]);
 
 const removeUploadedFile = async (filePath) => {
     if (!filePath) return;
@@ -40,6 +45,20 @@ const safeOriginalName = (name) =>
 
 const populateDocument = (query) =>
     query.populate("employee", "employeeCode firstName lastName email");
+
+const includeFileAvailability = async (documents) => Promise.all(
+    documents.map(async (document) => {
+        const record = document.toObject();
+        const filePath = path.join(DOCUMENT_STORAGE_DIR, path.basename(record.storedName || ""));
+        try {
+            await fs.access(filePath);
+            record.fileAvailable = true;
+        } catch {
+            record.fileAvailable = false;
+        }
+        return record;
+    })
+);
 
 const validateUploadedFile = async (file, res) => {
     if (!file) {
@@ -138,9 +157,65 @@ export const issueDocumentToEmployee = async (req, res) => {
     }
 };
 
+export const generateAppointmentLetter = async (req, res) => {
+    try {
+        const { employeeId } = req.params;
+        if (!mongoose.isValidObjectId(employeeId)) {
+            return res.status(400).json({ success: false, message: "Invalid employee ID" });
+        }
+        const employee = await Employee.findOne({ _id: employeeId, employmentStatus: "active" })
+            .populate("department", "name")
+            .populate("designation", "name")
+            .populate("shift", "name")
+            .populate("reportingManager", "employeeCode firstName lastName");
+        if (!employee) {
+            return res.status(404).json({ success: false, message: "Active employee not found" });
+        }
+        const document = await generateAppointmentLetterDocument(employee, req.user.userId);
+        const data = await populateDocument(EmployeeDocument.findById(document._id));
+        return res.status(201).json({ success: true, message: "Appointment letter generated and issued successfully", data });
+    } catch (error) {
+        console.error("Generate appointment letter error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to generate appointment letter" });
+    }
+};
+
+export const generateEmploymentDocument = async (req, res) => {
+    try {
+        const { employeeId, documentType } = req.params;
+        if (!mongoose.isValidObjectId(employeeId)) {
+            return res.status(400).json({ success: false, message: "Invalid employee ID" });
+        }
+        const generators = {
+            appointment_letter: generateAppointmentLetterDocument,
+            offer_letter: generateOfferLetterDocument,
+            confirmation_letter: generateConfirmationLetterDocument
+        };
+        const generate = generators[documentType];
+        if (!generate) {
+            return res.status(400).json({ success: false, message: "Unsupported employment document type" });
+        }
+        const employee = await Employee.findOne({ _id: employeeId, employmentStatus: "active" })
+            .populate("department", "name")
+            .populate("designation", "name")
+            .populate("shift", "name")
+            .populate("reportingManager", "employeeCode firstName lastName");
+        if (!employee) {
+            return res.status(404).json({ success: false, message: "Active employee not found" });
+        }
+        const document = await generate(employee, req.user.userId);
+        const data = await populateDocument(EmployeeDocument.findById(document._id));
+        return res.status(201).json({ success: true, message: "Employment document generated and issued successfully", data });
+    } catch (error) {
+        console.error("Generate employment document error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to generate employment document" });
+    }
+};
+
 export const getMyDocuments = async (req, res) => {
     try {
-        const data = await EmployeeDocument.find({ employee: req.user.employeeId }).sort({ createdAt: -1 }).limit(100);
+        const documents = await EmployeeDocument.find({ employee: req.user.employeeId }).sort({ createdAt: -1 }).limit(100);
+        const data = await includeFileAvailability(documents);
         return res.status(200).json({ success: true, count: data.length, data });
     } catch (error) {
         console.error("Get my documents error:", error.message);
@@ -150,7 +225,8 @@ export const getMyDocuments = async (req, res) => {
 
 export const getAllEmployeeDocuments = async (req, res) => {
     try {
-        const data = await populateDocument(EmployeeDocument.find({}).sort({ createdAt: -1 }).limit(500));
+        const documents = await populateDocument(EmployeeDocument.find({}).sort({ createdAt: -1 }).limit(500));
+        const data = await includeFileAvailability(documents);
         return res.status(200).json({ success: true, count: data.length, data });
     } catch (error) {
         console.error("Get employee documents error:", error.message);

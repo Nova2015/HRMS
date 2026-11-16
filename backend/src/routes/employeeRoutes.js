@@ -7,6 +7,7 @@ import {
     getEmployeeById,
     updateEmployee,
     deactivateEmployee,
+    archiveEmployee,
     activateEmployee,
     resetEmployeePassword
 } from "../controllers/employeeController.js";
@@ -29,6 +30,7 @@ router.get("/:id", getEmployeeById);
 router.put("/:id", auditAction("employees", "employee.updated"), updateEmployee);
 router.patch("/:id/reset-password", authorizeRoles("admin"), auditAction("employees", "employee.password_reset"), resetEmployeePassword);
 router.patch("/:id/deactivate", auditAction("employees", "employee.deactivated"), deactivateEmployee);
+router.delete("/:id", authorizeRoles("admin"), auditAction("employees", "employee.archived"), archiveEmployee);
 router.patch("/:id/activate", auditAction("employees", "employee.activated"), activateEmployee);
 
 export default router;

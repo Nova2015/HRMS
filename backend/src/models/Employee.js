@@ -13,6 +13,7 @@ const employeeSchema = new mongoose.Schema(
         lastName: { type: String, required: true, trim: true },
         email: { type: String, required: true, unique: true, lowercase: true, trim: true },
         phone: { type: String, trim: true, default: "" },
+        profilePhoto: { type: String, default: "", select: false },
         department: { type: mongoose.Schema.Types.ObjectId, ref: "Department", required: true },
         designation: { type: mongoose.Schema.Types.ObjectId, ref: "Designation", required: true },
         shift: { type: mongoose.Schema.Types.ObjectId, ref: "Shift", default: null },
@@ -25,7 +26,10 @@ const employeeSchema = new mongoose.Schema(
             enum: ["active", "inactive", "resigned", "terminated"],
             default: "active"
         },
-        isTestRecord: { type: Boolean, default: false, select: false }
+        isTestRecord: { type: Boolean, default: false, select: false },
+        isArchived: { type: Boolean, default: false, index: true },
+        archivedAt: { type: Date, default: null },
+        archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
     },
     { timestamps: true }
 );

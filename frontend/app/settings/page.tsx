@@ -101,17 +101,17 @@ function SettingsContent() {
   ];
 
   return (
-    <main className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/30 px-3 py-4 backdrop-blur-md sm:px-6" onMouseDown={(e)=>{if(e.target===e.currentTarget) close();}}>
-      <section role="dialog" aria-modal="true" aria-labelledby="settings-title" className="hrms-enter flex max-h-[min(690px,92vh)] w-full max-w-[760px] flex-col overflow-hidden rounded-[26px] border border-white/80 bg-white/95 shadow-[0_30px_100px_rgba(15,23,42,.24)] backdrop-blur-2xl">
-        <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+    <main className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/30 p-2 backdrop-blur-md sm:p-4 lg:p-6" onMouseDown={(e)=>{if(e.target===e.currentTarget) close();}}>
+      <section role="dialog" aria-modal="true" aria-labelledby="settings-title" className="hrms-enter flex max-h-[calc(100dvh-1rem)] w-full max-w-[920px] flex-col overflow-hidden rounded-[20px] border border-white/80 bg-white/95 shadow-[0_30px_100px_rgba(15,23,42,.24)] backdrop-blur-2xl sm:max-h-[min(780px,calc(100dvh-2rem))] sm:rounded-[26px]">
+        <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3.5 sm:px-6 sm:py-4">
           <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/20"><Settings2 size={19}/></span><div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-indigo-500">Workspace preferences</p><h1 id="settings-title" className="text-lg font-extrabold tracking-tight text-slate-900">Settings</h1></div></div>
           <button type="button" onClick={close} aria-label="Close settings" className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"><X size={17}/></button>
         </header>
-        <div className="grid min-h-0 flex-1 grid-cols-1 sm:grid-cols-[190px_1fr]">
-          <nav aria-label="Settings sections" className="flex gap-1 overflow-x-auto border-b border-slate-100 bg-slate-50/70 p-2 sm:flex-col sm:border-b-0 sm:border-r sm:p-3">
+        <div className="grid min-h-0 flex-1 grid-cols-1 sm:grid-cols-[200px_minmax(0,1fr)]">
+          <nav aria-label="Settings sections" className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-slate-100 bg-slate-50/70 p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-col sm:gap-1 sm:overflow-y-auto sm:overflow-x-hidden sm:border-b-0 sm:border-r sm:p-3">
             {tabs.map(item=>{const Icon=item.icon;return <button key={item.id} type="button" onClick={()=>{setTab(item.id);setError("");setNotice("");}} className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition ${tab===item.id?"bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-600/15":"text-slate-600 hover:bg-white hover:text-indigo-700"}`}><Icon size={15}/>{item.label}</button>;})}
           </nav>
-          <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5 lg:p-7">
             {notice && <p role="status" className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-700"><Check size={14}/>{notice}</p>}
             {error && <p role="alert" className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-xs text-rose-700">{error}</p>}
             {tab==="general" && <div className="space-y-4"><div><h2 className="text-sm font-bold text-slate-900">General preferences</h2><p className="mt-1 text-xs text-slate-500">Choose how HRMS looks and displays dates on this device.</p></div>
@@ -127,7 +127,7 @@ function SettingsContent() {
             {tab==="support" && <div className="space-y-3"><div><h2 className="text-sm font-bold text-slate-900">IT Support</h2><p className="mt-1 text-xs text-slate-500">Report HRMS errors, raise support tickets and track their resolution.</p></div><Link href="/helpdesk" className="flex items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 transition hover:border-indigo-200 hover:bg-indigo-50"><span className="flex items-center gap-3"><Headset size={19} className="text-indigo-600"/><span><strong className="block text-xs text-slate-900">Open IT Support</strong><small className="text-[10px] text-slate-500">Create a ticket and follow its progress</small></span></span><ChevronRight size={16} className="text-indigo-500"/></Link></div>}
           </div>
         </div>
-        <footer className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-5 py-3"><button type="button" onClick={close} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"><ArrowLeft size={14}/>Back to HRMS</button><span className="text-[10px] text-slate-400">HRMS Workspace Settings</span></footer>
+        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-4 py-3 sm:px-5"><button type="button" onClick={close} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"><ArrowLeft size={14}/>Back to HRMS</button><span className="text-[10px] text-slate-400">HRMS Workspace Settings</span></footer>
       </section>
     </main>
   );

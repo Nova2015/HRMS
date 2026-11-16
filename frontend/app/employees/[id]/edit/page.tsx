@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState, FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Crown, Gem } from "lucide-react";
 import AuthGuard from "../../../components/AuthGuard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -43,6 +43,7 @@ type Employee = {
   reportingManager: { _id: string } | null;
   joiningDate: string;
   employmentStatus: "active" | "inactive" | "resigned" | "terminated";
+  account?: { email: string; role: "employee" | "manager" | "hr" | "admin"; isActive: boolean } | null;
 };
 
 function EditEmployeeForm() {
@@ -69,11 +70,11 @@ function EditEmployeeForm() {
     reportingManager: "",
     joiningDate: "",
     employmentStatus: "active",
+    role: "employee",
   });
 
   const loadData = useCallback(async () => {
     const token = sessionStorage.getItem("hrms_token");
-
     if (!token) {
       router.replace("/login");
       return;
@@ -143,6 +144,7 @@ function EditEmployeeForm() {
           ? new Date(employee.joiningDate).toISOString().slice(0, 10)
           : "",
         employmentStatus: employee.employmentStatus || "active",
+        role: employee.account?.role || "employee",
       });
 
       setDepartments(
@@ -181,12 +183,23 @@ function EditEmployeeForm() {
 
     return departmentId === form.department;
   });
+  const selectedDesignationName =
+    designations.find((item) => item._id === form.designation)?.name || "";
+  const isFounderOrCoFounder = /^(co[\s-]?founder|founder)$/i.test(
+    selectedDesignationName.trim()
+  );
 
   const updateField = (field: string, value: string) => {
     setForm((previous) => ({
       ...previous,
       [field]: value,
-      ...(field === "department" ? { designation: "" } : {}),
+      ...(field === "department" ? { designation: "", reportingManager: "" } : {}),
+      ...(field === "designation" &&
+      /^(co[\s-]?founder|founder)$/i.test(
+        designations.find((item) => item._id === value)?.name?.trim() || ""
+      )
+        ? { reportingManager: "" }
+        : {}),
     }));
   };
 
@@ -217,6 +230,7 @@ function EditEmployeeForm() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          employeeCode: form.employeeCode,
           firstName: form.firstName,
           lastName: form.lastName,
           email: form.email,
@@ -225,7 +239,8 @@ function EditEmployeeForm() {
           designation: form.designation,
           joiningDate: form.joiningDate,
           employmentStatus: form.employmentStatus,
-          reportingManager: form.reportingManager || null,
+          role: form.role,
+          reportingManager: isFounderOrCoFounder ? null : form.reportingManager || null,
         }),
       });
 
@@ -268,7 +283,7 @@ function EditEmployeeForm() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6">
+    <main className={`min-h-screen p-4 sm:p-6 ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "bg-slate-100 sm:bg-amber-50/50" : "bg-slate-100 sm:bg-violet-50/50" : "bg-slate-100"}`}>
       <div className="mx-auto max-w-5xl">
         <Link
           href={`/employees/${id}`}
@@ -278,7 +293,7 @@ function EditEmployeeForm() {
         </Link>
 
         <header className="mb-7">
-          <h1 className="text-3xl font-bold text-slate-900">Edit Employee</h1>
+          <h1 className={`flex items-center gap-2 text-3xl font-bold ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "text-slate-900 sm:text-amber-950" : "text-slate-900 sm:text-violet-950" : "text-slate-900"}`}>{isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? <Crown className="hidden text-amber-500 sm:block" /> : <Gem className="hidden text-violet-500 sm:block" /> : null}Edit Employee</h1>
           <p className="mt-2 text-slate-500">
             Update employee information and employment status.
           </p>
@@ -298,7 +313,7 @@ function EditEmployeeForm() {
 
         {!error || form.employeeCode ? (
           <form onSubmit={handleSubmit} className="space-y-6">
-            <section className="rounded-xl bg-white p-6 shadow-sm">
+            <section className={`rounded-xl border bg-white p-6 shadow-sm ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "border-transparent sm:border-amber-200 sm:shadow-amber-100" : "border-transparent sm:border-violet-200 sm:shadow-violet-100" : "border-transparent"}`}>
               <h2 className="mb-5 text-lg font-semibold text-slate-900">
                 Employee Information
               </h2>
@@ -307,9 +322,11 @@ function EditEmployeeForm() {
                 <div>
                   <label className={labelClass}>Employee Code</label>
                   <input
-                    readOnly
-                    className={`${inputClass} bg-slate-100 text-slate-500`}
+                    required
+                    maxLength={30}
+                    className={inputClass}
                     value={form.employeeCode}
+                    onChange={(e) => updateField("employeeCode", e.target.value)}
                   />
                 </div>
 
@@ -403,6 +420,7 @@ function EditEmployeeForm() {
                   </select>
                 </div>
 
+                {!isFounderOrCoFounder && (
                 <div>
                   <label className={labelClass}>Reporting Manager</label>
                   <select
@@ -419,6 +437,7 @@ function EditEmployeeForm() {
                   </select>
                   <p className="mt-1 text-xs text-slate-500">Manager access to this employee&apos;s leave records follows this assignment.</p>
                 </div>
+                )}
 
                 <div>
                   <label className={labelClass}>Employment Status *</label>
@@ -435,6 +454,51 @@ function EditEmployeeForm() {
                     <option value="resigned">Resigned</option>
                     <option value="terminated">Terminated</option>
                   </select>
+                </div>
+              </div>
+              {isFounderOrCoFounder && (
+                <div className={`mt-5 hidden items-start gap-3 rounded-xl border p-4 sm:flex ${selectedDesignationName.toLowerCase() === "founder" ? "border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-950" : "border-violet-300 bg-gradient-to-r from-violet-50 to-purple-50 text-violet-950"}`}>
+                  {selectedDesignationName.toLowerCase() === "founder" ? <Crown size={22} className="mt-0.5 shrink-0 text-amber-600" /> : <Gem size={22} className="mt-0.5 shrink-0 text-violet-600" />}
+                  <div>
+                    <p className="text-sm font-bold">{selectedDesignationName} · Executive Leadership</p>
+                    <p className="mt-1 text-xs opacity-80">Special executive profile styling is active. Reporting Manager is not required for this designation.</p>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-5 text-lg font-semibold text-slate-900">
+                Login Account
+              </h2>
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Login Email</label>
+                  <input
+                    readOnly
+                    className={`${inputClass} bg-slate-100 text-slate-500`}
+                    value={form.email}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Login email is synced with the Email Address field above.
+                  </p>
+                </div>
+                <div>
+                  <label className={labelClass}>Account Role *</label>
+                  <select
+                    required
+                    className={inputClass}
+                    value={form.role}
+                    onChange={(e) => updateField("role", e.target.value)}
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="manager">{isFounderOrCoFounder ? "Founder" : "Manager"}</option>
+                    <option value="hr">HR</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Controls this user&apos;s access and permissions in HRMS.
+                  </p>
                 </div>
               </div>
             </section>

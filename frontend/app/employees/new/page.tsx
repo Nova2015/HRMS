@@ -4,7 +4,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, UserPlus, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, UserPlus, Eye, EyeOff, Crown, Gem } from "lucide-react";
 import AuthGuard from "../../components/AuthGuard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -146,12 +146,23 @@ function AddEmployeeForm() {
 
     return departmentId === form.department;
   });
+  const selectedDesignationName =
+    designations.find((item) => item._id === form.designation)?.name || "";
+  const isFounderOrCoFounder = /^(co[\s-]?founder|founder)$/i.test(
+    selectedDesignationName.trim()
+  );
 
   const updateField = (field: string, value: string) => {
     setForm((previous) => ({
       ...previous,
       [field]: value,
-      ...(field === "department" ? { designation: "" } : {}),
+      ...(field === "department" ? { designation: "", reportingManager: "" } : {}),
+      ...(field === "designation" &&
+      /^(co[\s-]?founder|founder)$/i.test(
+        designations.find((item) => item._id === value)?.name?.trim() || ""
+      )
+        ? { reportingManager: "" }
+        : {}),
     }));
   };
 
@@ -201,7 +212,10 @@ function AddEmployeeForm() {
           designation: form.designation,
           joiningDate: form.joiningDate,
           role: form.role,
-          reportingManager: form.role === "employee" ? (form.reportingManager || null) : null,
+          reportingManager:
+            form.role === "employee" && !isFounderOrCoFounder
+              ? form.reportingManager || null
+              : null,
           initialPassword: form.initialPassword,
         }),
       });
@@ -239,7 +253,7 @@ function AddEmployeeForm() {
   const labelClass = "mb-1.5 block text-sm font-medium text-slate-700";
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6">
+    <main className={`min-h-screen p-4 sm:p-6 ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "bg-slate-100 sm:bg-amber-50/50" : "bg-slate-100 sm:bg-violet-50/50" : "bg-slate-100"}`}>
       <div className="mx-auto max-w-5xl">
         <header className="mb-7">
           <Link
@@ -250,7 +264,8 @@ function AddEmployeeForm() {
             Back to Employees
           </Link>
 
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className={`flex items-center gap-2 text-3xl font-bold ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "text-slate-900 sm:text-amber-950" : "text-slate-900 sm:text-violet-950" : "text-slate-900"}`}>
+            {isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? <Crown className="hidden text-amber-500 sm:block" /> : <Gem className="hidden text-violet-500 sm:block" /> : null}
             Add Employee
           </h1>
 
@@ -272,7 +287,7 @@ function AddEmployeeForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <section className="rounded-xl bg-white p-6 shadow-sm">
+          <section className={`rounded-xl border bg-white p-6 shadow-sm ${isFounderOrCoFounder ? selectedDesignationName.toLowerCase() === "founder" ? "border-transparent sm:border-amber-200 sm:shadow-amber-100" : "border-transparent sm:border-violet-200 sm:shadow-violet-100" : "border-transparent"}`}>
             <h2 className="mb-5 text-lg font-semibold text-slate-900">
               Personal & Employment Information
             </h2>
@@ -386,6 +401,15 @@ function AddEmployeeForm() {
               </div>
             </div>
 
+            {isFounderOrCoFounder && (
+              <div className={`mt-5 hidden items-start gap-3 rounded-xl border p-4 sm:flex ${selectedDesignationName.toLowerCase() === "founder" ? "border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-950" : "border-violet-300 bg-gradient-to-r from-violet-50 to-purple-50 text-violet-950"}`}>
+                {selectedDesignationName.toLowerCase() === "founder" ? <Crown size={22} className="mt-0.5 shrink-0 text-amber-600" /> : <Gem size={22} className="mt-0.5 shrink-0 text-violet-600" />}
+                <div>
+                  <p className="text-sm font-bold">{selectedDesignationName} · Executive Leadership</p>
+                  <p className="mt-1 text-xs opacity-80">Special executive profile styling will be applied. Reporting Manager is not required for this designation.</p>
+                </div>
+              </div>
+            )}
             {loadingOptions && (
               <p className="mt-4 text-sm text-slate-500">
                 Loading departments and designations...
@@ -408,12 +432,13 @@ function AddEmployeeForm() {
                   onChange={(e) => updateField("role", e.target.value)}
                 >
                   <option value="employee">Employee</option>
-                  <option value="manager">Manager</option>
+                  <option value="manager">{isFounderOrCoFounder ? "Founder" : "Manager"}</option>
                   <option value="hr">HR</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
 
-              {form.role === "employee" && (
+              {form.role === "employee" && !isFounderOrCoFounder && (
                 <div>
                   <label className={labelClass}>Reporting Manager</label>
                   <select

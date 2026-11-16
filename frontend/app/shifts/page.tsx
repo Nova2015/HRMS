@@ -176,15 +176,15 @@ function ShiftManagement() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+    <main className="min-h-screen overflow-x-hidden bg-slate-100 p-3 sm:p-5 lg:p-6">
+      <div className="mx-auto w-full max-w-7xl min-w-0">
+        <header className="mb-5 flex flex-col gap-4 sm:mb-7 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <Link href="/" className="mb-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"><ArrowLeft size={16} /> Dashboard</Link>
-            <h1 className="text-3xl font-bold text-slate-900">Shift Management</h1>
-            <p className="mt-2 text-slate-500">Configure working hours and assign shifts to employees.</p>
+            <h1 className="text-xl font-bold text-slate-900 sm:text-2xl lg:text-3xl">Shift Management</h1>
+            <p className="mt-1.5 max-w-2xl text-sm text-slate-500 sm:mt-2">Configure working hours and assign shifts to employees.</p>
           </div>
-          <button type="button" onClick={loadData} disabled={loading} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-50"><RefreshCw size={16} /> Refresh</button>
+          <button type="button" onClick={loadData} disabled={loading} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:w-auto"><RefreshCw size={16} /> Refresh</button>
         </header>
 
         {error && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -192,9 +192,9 @@ function ShiftManagement() {
 
         {canManage ? (
           <>
-            <section className="mb-6 rounded-xl bg-white p-6 shadow-sm">
+            <section className="mb-5 rounded-2xl bg-white p-4 shadow-sm sm:mb-6 sm:p-6 lg:p-7">
               <h2 className="mb-4 text-xl font-bold text-slate-900">{editId ? "Edit Shift" : "Create Shift"}</h2>
-              <form onSubmit={submitShift} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <form onSubmit={submitShift} className="grid min-w-0 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <input required maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Shift name *" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
                 <input required maxLength={20} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="Shift code *" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm uppercase" />
                 <label className="text-sm text-slate-600">Start time<input required type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
@@ -213,25 +213,25 @@ function ShiftManagement() {
                   <p className="mt-2 text-xs text-slate-500">Select the weekly off pattern applicable to employees assigned to this shift.</p>
                 </div>
                 <input maxLength={500} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description (optional)" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
-                <div className="flex gap-2 lg:col-span-3">
-                  <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"><Plus size={16} /> {saving ? "Saving..." : editId ? "Update Shift" : "Create Shift"}</button>
-                  {editId && <button type="button" onClick={() => { setEditId(""); setForm({ name: "", code: "", startTime: "09:00", endTime: "18:00", gracePeriodMinutes: "15", weeklyOffDays: [], description: "" }); }} className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm">Cancel</button>}
+                <div className="flex flex-col gap-2 sm:flex-row lg:col-span-3">
+                  <button type="submit" disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto"><Plus size={16} /> {saving ? "Saving..." : editId ? "Update Shift" : "Create Shift"}</button>
+                  {editId && <button type="button" onClick={() => { setEditId(""); setForm({ name: "", code: "", startTime: "09:00", endTime: "18:00", gracePeriodMinutes: "15", weeklyOffDays: [], description: "" }); }} className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm sm:w-auto">Cancel</button>}
                 </div>
               </form>
             </section>
 
-            <section className="mb-6 rounded-xl bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-xl font-bold text-slate-900">Shift Definitions</h2>
+            <section className="mb-5 rounded-2xl bg-white p-4 shadow-sm sm:mb-6 sm:p-6 lg:p-7">
+              <div className="mb-4 flex flex-col gap-2 sm:mb-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-xl font-bold text-slate-900">Shift Definitions</h2><p className="mt-1 text-sm text-slate-500">Manage working hours, grace periods and weekly offs.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{shifts.length} {shifts.length === 1 ? "shift" : "shifts"}</span></div>
               {loading ? <p className="py-6 text-center text-slate-500">Loading shifts...</p> : shifts.length === 0 ? <p className="py-6 text-center text-slate-500">No shifts created.</p> : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {shifts.map((shift) => (
-                    <article key={shift._id} className="rounded-lg border border-slate-200 p-4">
+                    <article key={shift._id} className="flex min-h-[245px] flex-col rounded-xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md xl:p-5">
                       <div className="flex items-start justify-between gap-2"><div><h3 className="font-bold text-slate-900">{shift.name}</h3><p className="text-xs text-slate-500">{shift.code}</p></div><span className={`rounded-full px-2 py-1 text-xs ${shift.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>{shift.isActive ? "Active" : "Inactive"}</span></div>
                       <p className="mt-3 flex items-center gap-2 text-lg font-semibold text-slate-800"><Clock3 size={18} /> {shift.startTime} – {shift.endTime}</p>
                       <p className="mt-1 text-sm text-slate-500">Grace period: {shift.gracePeriodMinutes} minutes</p>
                       <p className="mt-1 text-sm text-slate-500">Weekly off: {(shift.weeklyOffDays || []).length ? shift.weeklyOffDays.map((day) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day]).join(", ") : "Not configured"}</p>
                       <p className="mt-1 text-sm text-slate-500">{shift.description || "No description"}</p>
-                      <div className="mt-4 flex gap-2">
+                      <div className="mt-auto flex gap-2 border-t border-slate-100 pt-4">
                         <button type="button" onClick={() => { setEditId(shift._id); setForm({ name: shift.name, code: shift.code, startTime: shift.startTime, endTime: shift.endTime, gracePeriodMinutes: String(shift.gracePeriodMinutes), weeklyOffDays: shift.weeklyOffDays || [], description: shift.description || "" }); }} className="rounded-lg border border-slate-300 p-2 text-slate-600" title="Edit"><Pencil size={15} /></button>
                         <button type="button" disabled={saving} onClick={() => toggleShift(shift)} className="rounded-lg border border-slate-300 p-2 text-slate-600 disabled:opacity-50" title="Activate/deactivate"><Power size={15} /></button>
                         <button type="button" disabled={saving} onClick={() => deleteShift(shift)} className="rounded-lg border border-slate-300 p-2 text-red-600 disabled:opacity-50" title="Delete"><Trash2 size={15} /></button>
@@ -242,21 +242,39 @@ function ShiftManagement() {
               )}
             </section>
 
-            <section className="rounded-xl bg-white p-6 shadow-sm">
-              <h2 className="mb-2 text-xl font-bold text-slate-900">Employee Shift Assignment</h2>
-              <p className="mb-4 text-sm text-slate-500">Each employee can be assigned one active shift. Save each assignment separately.</p>
+            <section className="rounded-2xl bg-white p-4 shadow-sm sm:p-6 lg:p-7">
+              <div className="mb-4 flex flex-col gap-2 sm:mb-5 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-xl font-bold text-slate-900">Employee Shift Assignment</h2>
+              <p className="mt-1 text-sm text-slate-500">Each employee can be assigned one active shift. Save each assignment separately.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{employees.filter((e) => e.employmentStatus === "active").length} active employees</span></div>
               {loading ? <p className="py-6 text-center text-slate-500">Loading employees...</p> : employees.length === 0 ? <p className="py-6 text-center text-slate-500">No employees found.</p> : (
-                <div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm">
-                  <thead className="border-b bg-slate-50 text-slate-600"><tr><th className="px-4 py-3">Employee</th><th className="px-4 py-3">Current Shift</th><th className="px-4 py-3">Assign Shift</th><th className="px-4 py-3">Action</th></tr></thead>
-                  <tbody className="divide-y divide-slate-100">{employees.filter((e) => e.employmentStatus === "active").map((employee) => (
-                    <tr key={employee._id}>
-                      <td className="px-4 py-3"><p className="font-semibold text-slate-900">{employee.firstName} {employee.lastName}</p><p className="text-xs text-slate-500">{employee.employeeCode}</p></td>
-                      <td className="px-4 py-3">{employee.shift?.name || "Not assigned"}</td>
-                      <td className="px-4 py-3"><select value={assignments[employee._id] || ""} onChange={(e) => setAssignments({ ...assignments, [employee._id]: e.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2"><option value="">No shift</option>{shifts.filter((s) => s.isActive).map((s) => <option key={s._id} value={s._id}>{s.name} ({s.startTime}–{s.endTime})</option>)}</select></td>
-                      <td className="px-4 py-3"><button type="button" disabled={saving} onClick={() => assignShift(employee)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Save</button></td>
-                    </tr>
-                  ))}</tbody>
-                </table></div>
+                (<>
+                  <div className="space-y-3 md:hidden">
+                    {employees.filter((e) => e.employmentStatus === "active").map((employee) => (
+                      <article key={employee._id} className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0"><p className="truncate text-sm font-bold text-slate-900">{employee.firstName} {employee.lastName}</p><p className="mt-0.5 text-xs text-slate-500">{employee.employeeCode}</p></div>
+                          <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">{employee.shift?.name || "Not assigned"}</span>
+                        </div>
+                        <label className="mt-3 block text-xs font-semibold text-slate-600">Assign shift
+                          <select value={assignments[employee._id] || ""} onChange={(e) => setAssignments({ ...assignments, [employee._id]: e.target.value })} className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"><option value="">No shift</option>{shifts.filter((s) => s.isActive).map((s) => <option key={s._id} value={s._id}>{s.name} ({s.startTime}–{s.endTime})</option>)}</select>
+                        </label>
+                        <button type="button" disabled={saving} onClick={() => assignShift(employee)} className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50">Save assignment</button>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
+                    <table className="w-full min-w-[650px] text-left text-sm">
+                      <thead className="sticky top-0 border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3 font-semibold">Employee</th><th className="px-4 py-3 font-semibold">Current Shift</th><th className="px-4 py-3 font-semibold">Assign Shift</th><th className="px-4 py-3 font-semibold">Action</th></tr></thead>
+                      <tbody className="divide-y divide-slate-100">{employees.filter((e) => e.employmentStatus === "active").map((employee) => (
+                        <tr key={employee._id} className="transition-colors hover:bg-slate-50/80">
+                          <td className="px-4 py-3"><p className="font-semibold text-slate-900">{employee.firstName} {employee.lastName}</p><p className="text-xs text-slate-500">{employee.employeeCode}</p></td>
+                          <td className="px-4 py-3">{employee.shift?.name || "Not assigned"}</td>
+                          <td className="px-4 py-3"><select value={assignments[employee._id] || ""} onChange={(e) => setAssignments({ ...assignments, [employee._id]: e.target.value })} className="w-full rounded-lg border border-slate-300 px-3 py-2"><option value="">No shift</option>{shifts.filter((s) => s.isActive).map((s) => <option key={s._id} value={s._id}>{s.name} ({s.startTime}–{s.endTime})</option>)}</select></td>
+                          <td className="px-4 py-3"><button type="button" disabled={saving} onClick={() => assignShift(employee)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Save</button></td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                </>)
               )}
             </section>
           </>
