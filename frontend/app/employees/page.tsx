@@ -416,7 +416,7 @@ function EmployeeList() {
                       <td className="px-3 py-3">
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(employee.employmentStatus)}`}>{employee.employmentStatus}</span>
                       </td>
-                      <td className="px-3 py-3 font-medium capitalize text-slate-600">{employee.account?.role || "No account"}</td>
+                      <td className="px-3 py-3 font-medium capitalize text-slate-600">{employee.account?.role === "manager" && /^(co[\s-]?founder|founder)$/i.test(employee.designation?.name?.trim() || "") ? "Founder" : employee.account?.role || "No account"}</td>
                       <td className="px-3 py-3">
                         {employee.account ? (
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${employee.account.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{employee.account.isActive ? "Active" : "Inactive"}</span>
