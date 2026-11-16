@@ -58,7 +58,6 @@ function EditEmployeeForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [currentUserRole, setCurrentUserRole] = useState("");
 
   const [form, setForm] = useState({
     employeeCode: "",
@@ -76,13 +75,6 @@ function EditEmployeeForm() {
 
   const loadData = useCallback(async () => {
     const token = sessionStorage.getItem("hrms_token");
-    try {
-      const currentUser = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
-      setCurrentUserRole(String(currentUser.role || "").toLowerCase());
-    } catch {
-      setCurrentUserRole("");
-    }
-
     if (!token) {
       router.replace("/login");
       return;
@@ -502,7 +494,7 @@ function EditEmployeeForm() {
                     <option value="employee">Employee</option>
                     <option value="manager">{isFounderOrCoFounder ? "Founder" : "Manager"}</option>
                     <option value="hr">HR</option>
-                    <option value="admin" disabled={currentUserRole !== "admin"}>Admin{currentUserRole !== "admin" ? " (Admin access required)" : ""}</option>
+                    <option value="admin">Admin</option>
                   </select>
                   <p className="mt-1 text-xs text-slate-500">
                     Controls this user&apos;s access and permissions in HRMS.
