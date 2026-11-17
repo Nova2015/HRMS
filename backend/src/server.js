@@ -33,6 +33,10 @@ import companyEventRoutes from "./routes/companyEventRoutes.js";
 
 const app = express();
 
+// Render terminates TLS and forwards requests through one trusted proxy.
+// This makes req.ip use the forwarded client IP for rate limiting and logs.
+app.set("trust proxy", 1);
+
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret || jwtSecret.length < 32) {
     console.error("Startup blocked: JWT_SECRET must be configured with at least 32 characters.");
