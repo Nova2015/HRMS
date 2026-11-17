@@ -134,6 +134,7 @@ export const updateDesignation = async (req, res) => {
             try {
                 await deactivateSession.withTransaction(async () => {
                     await lockDesignationReference(id, deactivateSession);
+                    if (updates.department !== undefined) await lockDepartmentReference(updates.department, deactivateSession);
                     const activeEmployeeCount = await Employee.countDocuments({
                         designation: id,
                         employmentStatus: "active",
@@ -156,6 +157,30 @@ export const updateDesignation = async (req, res) => {
 
         if (deactivateSession) {
             await deactivateSession.endSession();
+        } else if (updates.department !== undefined || updates.isActive === true) {
+            const session = await mongoose.startSession();
+            try {
+                await session.withTransaction(async () => {
+                    const currentDesignation = await Designation.findById(id).session(session);
+                    if (!currentDesignation) return;
+                    const targetDepartment = updates.department || currentDesignation.department;
+                    await lockDepartmentReference(targetDepartment, session);
+                    if (updates.department !== undefined &&
+                        currentDesignation.department.toString() !== updates.department.toString()) {
+                        const assignedCount = await Employee.countDocuments({ designation: id }).session(session);
+                        if (assignedCount > 0) {
+                            const inUse = new Error("Designation is assigned to employee records");
+                            inUse.code = "DESIGNATION_IN_USE";
+                            throw inUse;
+                        }
+                    }
+                    designation = await Designation.findByIdAndUpdate(
+                        id, { $set: updates }, { new: true, runValidators: true, session }
+                    ).populate("department", "name code");
+                });
+            } finally {
+                await session.endSession();
+            }
         } else {
             designation = await Designation.findByIdAndUpdate(
                 id, { $set: updates }, { new: true, runValidators: true }
