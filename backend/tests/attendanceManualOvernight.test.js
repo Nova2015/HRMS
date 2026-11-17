@@ -65,9 +65,16 @@ test("manual overnight check-in within grace period after midnight is not late",
     assert.equal(savedUpdate.isLate, false);
 });
 
-test("manual overnight check-in after grace period is late", async () => {
-    // 02:16 Asia/Kolkata on Nov 18 belongs to the Nov 17 overnight shift.
+test("manual overnight check-in after midnight remains within the shift window", async () => {
+    // 02:16 Asia/Kolkata on Nov 18 is still inside the 22:00-06:00 shift window.
     const { res, savedUpdate } = await runManualAttendance("2026-11-17T20:46:00.000Z");
+    assert.equal(res.statusCode, 200);
+    assert.equal(savedUpdate.isLate, false);
+});
+
+test("manual overnight check-in after the grace period at shift start is late", async () => {
+    // 22:16 Asia/Kolkata on Nov 17 is after the 22:15 grace threshold.
+    const { res, savedUpdate } = await runManualAttendance("2026-11-17T16:46:00.000Z");
     assert.equal(res.statusCode, 200);
     assert.equal(savedUpdate.isLate, true);
 });
