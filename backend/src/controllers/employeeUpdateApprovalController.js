@@ -148,6 +148,9 @@ export const decideEmployeeUpdateProposal = async (req, res) => {
         if (typeof note !== "string" || note.length > 1000) {
             return res.status(400).json({ success: false, message: "Decision note must be under 1000 characters" });
         }
+        if (decision === "reject" && !note.trim()) {
+            return res.status(400).json({ success: false, message: "A decision reason is required when rejecting an employee update" });
+        }
 
         const proposal = await EmployeeUpdateApproval.findOne({ _id: id, status: "pending" });
         if (!proposal) return res.status(404).json({ success: false, message: "Pending approval request not found or already decided" });
