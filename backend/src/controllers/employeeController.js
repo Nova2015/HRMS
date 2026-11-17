@@ -577,8 +577,11 @@ export const updateEmployee = async (req, res) => {
                 const nextStatus = updates.employmentStatus === undefined
                     ? employee.employmentStatus
                     : updates.employmentStatus;
+                const managerEligibilityChanged =
+                    (requestedRole !== undefined && nextRole !== linkedUser.role) ||
+                    (updates.employmentStatus !== undefined && nextStatus !== employee.employmentStatus);
                 const managerWillBecomeUnavailable =
-                    (linkedUser.role === "manager" || nextRole === "manager") &&
+                    managerEligibilityChanged &&
                     (nextRole !== "manager" || nextStatus !== "active");
 
                 if (managerWillBecomeUnavailable && await hasDirectReports(employee._id, session)) {
