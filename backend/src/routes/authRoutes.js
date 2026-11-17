@@ -4,7 +4,8 @@ import {
     login,
     getMe,
     updateProfilePhoto,
-    changePassword
+    changePassword,
+    logoutAllDevices
 } from "../controllers/authController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -17,5 +18,6 @@ router.post("/login", loginRateLimit, login);
 router.get("/me", protect, getMe);
 router.put("/me/photo", protect, updateProfilePhoto);
 router.put("/change-password", protect, auditAction("auth", "password.changed"), changePassword);
+router.post("/logout-all-devices", protect, auditAction("auth", "sessions.revoked"), logoutAllDevices);
 
 export default router;
