@@ -200,6 +200,7 @@ function LeaveManagement() {
       setForm({ leaveType: "casual", startDate: "", endDate: "", reason: "" });
       setShowForm(false);
       await loadLeaves();
+      await loadAllocations();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to submit leave request");
     } finally {
@@ -237,6 +238,7 @@ function LeaveManagement() {
       });
       setMessage(result.message || "Leave request updated.");
       await loadLeaves();
+      await loadAllocations();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to review leave request");
     } finally {
@@ -253,6 +255,7 @@ function LeaveManagement() {
       const result = await request(`/leaves/${id}/cancel`, { method: "PATCH" });
       setMessage(result.message || "Leave request cancelled.");
       await loadLeaves();
+      await loadAllocations();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to cancel leave request");
     } finally {
