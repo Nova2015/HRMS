@@ -222,3 +222,28 @@ test("Decision APIs reject unsupported decision values", async () => {
     assert.equal(expense.status, 400);
     assert.equal(update.status, 400);
 });
+
+test("All decision APIs require a non-empty reason when rejecting", async () => {
+    const cases = [
+        ["admin", `/api/leaves/${IDS.record}/review`, { decision: "rejected", reviewComment: "   " }],
+        ["hr", `/api/expenses/claims/${IDS.record}/review`, { decision: "rejected", reviewComment: "" }],
+        ["admin", `/api/employee-update-approvals/${IDS.record}/decision`, { decision: "reject", note: "   " }]
+    ];
+
+    for (const [role, path, body] of cases) {
+        const response = await send(role, "PATCH", path, body);
+        assert.equal(response.status, 400, path);
+        const result = await response.json();
+        assert.match(result.message, /reason is required/i);
+    }
+});
+
+test("Decision APIs still allow approvals without an optional note", async () => {
+    const leave = await send("admin", "PATCH", `/api/leaves/${IDS.record}/review`, { decision: "approved" });
+    const expense = await send("hr", "PATCH", `/api/expenses/claims/${IDS.record}/review`, { decision: "approved" });
+    const update = await send("admin", "PATCH", `/api/employee-update-approvals/${IDS.record}/decision`, { decision: "approve" });
+
+    assert.equal(leave.status, 200);
+    assert.equal(expense.status, 200);
+    assert.equal(update.status, 200);
+});
