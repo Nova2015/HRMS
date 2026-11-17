@@ -167,24 +167,90 @@ export const processPayroll = async (req, res) => {
         const employeeDocs = await Employee.find({ _id: { $in: ids }, employmentStatus: "active" }).select("_id");
         const activeIds = new Set(employeeDocs.map((item) => item._id.toString()));
         const records = [];
-        const periodStart = new Date(`${period}-01T00:00:00.000Z`);
+        const year = Number(period.slice(0, 4));
+        const month = Number(period.slice(5, 7));
+        const periodStart = new Date(Date.UTC(year, month - 1, 1));
+        const periodEnd = new Date(Date.UTC(year, month, 1));
+        const calendarDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
         for (const entry of employees) {
             const employeeId = String(entry.employeeId);
             const structure = structureMap.get(employeeId);
-            const paidDays = Number(entry.paidDays);
+            const totalPaidDays = Number(entry.paidDays);
             if (!activeIds.has(employeeId) || !structure) return res.status(400).json({ success: false, message: "Every selected employee must be active and have a salary structure" });
-            if (new Date(structure.effectiveFrom) > periodStart) {
-                return res.status(400).json({ success: false, message: "Salary structure is not effective for the selected payroll period" });
+            if (!Number.isFinite(totalPaidDays) || totalPaidDays < 0 || totalPaidDays > days) return res.status(400).json({ success: false, message: "Paid days must be between zero and working days" });
+
+            const revisions = structure.revisions?.length ? structure.revisions.map((item) => item.toObject ? item.toObject() : item) : [{
+                _id: structure._id, monthlyBasic: structure.monthlyBasic, earnings: structure.earnings,
+                deductions: structure.deductions, effectiveFrom: structure.effectiveFrom
+            }];
+            revisions.sort((x, y) => new Date(x.effectiveFrom) - new Date(y.effectiveFrom));
+            const applicable = revisions.filter((item) => new Date(item.effectiveFrom) < periodEnd);
+            const initial = applicable.filter((item) => new Date(item.effectiveFrom) <= periodStart).at(-1);
+            if (!initial) return res.status(400).json({ success: false, message: "Salary structure is not effective for the selected payroll period" });
+            const inMonth = applicable.filter((item) => new Date(item.effectiveFrom) > periodStart);
+            const boundaries = [initial, ...inMonth];
+            const segments = boundaries.map((revision, index) => {
+                const from = index === 0 ? periodStart : new Date(revision.effectiveFrom);
+                const to = boundaries[index + 1] ? new Date(boundaries[index + 1].effectiveFrom) : periodEnd;
+                return { revision, from, to, calendarShare: (to.getTime() - from.getTime()) / 86400000 };
+            });
+
+            let segmentWorkingDays;
+            let segmentPaidDays;
+            if (entry.prorationMode === "manual") {
+                if (segments.length !== 2) return res.status(400).json({ success: false, message: "Manual proration requires exactly one salary revision in the selected month. Use automatic proration for multiple revisions." });
+                const values = [entry.oldWorkingDays, entry.newWorkingDays, entry.oldPaidDays, entry.newPaidDays].map(Number);
+                const [oldWorking, newWorking, oldPaid, newPaid] = values;
+                if (!values.every(Number.isFinite) || oldWorking < 0 || newWorking < 0 ||
+                    oldWorking + newWorking !== days || oldPaid < 0 || newPaid < 0 ||
+                    oldPaid > oldWorking || newPaid > newWorking ||
+                    Math.abs(oldPaid + newPaid - totalPaidDays) > 0.001) {
+                    return res.status(400).json({ success: false, message: "Manual split totals must match monthly working days and paid days; paid days cannot exceed working days." });
+                }
+                segmentWorkingDays = [oldWorking, newWorking];
+                segmentPaidDays = [oldPaid, newPaid];
+            } else {
+                segmentWorkingDays = segments.map((segment) => days * segment.calendarShare / calendarDays);
+                segmentPaidDays = segmentWorkingDays.map((working) => totalPaidDays * working / days);
             }
-            if (!Number.isFinite(paidDays) || paidDays < 0 || paidDays > days) return res.status(400).json({ success: false, message: "Paid days must be between zero and working days" });
-            const ratio = paidDays / days;
-            const basic = money(structure.monthlyBasic * ratio);
-            const earnings = structure.earnings.map((line) => ({ name: line.name, amount: money(line.amount * ratio) }));
-            const deductions = structure.deductions.map((line) => ({ name: line.name, amount: money(line.amount * ratio) }));
+
+            const salaryBreakdown = [];
+            let basic = 0;
+            const earningsMap = new Map();
+            const deductionsMap = new Map();
+            segments.forEach((segment, index) => {
+                const ratio = segmentPaidDays[index] / days;
+                const segmentBasic = money(segment.revision.monthlyBasic * ratio);
+                basic += segmentBasic;
+                const segmentEarnings = (segment.revision.earnings || []).map((line) => {
+                    const amount = money(line.amount * ratio);
+                    earningsMap.set(line.name, money((earningsMap.get(line.name) || 0) + amount));
+                    return { name: line.name, amount };
+                });
+                const segmentDeductions = (segment.revision.deductions || []).map((line) => {
+                    const amount = money(line.amount * ratio);
+                    deductionsMap.set(line.name, money((deductionsMap.get(line.name) || 0) + amount));
+                    return { name: line.name, amount };
+                });
+                salaryBreakdown.push({
+                    salaryStructure: structure._id, effectiveFrom: segment.from, effectiveTo: segment.to,
+                    workingDays: money(segmentWorkingDays[index]), paidDays: money(segmentPaidDays[index]),
+                    basic: segmentBasic, earnings: segmentEarnings, deductions: segmentDeductions
+                });
+            });
+            basic = money(basic);
+            const earnings = [...earningsMap].map(([name, amount]) => ({ name, amount }));
+            const deductions = [...deductionsMap].map(([name, amount]) => ({ name, amount }));
             const grossEarnings = money(basic + earnings.reduce((sum, line) => sum + line.amount, 0));
             const totalDeductions = money(deductions.reduce((sum, line) => sum + line.amount, 0));
             if (totalDeductions > grossEarnings) return res.status(400).json({ success: false, message: `Deductions exceed gross earnings for employee ${employeeId}` });
-            records.push({ employee: employeeId, salaryStructure: structure._id, period, workingDays: days, paidDays, basic, earnings, deductions, grossEarnings, totalDeductions, netPay: money(grossEarnings - totalDeductions), processedBy: req.user.userId });
+            records.push({
+                employee: employeeId, salaryStructure: structure._id, salaryBreakdown, period,
+                workingDays: days, paidDays: totalPaidDays, basic, earnings, deductions,
+                grossEarnings, totalDeductions, netPay: money(grossEarnings - totalDeductions),
+                processedBy: req.user.userId
+            });
         }
         // A payroll batch must be all-or-nothing, including concurrent duplicate requests.
         // The unique employee/period index remains the final concurrency guard.
