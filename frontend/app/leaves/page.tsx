@@ -137,14 +137,22 @@ function LeaveManagement() {
   const loadAllocations = useCallback(async () => {
     try {
       const result = await request(`/leave-allocations?year=${encodeURIComponent(allocationYear)}`);
-      setAllocations(result.data || []);
+      const loadedAllocations = result.data || [];
+      setAllocations(loadedAllocations);
       if (canManage) {
         const employeeResult = await request("/employees");
         const activeEmployees = (employeeResult.data || []).filter((employee: LeaveEmployee) => employee.employmentStatus === "active");
         setAllocationEmployees(activeEmployees);
-        if (!allocationForm.employeeId && activeEmployees.length) {
-          setAllocationForm((current) => ({ ...current, employeeId: activeEmployees[0]._id }));
-        }
+        const selectedId = activeEmployees.some((employee: LeaveEmployee) => employee._id === allocationForm.employeeId)
+          ? allocationForm.employeeId
+          : activeEmployees[0]?._id || "";
+        const existing = loadedAllocations.find((item: LeaveBalance) => item.employee?._id === selectedId);
+        setAllocationForm({
+          employeeId: selectedId,
+          casual: String(existing?.casual ?? 0),
+          sick: String(existing?.sick ?? 0),
+          earned: String(existing?.earned ?? 0),
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load leave allocations");
