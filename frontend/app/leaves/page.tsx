@@ -64,6 +64,7 @@ function LeaveManagement() {
   const [allocationForm, setAllocationForm] = useState({ employeeId: "", casual: "0", sick: "0", earned: "0" });
 
   const isCompanyReviewer = role === "admin" || role === "hr";
+  const canManage = isCompanyReviewer;
   const isManager = role === "manager";
   const canReview = isCompanyReviewer || isManager;
 
