@@ -28,7 +28,7 @@ test("employees can only read active holidays", async () => {
         return {
             populate() { return this; },
             sort() { return this; },
-            limit: async () => rows
+            limit() { return Promise.resolve(rows); }
         };
     };
 
@@ -50,7 +50,7 @@ test("Admin can explicitly include inactive holidays and filter by year", async 
         return {
             populate() { return this; },
             sort() { return this; },
-            limit: async () => []
+            limit() { return Promise.resolve([]); }
         };
     };
 
