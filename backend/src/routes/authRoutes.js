@@ -5,7 +5,10 @@ import {
     getMe,
     updateProfilePhoto,
     changePassword,
-    logoutAllDevices
+    logoutAllDevices,
+    getSessions,
+    revokeSession,
+    logout
 } from "../controllers/authController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -16,6 +19,9 @@ const router = express.Router();
 
 router.post("/login", loginRateLimit, login);
 router.get("/me", protect, getMe);
+router.get("/sessions", protect, getSessions);
+router.delete("/sessions/:sessionId", protect, revokeSession);
+router.post("/logout", protect, logout);
 router.put("/me/photo", protect, auditAction("auth", "profile.photo_updated"), updateProfilePhoto);
 router.put("/change-password", protect, auditAction("auth", "password.changed"), changePassword);
 router.post("/logout-all-devices", protect, auditAction("auth", "sessions.revoked"), logoutAllDevices);
