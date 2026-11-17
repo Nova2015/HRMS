@@ -538,7 +538,7 @@ export const saveManualAttendance = async (req, res) => {
         const shiftEndMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
         const overnight = Boolean(shift && shiftEndMinutes <= shiftStartMinutes);
 
-        if (checkInDate && getDateKey(checkInDate) !== dateKey) {
+        if (checkInDate && getAttendanceDateKey(checkInDate, shift) !== dateKey) {
             return res.status(400).json({
                 success: false,
                 message: "Check-in timestamp must match the attendance date in Asia/Kolkata"
