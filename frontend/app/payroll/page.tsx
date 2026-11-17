@@ -148,7 +148,7 @@ function PayrollContent() {
           employeeId: id,
           paidDays: Number(paidDays[id] ?? workingDays),
           prorationMode: mode === "manual" && (hasSingleMidMonthRevision(item, period)) ? "manual" : "auto",
-          ...(mode === "manual" && (item.revisions || []).length > 1 && item.revisions.some((revision) => revision.effectiveFrom.slice(0, 7) === period) ? {
+          ...(mode === "manual" && hasSingleMidMonthRevision(item, period) ? {
             oldWorkingDays: Number(split.oldWorkingDays), newWorkingDays: Number(split.newWorkingDays),
             oldPaidDays: Number(split.oldPaidDays), newPaidDays: Number(split.newPaidDays),
           } : {}),
@@ -246,7 +246,7 @@ function PayrollContent() {
                 </table></div>
               </div> : <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center"><Users className="mx-auto text-slate-400" size={28} /><p className="mt-3 font-semibold text-slate-700">No salary structures yet</p><p className="mt-1 text-sm text-slate-500">Create employee salary structures above before processing payroll.</p></div>}
               <div className="mt-4 space-y-3">
-                {structures.filter((item) => (item.revisions || []).length > 1 && item.revisions.some((revision) => revision.effectiveFrom.slice(0, 7) === period)).map((item) => {
+                {structures.filter((item) => hasSingleMidMonthRevision(item, period)).map((item) => {
                   const id = item.employee._id;
                   const split = manualSplits[id] || { oldWorkingDays: "", newWorkingDays: "", oldPaidDays: "", newPaidDays: "" };
                   return <div key={id} className="rounded-xl border border-slate-200 p-4">
