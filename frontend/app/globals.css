@@ -572,3 +572,21 @@ main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="b
 .hrms-app-shell main div.grid-cols-7 > div.relative.flex .mt-1.hidden {
   margin-top: 3px !important;
 }
+
+/* Reduce oversized padding on shared white cards across authenticated pages. */
+.hrms-app-shell main :is(div, article, section)[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"])[class~="p-5"] {
+  padding: 0.75rem !important;
+}
+.hrms-app-shell main :is(div, article, section)[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"])[class~="p-6"] {
+  padding: 0.875rem !important;
+}
+.hrms-app-shell main :is(div, article, section)[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"])[class~="p-7"] {
+  padding: 1rem !important;
+}
+.hrms-app-shell main .hrms-premium-card,
+.hrms-app-shell main .hrms-dashboard-3d-card {
+  padding: 0.75rem !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  border-color: rgba(226, 232, 240, 0.7) !important;
+  box-shadow: none !important;
+}
