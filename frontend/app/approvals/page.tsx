@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Check, Clock3, FileText, RefreshCw, Search, ShieldCheck, Wallet, CalendarDays, UserRound, X } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
@@ -31,6 +32,7 @@ function displayValue(value: unknown) {
 }
 
 function ApprovalInboxContent() {
+  const router = useRouter();
   const [items, setItems] = useState<Approval[]>([]);
   const [status, setStatus] = useState("pending");
   const [type, setType] = useState("all");
@@ -90,11 +92,18 @@ function ApprovalInboxContent() {
   useEffect(() => {
     try {
       const user = JSON.parse(sessionStorage.getItem("hrms_user") || "{}");
-      setRole(user.role || "employee");
-    } catch { setRole("employee"); }
-  }, []);
+      const currentRole = user.role || "employee";
+      setRole(currentRole);
+      if (!["admin", "hr", "manager"].includes(currentRole)) router.replace("/");
+    } catch {
+      setRole("employee");
+      router.replace("/");
+    }
+  }, [router]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (["admin", "hr", "manager"].includes(role)) void load();
+  }, [load, role]);
 
   useEffect(() => {
     const appShell = document.querySelector<HTMLElement>(".hrms-app-shell");
