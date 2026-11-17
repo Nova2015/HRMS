@@ -32,6 +32,8 @@ export const getApprovalInbox = async (req, res) => {
             isCompanyReviewer
                 ? EmployeeUpdateApproval.find(statusFilter)
                     .populate("employee", "employeeCode firstName lastName")
+                    .populate("requestedBy", "email role")
+                    .populate("decidedBy", "email role")
                     .sort({ createdAt: -1 }).limit(200).lean()
                 : Promise.resolve([])
         ]);
@@ -84,10 +86,14 @@ export const getApprovalInbox = async (req, res) => {
                 details: {
                     employeeCode: item.employeeCode,
                     source: item.source,
+                    sourceReference: item.sourceReference || "",
                     sourceSubject: item.sourceSubject || "",
                     proposedChanges: item.proposedChanges || {},
                     oldValues: item.oldValues || {},
-                    decisionNote: item.decisionNote || ""
+                    decisionNote: item.decisionNote || "",
+                    requestedBy: item.requestedBy?.email || "",
+                    decidedBy: item.decidedBy?.email || "",
+                    decidedAt: item.decidedAt || null
                 }
             }))
         ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
