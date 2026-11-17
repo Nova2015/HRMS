@@ -58,6 +58,11 @@ function LeaveManagement() {
     reason: "",
   });
 
+  const [allocationYear, setAllocationYear] = useState(String(new Date().getFullYear()));
+  const [allocationEmployees, setAllocationEmployees] = useState<LeaveEmployee[]>([]);
+  const [allocations, setAllocations] = useState<LeaveBalance[]>([]);
+  const [allocationForm, setAllocationForm] = useState({ employeeId: "", casual: "0", sick: "0", earned: "0" });
+
   const isCompanyReviewer = role === "admin" || role === "hr";
   const isManager = role === "manager";
   const canReview = isCompanyReviewer || isManager;
@@ -325,7 +330,7 @@ function LeaveManagement() {
           {canManage && (
             <form onSubmit={saveAllocation} className="mb-4 grid gap-3 rounded-xl bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-5">
               <label className="text-xs font-medium text-slate-600 lg:col-span-2">Employee
-                <select required value={allocationForm.employeeId} onChange={(e) => setAllocationForm({ ...allocationForm, employeeId: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                <select required value={allocationForm.employeeId} onChange={(e) => { const selected = e.target.value; const existing = allocations.find((item) => item.employee?._id === selected); setAllocationForm({ employeeId: selected, casual: String(existing?.casual ?? 0), sick: String(existing?.sick ?? 0), earned: String(existing?.earned ?? 0) }); }} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
                   {allocationEmployees.map((employee) => <option key={employee._id} value={employee._id}>{employee.firstName} {employee.lastName} ({employee.employeeCode})</option>)}
                 </select>
               </label>
