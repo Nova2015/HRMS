@@ -356,6 +356,15 @@ export const updateEmployee = async (req, res) => {
                 message: "Archived employees cannot be edited or reactivated"
             });
         }
+        if (
+            ["resigned", "terminated"].includes(employee.employmentStatus) &&
+            req.body.employmentStatus === "active"
+        ) {
+            return res.status(409).json({
+                success: false,
+                message: "Resigned or terminated employees cannot be reactivated through profile editing"
+            });
+        }
 
         const linkedUser = await User.findOne({ employee: employee._id });
         if (!linkedUser) {
@@ -760,6 +769,11 @@ export const activateEmployee = async (req, res) => {
                     archived.code = 40902;
                     throw archived;
                 }
+                if (["resigned", "terminated"].includes(employee.employmentStatus)) {
+                    const employmentEnded = new Error("Resigned or terminated employees cannot be reactivated");
+                    employmentEnded.code = 40903;
+                    throw employmentEnded;
+                }
 
                 const linkedUser = await User.findOneAndUpdate(
                     { employee: employee._id },
@@ -785,7 +799,7 @@ export const activateEmployee = async (req, res) => {
         });
     } catch (error) {
         console.error("Activate employee error:", error);
-        const status = error.code === 40401 ? 404 : [40901, 40902].includes(error.code) ? 409 : 500;
+        const status = error.code === 40401 ? 404 : [40901, 40902, 40903].includes(error.code) ? 409 : 500;
         return res.status(status).json({
             success: false,
             message: error.code === 40401
@@ -794,7 +808,9 @@ export const activateEmployee = async (req, res) => {
                     ? "Employee login account is missing; cannot safely activate employee"
                     : error.code === 40902
                         ? "Archived employees cannot be reactivated. Restore the archive through an authorized process."
-                        : "Unable to activate employee"
+                        : error.code === 40903
+                            ? "Resigned or terminated employees cannot be reactivated through this action"
+                            : "Unable to activate employee"
         });
     }
 };
