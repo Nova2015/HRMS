@@ -2,7 +2,7 @@ import Employee from "../models/Employee.js";
 
 // Walk upward from the proposed manager. A cycle exists if the employee being
 // edited is encountered, or if the existing chain is already cyclic.
-export const createsReportingCycle = async (employeeId, managerId) => {
+export const createsReportingCycle = async (employeeId, managerId, session = null) => {
     const targetId = String(employeeId);
     let currentId = String(managerId);
     const visited = new Set();
@@ -13,9 +13,9 @@ export const createsReportingCycle = async (employeeId, managerId) => {
         }
         visited.add(currentId);
 
-        const current = await Employee.findById(currentId)
-            .select("reportingManager")
-            .lean();
+        let query = Employee.findById(currentId).select("reportingManager");
+        if (session) query = query.session(session);
+        const current = await query.lean();
         if (!current) {
             return false;
         }
