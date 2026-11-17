@@ -197,8 +197,23 @@ function AttendanceWorkspace() {
       ];
       if (canSeeTeam) requests.push(apiRequest("/attendance/team"));
       const results = await Promise.all(requests);
+      const firstAttendancePage = results[1] as ApiResponse & {
+        pagination?: { pages?: number };
+      };
+      const attendancePages = firstAttendancePage.pagination?.pages || 1;
+      const remainingAttendancePages = await Promise.all(
+        Array.from({ length: Math.max(0, attendancePages - 1) }, (_, index) =>
+          apiRequest(`${attendancePath}${attendancePath.includes("?") ? "&" : "?"}page=${index + 2}&limit=500`)
+        )
+      );
+      const allAttendanceRecords = [
+        ...((firstAttendancePage.data as AttendanceRecord[] | undefined) || []),
+        ...remainingAttendancePages.flatMap((pageResult) =>
+          (pageResult.data as AttendanceRecord[] | undefined) || []
+        ),
+      ];
       setToday((results[0].data as AttendanceRecord | null | undefined) || null);
-      setRecords((results[1].data as AttendanceRecord[] | undefined) || []);
+      setRecords(allAttendanceRecords);
       setHolidays((results[2].data as Holiday[] | undefined) || []);
       setLeaves((results[4].data as LeaveRequest[] | undefined) || []);
       setCompanyEvents((results[5].data as CompanyEvent[] | undefined) || []);
