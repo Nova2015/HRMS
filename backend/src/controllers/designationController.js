@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Designation from "../models/Designation.js";
 import Department from "../models/Department.js";
+import Employee from "../models/Employee.js";
 
 // CREATE DESIGNATION
 export const createDesignation = async (req, res) => {
@@ -111,7 +112,7 @@ export const updateDesignation = async (req, res) => {
         }
 
         if (updates.isActive === false) {
-            const activeEmployeeCount = await (await import("../models/Employee.js")).default.countDocuments({
+            const activeEmployeeCount = await Employee.countDocuments({
                 designation: id,
                 employmentStatus: "active",
                 isArchived: { $ne: true }
@@ -126,9 +127,12 @@ export const updateDesignation = async (req, res) => {
         }
 
         if (updates.department !== undefined) {
-            const assignedEmployeeCount = await (await import("../models/Employee.js")).default.countDocuments({
-                designation: id
-            });
+            const currentDesignation = await Designation.findById(id).select("department");
+            const departmentIsChanging = currentDesignation &&
+                currentDesignation.department.toString() !== updates.department.toString();
+            const assignedEmployeeCount = departmentIsChanging
+                ? await Employee.countDocuments({ designation: id })
+                : 0;
             if (assignedEmployeeCount > 0) {
                 return res.status(409).json({
                     success: false,
