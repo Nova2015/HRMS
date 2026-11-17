@@ -310,42 +310,86 @@ export const reviewLeaveRequest = async (req, res) => {
             });
         }
 
-        const reviewFilter = { _id: id, status: "pending" };
-        if (req.user.role === "manager") {
-            const teamIds = await Employee.find({
-                reportingManager: req.user.employeeId
-            }).distinct("_id");
-            reviewFilter.employee = { $in: teamIds };
-        }
-
-        const leave = await LeaveRequest.findOneAndUpdate(
-            reviewFilter,
-            {
-                $set: {
-                    status: decision,
-                    reviewedBy: req.user.userId,
-                    reviewedAt: new Date(),
-                    reviewComment: comment
-                }
-            },
-            { new: true, runValidators: true }
-        );
-
-        if (!leave) {
-            const existsFilter = { _id: id };
-            if (req.user.role === "manager") {
-                const teamIds = await Employee.find({
-                    reportingManager: req.user.employeeId
-                }).distinct("_id");
-                existsFilter.employee = { $in: teamIds };
+        const reviewUpdate = {
+            $set: {
+                status: decision,
+                reviewedBy: req.user.userId,
+                reviewedAt: new Date(),
+                reviewComment: comment
             }
-            const exists = await LeaveRequest.exists(existsFilter);
-            return res.status(exists ? 409 : 404).json({
-                success: false,
-                message: exists
-                    ? "Only pending leave requests can be reviewed"
-                    : "Leave request not found"
-            });
+        };
+        let leave;
+
+        if (req.user.role === "manager") {
+            const session = await mongoose.startSession();
+            try {
+                await session.withTransaction(async () => {
+                    const pendingLeave = await LeaveRequest.findOne({
+                        _id: id,
+                        status: "pending"
+                    }).session(session);
+
+                    if (!pendingLeave) {
+                        const conflict = new Error("Only pending leave requests can be reviewed");
+                        conflict.code = 40902;
+                        throw conflict;
+                    }
+
+                    // Write to the employee document in the same transaction used
+                    // by hierarchy changes. This prevents approval against a stale
+                    // manager/team relationship during concurrent reassignment.
+                    const assignedEmployee = await Employee.findOneAndUpdate(
+                        {
+                            _id: pendingLeave.employee,
+                            reportingManager: req.user.employeeId,
+                            employmentStatus: "active",
+                            isArchived: { $ne: true }
+                        },
+                        { $inc: { hierarchyVersion: 1 } },
+                        { new: true, session }
+                    );
+
+                    if (!assignedEmployee) {
+                        const forbidden = new Error("Leave request not found");
+                        forbidden.code = 40402;
+                        throw forbidden;
+                    }
+
+                    leave = await LeaveRequest.findOneAndUpdate(
+                        {
+                            _id: id,
+                            employee: pendingLeave.employee,
+                            status: "pending"
+                        },
+                        reviewUpdate,
+                        { new: true, runValidators: true, session }
+                    );
+
+                    if (!leave) {
+                        const conflict = new Error("Only pending leave requests can be reviewed");
+                        conflict.code = 40902;
+                        throw conflict;
+                    }
+                });
+            } finally {
+                await session.endSession();
+            }
+        } else {
+            leave = await LeaveRequest.findOneAndUpdate(
+                { _id: id, status: "pending" },
+                reviewUpdate,
+                { new: true, runValidators: true }
+            );
+
+            if (!leave) {
+                const exists = await LeaveRequest.exists({ _id: id });
+                return res.status(exists ? 409 : 404).json({
+                    success: false,
+                    message: exists
+                        ? "Only pending leave requests can be reviewed"
+                        : "Leave request not found"
+                });
+            }
         }
 
         const data = await populateLeave(LeaveRequest.findById(leave._id));
@@ -357,9 +401,22 @@ export const reviewLeaveRequest = async (req, res) => {
         });
     } catch (error) {
         console.error("Review leave request error:", error);
-        return res.status(500).json({
+        if (error.code === 40402) {
+            return res.status(404).json({ success: false, message: "Leave request not found" });
+        }
+        if (error.code === 40902) {
+            return res.status(409).json({ success: false, message: "Only pending leave requests can be reviewed" });
+        }
+        const transactionUnavailable = Boolean(
+            error.hasErrorLabel?.("TransientTransactionError") ||
+            error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+            /transaction numbers are only allowed|replica set|mongos/i.test(error.message || "")
+        );
+        return res.status(transactionUnavailable ? 503 : 500).json({
             success: false,
-            message: "Unable to review leave request"
+            message: transactionUnavailable
+                ? "Leave request could not be reviewed safely. Please retry."
+                : "Unable to review leave request"
         });
     }
 };
