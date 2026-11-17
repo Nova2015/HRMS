@@ -13,7 +13,7 @@ const isPrivileged = (role) => ["admin", "hr"].includes(role);
 const money = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
 export const parseExpenseDateOnly = (value) => {
-    if (typeof value !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return null;
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
     const date = new Date(value + "T00:00:00.000Z");
     if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null;
     return date;
