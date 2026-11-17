@@ -114,9 +114,14 @@ export const saveLeaveAllocation = async (req, res) => {
         return res.status(200).json({ success: true, message: "Leave allocation saved successfully", data });
     } catch (error) {
         console.error("Save leave allocation error:", error);
-        return res.status(error.code === 11000 ? 409 : 500).json({
-            success: false,
-            message: error.code === 11000 ? "Leave allocation already exists. Refresh and try again." : "Unable to save leave allocation"
-        });
+        const status = error.code === 40401 || error.code === 40901 || error.code === 11000 ? 409 : 500;
+        const message = error.code === 40401
+            ? "Active employee not found"
+            : error.code === 40901
+                ? error.message
+                : error.code === 11000
+                    ? "Leave allocation already exists. Refresh and try again."
+                    : "Unable to save leave allocation";
+        return res.status(status).json({ success: false, message });
     }
 };
