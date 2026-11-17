@@ -31,7 +31,7 @@ const handleDocumentUpload = (req, res, next) => {
 
 const router = express.Router();
 router.use(protect);
-router.post("/my", handleDocumentUpload, auditAction("employee_documents", "employee.document_submitted"), uploadMyDocument);
+router.post("/my", auditAction("employee_documents", "employee.document_submitted"), handleDocumentUpload, uploadMyDocument);
 router.post("/issue", authorizeRoles("admin", "hr"), handleDocumentUpload, auditAction("employee_documents", "employee.document_issued"), issueDocumentToEmployee);
 router.post("/generate/:employeeId/appointment", authorizeRoles("admin", "hr"), auditAction("employee_documents", "employee.appointment_letter_generated"), generateAppointmentLetter);
 router.post("/generate/:employeeId/:documentType", authorizeRoles("admin", "hr"), auditAction("employee_documents", "employee.employment_document_generated"), generateEmploymentDocument);
