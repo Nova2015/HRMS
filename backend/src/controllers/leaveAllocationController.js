@@ -66,6 +66,24 @@ export const saveLeaveAllocation = async (req, res) => {
         }
         const employee = await Employee.findOne({ _id: employeeId, employmentStatus: "active", isArchived: { $ne: true } }).select("_id");
         if (!employee) return res.status(404).json({ success: false, message: "Active employee not found" });
+        const existingUsage = await LeaveRequest.aggregate([
+            { $match: {
+                employee: employee._id,
+                status: { $in: ["pending", "approved"] },
+                startDate: { $gte: String(Number(year)) + "-01-01", $lte: String(Number(year)) + "-12-31" },
+                leaveType: { $in: TYPES }
+            } },
+            { $group: { _id: "$leaveType", total: { $sum: "$totalDays" } } }
+        ]);
+        const usedByType = new Map(existingUsage.map((item) => [item._id, item.total]));
+        for (const type of TYPES) {
+            if (values[type] < (usedByType.get(type) || 0)) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Cannot reduce " + type + " allocation below " + usedByType.get(type) + " day(s) already pending or approved."
+                });
+            }
+        }
         const allocation = await LeaveAllocation.findOneAndUpdate(
             { employee: employeeId, year: Number(year) },
             { $set: { ...values, updatedBy: req.user.userId } },
