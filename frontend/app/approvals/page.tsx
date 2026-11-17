@@ -162,7 +162,7 @@ function ApprovalInboxContent() {
 
   return (
     <main className="min-h-screen bg-[#f5f7fb] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1440px]">
+      <div className="mx-auto max-w-[1440px]" inert={!!confirmTarget} aria-hidden={confirmTarget ? true : undefined}>
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-indigo-700"><ShieldCheck size={14} /> HR workspace</p>
@@ -184,13 +184,13 @@ function ApprovalInboxContent() {
         <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-2">
-              <select aria-label="Filter by approval status" value={status} onChange={(event) => setStatus(event.target.value)} className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All statuses</option></select>
+              <select aria-label="Filter by approval status" value={status} onChange={(event) => setStatus(event.target.value)} className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All statuses</option></select>
               <select aria-label="Filter by request type" value={type} onChange={(event) => setType(event.target.value)} className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
                 <option value="all">All request types</option><option value="leave">Leave</option>
                 {canSeeCompanyRequests && <><option value="expense">Expense</option><option value="employee-update">Employee update</option></>}
               </select>
             </div>
-            <div className="relative w-full sm:w-72"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input aria-label="Search employee or request" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search employee or request" className="min-h-11 w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400" /></div>
+            <div className="relative w-full sm:w-72"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input aria-label="Search employee or request" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search employee or request" className="min-h-11 w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-500" /></div>
           </div>
 
           {loading ? <div className="py-14 text-center text-sm text-slate-500">Loading approvals…</div> :
@@ -226,8 +226,8 @@ function ApprovalInboxContent() {
                       {item.details.requestedBy ? <span>Submitted by: {displayValue(item.details.requestedBy)}</span> : null}
                     </div>
                     {item.details.sourceSubject ? <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">{displayValue(item.details.sourceSubject)}</p> : null}
-                    <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
-                      <table className="w-full min-w-[480px] text-left text-xs">
+                    <div role="region" aria-label="Current and proposed employee values" tabIndex={0} className="mt-3 overflow-x-auto rounded-lg border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                      <table className="w-full min-w-[480px] text-left text-xs"><caption className="sr-only">Comparison of current and proposed employee values</caption>
                         <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2">Field</th><th className="px-3 py-2">Current value</th><th className="px-3 py-2">Proposed value</th></tr></thead>
                         <tbody className="divide-y divide-slate-100">
                           {Object.entries(proposedChanges).map(([field, value]) => <tr key={field}><td className="px-3 py-2 font-semibold text-slate-700">{field.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase())}</td><td className="px-3 py-2 text-slate-500">{field in oldValues ? displayValue(oldValues[field]) : "Not captured"}</td><td className="px-3 py-2 font-semibold text-indigo-700">{displayValue(value)}</td></tr>)}
@@ -240,15 +240,17 @@ function ApprovalInboxContent() {
                     {detailRows.map(([key, value]) => <div key={key} className="min-w-0"><dt className="text-slate-400">{key.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase())}</dt><dd className="mt-0.5 break-words font-medium text-slate-700">{displayValue(value)}</dd></div>)}
                   </dl>}
                   {pending && <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <input aria-label={"Decision note for " + TYPE_LABELS[item.type] + " request by " + item.employee.name} value={notes[item.id] || ""} maxLength={1000} onChange={(event) => setNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Decision note (required for rejection)" className="min-h-11 min-w-[220px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs outline-none focus:border-indigo-400" />
-                    <button type="button" disabled={busyId === item.id} onClick={() => openDecisionConfirm(item, "approve")} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"><Check size={14} /> Approve</button>
-                    <button type="button" disabled={busyId === item.id} onClick={() => openDecisionConfirm(item, "reject")} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"><X size={14} /> Reject</button>
+                    <input aria-label={"Decision note for " + TYPE_LABELS[item.type] + " request by " + item.employee.name} value={notes[item.id] || ""} maxLength={1000} onChange={(event) => setNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Decision note (required for rejection)" className="min-h-11 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs outline-none focus:border-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-500 sm:min-w-[220px]" />
+                    <button type="button" disabled={busyId === item.id} onClick={() => openDecisionConfirm(item, "approve")} className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-50 sm:flex-none"><Check size={14} /> Approve</button>
+                    <button type="button" disabled={busyId === item.id} onClick={() => openDecisionConfirm(item, "reject")} className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:opacity-50 sm:flex-none"><X size={14} /> Reject</button>
                   </div>}
                 </article>;
               })}
             </div>}
         </section>
-        {confirmTarget && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setConfirmTarget(null); }}>
+        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400"><Clock3 size={12} /> Expense reimbursement remains in the Expenses module after approval.</p>
+      </div>
+      {confirmTarget && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setConfirmTarget(null); }}>
           <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="approval-confirm-title" aria-describedby="approval-confirm-description" onKeyDown={(event) => { if (event.key === "Escape" && !busyId) { event.preventDefault(); setConfirmTarget(null); } if (event.key === "Tab") { const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'); if (!focusable?.length) return; const first = focusable[0]; const last = focusable[focusable.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } }} className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
             <h2 id="approval-confirm-title" className="text-base font-bold text-slate-900">{confirmTarget.decision === "approve" ? "Confirm approval" : "Confirm rejection"}</h2>
             <p id="approval-confirm-description" className="mt-2 text-sm text-slate-600">{confirmTarget.decision === "approve"
@@ -269,8 +271,7 @@ function ApprovalInboxContent() {
             </div>
           </section>
         </div>}
-        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400"><Clock3 size={12} /> Expense reimbursement remains in the Expenses module after approval.</p>
-      </div>
+
     </main>
   );
 }
