@@ -15,6 +15,18 @@ export const isValidJoiningDate = (value) => {
     const date = new Date(`${value}T00:00:00.000Z`);
     return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 };
+ 
+export const isValidResumeUrl = (value) => {
+    if (typeof value !== "string") return false;
+    const normalized = value.trim();
+    if (!normalized) return true;
+    try {
+        const url = new URL(normalized);
+        return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+        return false;
+    }
+};
 
 const populatedCandidate = (query) => query
     .populate("jobOpening", "title status")
@@ -98,6 +110,7 @@ export const createCandidate = async (req, res) => {
         if (!String(firstName || "").trim() || !String(lastName || "").trim() ||
             !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) ||
             !String(phone || "").trim() || !mongoose.isValidObjectId(jobOpening) ||
+            !isValidResumeUrl(resumeUrl) ||
             !Number.isFinite(Number(experienceYears)) || Number(experienceYears) < 0 || Number(experienceYears) > 60) {
             return res.status(400).json({ success: false, message: "Provide valid candidate name, email, phone, job opening and experience" });
         }
