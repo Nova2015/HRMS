@@ -59,12 +59,21 @@ test("Audit log records rejected outcome for rejection decisions", async () => {
     assert.equal(reject.outcome, "rejected");
 });
 
-test("Audit log leaves outcome empty for actions without a decision and ignores failed responses", async () => {
+test("Audit log leaves outcome empty for actions without a decision and records failed mutation attempts", async () => {
     const ordinaryAction = await runAudit(undefined);
     const failedAction = await runAudit("rejected", 400);
 
     assert.equal(ordinaryAction.outcome, "");
-    assert.equal(failedAction, null);
+    assert.equal(failedAction.statusCode, 400);
+    assert.equal(failedAction.outcome, "");
+
+    const serverFailure = await runAudit("approve", 500, {
+        body: { password: "never-store-this", bankAccountNumber: "1234567890" }
+    });
+    assert.equal(serverFailure.statusCode, 500);
+    assert.equal(serverFailure.outcome, "");
+    assert.equal(JSON.stringify(serverFailure).includes("never-store-this"), false);
+    assert.equal(JSON.stringify(serverFailure).includes("1234567890"), false);
 });
 
 test("Audit log identifies self-service and body-targeted employee resources", async () => {
