@@ -40,7 +40,7 @@ const rolesByUser = new Map([
 process.env.JWT_SECRET = SECRET;
 
 const originals = [];
-const calls = { leaveFilters: [], expenseFilters: [], updateFilters: [], teamFilters: [] };
+const calls = { leaveFilters: [], expenseFilters: [], updateFilters: [], teamFilters: [], hierarchyLocks: [] };
 let server;
 let baseUrl;
 
@@ -76,10 +76,10 @@ before(async () => {
 
     for (const [model, methods] of [
         [User, ["findById"]],
-        [Employee, ["findById", "find"]],
+        [Employee, ["findById", "find", "findOneAndUpdate"]],
         [Department, ["findById", "findOneAndUpdate"]],
         [Designation, ["findById", "findOneAndUpdate"]],
-        [LeaveRequest, ["findOneAndUpdate", "exists", "findById"]],
+        [LeaveRequest, ["findOne", "findOneAndUpdate", "exists", "findById"]],
         [ExpenseClaim, ["findOneAndUpdate", "exists", "findById"]],
         [EmployeeUpdateApproval, ["findOne", "findOneAndUpdate"]],
         [AuditLog, ["create"]]
@@ -120,10 +120,23 @@ before(async () => {
         calls.teamFilters.push(filter);
         return { distinct: async () => [IDS.teamEmployee] };
     };
+    Employee.findOneAndUpdate = async (filter, update, options) => {
+        calls.hierarchyLocks.push({ filter, update, options });
+        return { _id: IDS.teamEmployee };
+    };
 
-    LeaveRequest.findOneAndUpdate = async (filter, update) => {
-        calls.leaveFilters.push({ filter, update });
-        if (filter.employee && !filter.employee.$in.includes(IDS.teamEmployee)) return null;
+    LeaveRequest.findOne = (filter) => ({
+        session(session) {
+            assert.ok(session);
+            return Promise.resolve(
+                filter._id === IDS.record && filter.status === "pending"
+                    ? { _id: IDS.record, employee: IDS.teamEmployee, status: "pending" }
+                    : null
+            );
+        }
+    });
+    LeaveRequest.findOneAndUpdate = async (filter, update, options) => {
+        calls.leaveFilters.push({ filter, update, options });
         return { _id: IDS.record };
     };
     LeaveRequest.exists = async () => false;
@@ -173,34 +186,39 @@ test("Leave decision API allows Admin and HR to approve pending requests", async
     }
 });
 
-test("Leave decision API allows a Manager to review an assigned team member", async () => {
+test("Leave decision API allows a Manager to review an assigned team member under a hierarchy lock", async () => {
     calls.leaveFilters.length = 0;
-    calls.teamFilters.length = 0;
+    calls.hierarchyLocks.length = 0;
     const response = await send("manager", "PATCH", `/api/leaves/${IDS.record}/review`, {
         decision: "rejected",
         reviewComment: "Not approved"
     });
     assert.equal(response.status, 200);
-    assert.deepEqual(calls.teamFilters.at(-1), { reportingManager: IDS.managerEmployee });
-    assert.deepEqual(calls.leaveFilters.at(-1).filter.employee, { $in: [IDS.teamEmployee] });
+    const lock = calls.hierarchyLocks.at(-1);
+    assert.deepEqual(lock.filter, {
+        _id: IDS.teamEmployee,
+        reportingManager: IDS.managerEmployee,
+        employmentStatus: "active",
+        isArchived: { $ne: true }
+    });
+    assert.deepEqual(lock.update, { $inc: { hierarchyVersion: 1 } });
+    assert.ok(lock.options.session);
+    assert.deepEqual(calls.leaveFilters.at(-1).filter, {
+        _id: IDS.record,
+        employee: IDS.teamEmployee,
+        status: "pending"
+    });
+    assert.ok(calls.leaveFilters.at(-1).options.session);
 });
 
-test("Leave decision API does not let a Manager review a request outside their assigned team", async () => {
-    const defaultFindOneAndUpdate = LeaveRequest.findOneAndUpdate;
-    const defaultExists = LeaveRequest.exists;
-    let capturedFilter;
-    LeaveRequest.findOneAndUpdate = async (filter) => {
-        capturedFilter = filter;
-        return null;
-    };
-    LeaveRequest.exists = async () => false;
+test("Leave decision API rejects Manager approval when the employee is no longer assigned", async () => {
+    const defaultLock = Employee.findOneAndUpdate;
+    Employee.findOneAndUpdate = async () => null;
     const response = await send("manager", "PATCH", `/api/leaves/${IDS.record}/review`, {
         decision: "approved"
     });
-    LeaveRequest.findOneAndUpdate = defaultFindOneAndUpdate;
-    LeaveRequest.exists = defaultExists;
+    Employee.findOneAndUpdate = defaultLock;
     assert.equal(response.status, 404);
-    assert.deepEqual(capturedFilter.employee, { $in: [IDS.teamEmployee] });
 });
 
 test("Employee cannot access the Leave decision endpoint", async () => {
