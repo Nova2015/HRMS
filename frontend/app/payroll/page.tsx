@@ -15,7 +15,8 @@ const labelClass = "block text-sm font-semibold text-slate-700";
 
 type Employee = { _id: string; employeeCode: string; firstName: string; lastName: string; employmentStatus: string };
 type Line = { name: string; amount: number };
-type Structure = { _id: string; employee: Employee; monthlyBasic: number; earnings: Line[]; deductions: Line[]; effectiveFrom: string };
+type Revision = { _id: string; monthlyBasic: number; earnings: Line[]; deductions: Line[]; effectiveFrom: string };
+type Structure = { _id: string; employee: Employee; monthlyBasic: number; earnings: Line[]; deductions: Line[]; effectiveFrom: string; revisions: Revision[] };
 type PayrollRecord = { _id: string; employee: Employee; period: string; workingDays: number; paidDays: number; basic: number; earnings: Line[]; deductions: Line[]; grossEarnings: number; totalDeductions: number; netPay: number; status: string; paidAt?: string };
 
 function parseLines(value: string): Line[] {
@@ -42,6 +43,8 @@ function PayrollContent() {
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [workingDays, setWorkingDays] = useState("26");
   const [paidDays, setPaidDays] = useState<Record<string, string>>({});
+  const [prorationModes, setProrationModes] = useState<Record<string, string>>({});
+  const [manualSplits, setManualSplits] = useState<Record<string, { oldWorkingDays: string; newWorkingDays: string; oldPaidDays: string; newPaidDays: string }>>({});
   const [employeeId, setEmployeeId] = useState("");
   const [monthlyBasic, setMonthlyBasic] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 10));
@@ -125,7 +128,20 @@ function PayrollContent() {
     setBusy(true); setError(""); setMessage("");
     try {
       const days = Number(workingDays);
-      const payload = structures.map((item) => ({ employeeId: item.employee._id, paidDays: Number(paidDays[item.employee._id] ?? workingDays) }));
+      const payload = structures.map((item) => {
+        const id = item.employee._id;
+        const mode = prorationModes[id] || "auto";
+        const split = manualSplits[id] || { oldWorkingDays: "", newWorkingDays: "", oldPaidDays: "", newPaidDays: "" };
+        return {
+          employeeId: id,
+          paidDays: Number(paidDays[id] ?? workingDays),
+          prorationMode: mode,
+          ...(mode === "manual" ? {
+            oldWorkingDays: Number(split.oldWorkingDays), newWorkingDays: Number(split.newWorkingDays),
+            oldPaidDays: Number(split.oldPaidDays), newPaidDays: Number(split.newPaidDays),
+          } : {}),
+        };
+      });
       if (!payload.length) throw new Error("Create salary structures before processing payroll.");
       const result = await apiRequest("/payroll/process", { method: "POST", body: JSON.stringify({ period, workingDays: days, employees: payload }) });
       setMessage(result.message);
@@ -175,7 +191,7 @@ function PayrollContent() {
         {isAdmin && <>
           <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-5 py-5 sm:px-7">
-              <div className="flex items-center gap-3"><div className="rounded-xl bg-blue-100 p-2.5 text-blue-700"><Wallet size={21} /></div><div><h2 className="text-lg font-bold text-slate-900">Salary Structure</h2><p className="mt-1 text-sm text-slate-500">Define the monthly basic salary and additional components.</p></div></div>
+              <div className="flex items-center gap-3"><div className="rounded-xl bg-blue-100 p-2.5 text-blue-700"><Wallet size={21} /></div><div><h2 className="text-lg font-bold text-slate-900">Salary Structure</h2><p className="mt-1 text-sm text-slate-500">Define salary revisions with an effective date. Previous revisions are retained.</p></div></div>
             </div>
             <form onSubmit={saveStructure} className="grid gap-x-5 gap-y-4 p-5 sm:grid-cols-2 sm:p-7">
               <label className={labelClass}>Employee
@@ -187,7 +203,7 @@ function PayrollContent() {
               <label className={labelClass}>Effective from
                 <input required type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} className={inputClass} />
               </label>
-              <div className="flex items-end text-xs leading-5 text-slate-500">{employeeId && structureEmployeeIds.has(employeeId) ? "An existing salary structure is on file. Saving will replace it for future payroll runs; processed payroll remains unchanged." : "Add a salary structure for an employee who is not yet configured."}</div>
+              <div className="flex items-end text-xs leading-5 text-slate-500">{employeeId && structureEmployeeIds.has(employeeId) ? "An existing salary structure is on file. Saving adds a dated revision; previous revisions and processed payroll remain unchanged." : "Add a salary structure for an employee who is not yet configured."}</div>
               <label className={labelClass}>Earnings components <span className="font-normal text-slate-400">(Name=Amount, one per line)</span>
                 <textarea rows={4} value={earningsText} onChange={(e) => setEarningsText(e.target.value)} placeholder={"House Rent Allowance=5000\nTravel Allowance=1500"} className={`${inputClass} resize-y font-mono text-xs leading-6`} />
               </label>
@@ -195,7 +211,7 @@ function PayrollContent() {
                 <textarea rows={4} value={deductionsText} onChange={(e) => setDeductionsText(e.target.value)} placeholder={"Provident Fund=1800\nProfessional Tax=200"} className={`${inputClass} resize-y font-mono text-xs leading-6`} />
               </label>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5 sm:col-span-2">
-                <p className="text-xs text-slate-500">Amounts are monthly values and are prorated using paid days.</p>
+                <p className="text-xs text-slate-500">Each save creates a dated revision. Automatic proration uses calendar-day proportions; manual mode accepts exact working-day and paid-day splits.</p>
                 <button type="submit" disabled={busy || !employees.length || !employeeId || !monthlyBasic} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"><Save size={17} />{busy ? "Saving..." : "Save salary structure"}</button>
               </div>
             </form>
@@ -214,9 +230,33 @@ function PayrollContent() {
               {structures.length > 0 ? <div className="overflow-hidden rounded-xl border border-slate-200">
                 <div className="overflow-x-auto"><p className="px-4 pb-2 text-[11px] font-medium text-slate-400 sm:hidden">Swipe horizontally to view all salary columns</p><table className="w-full min-w-[620px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3 font-semibold">Employee</th><th className="px-4 py-3 font-semibold">Monthly gross</th><th className="px-4 py-3 font-semibold">Paid days</th></tr></thead>
-                  <tbody className="divide-y divide-slate-100">{structures.map((item) => <tr key={item._id} className="transition hover:bg-slate-50/70"><td className="px-4 py-3"><p className="font-semibold text-slate-800">{item.employee?.firstName} {item.employee?.lastName}</p><p className="mt-0.5 text-xs text-slate-400">{item.employee?.employeeCode}</p></td><td className="px-4 py-3 font-medium text-slate-700">{money(item.monthlyBasic + item.earnings.reduce((s, x) => s + x.amount, 0))}</td><td className="px-4 py-3"><input aria-label={`Paid days for ${item.employee?.employeeCode}`} type="number" min="0" max={workingDays} step="0.5" value={paidDays[item.employee._id] ?? workingDays} onChange={(e) => setPaidDays((prev) => ({ ...prev, [item.employee._id]: e.target.value }))} className="w-28 rounded-lg border border-slate-200 px-3 py-2 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" /></td></tr>)}</tbody>
+                  <tbody className="divide-y divide-slate-100">{structures.map((item) => <tr key={item._id} className="transition hover:bg-slate-50/70"><td className="px-4 py-3"><p className="font-semibold text-slate-800">{item.employee?.firstName} {item.employee?.lastName}</p><p className="mt-0.5 text-xs text-slate-400">{item.employee?.employeeCode}</p></td><td className="px-4 py-3 font-medium text-slate-700">{money(item.monthlyBasic + item.earnings.reduce((s, x) => s + x.amount, 0))}<p className="mt-1 text-xs text-slate-400">{item.revisions?.length || 1} revision(s)</p></td><td className="px-4 py-3"><input aria-label={`Paid days for ${item.employee?.employeeCode}`} type="number" min="0" max={workingDays} step="0.5" value={paidDays[item.employee._id] ?? workingDays} onChange={(e) => setPaidDays((prev) => ({ ...prev, [item.employee._id]: e.target.value }))} className="w-28 rounded-lg border border-slate-200 px-3 py-2 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" /></td></tr>)}</tbody>
                 </table></div>
               </div> : <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center"><Users className="mx-auto text-slate-400" size={28} /><p className="mt-3 font-semibold text-slate-700">No salary structures yet</p><p className="mt-1 text-sm text-slate-500">Create employee salary structures above before processing payroll.</p></div>}
+              <div className="mt-4 space-y-3">
+                {structures.filter((item) => (item.revisions || []).filter((revision) => revision.effectiveFrom.slice(0, 7) === period).length > 1).map((item) => {
+                  const id = item.employee._id;
+                  const split = manualSplits[id] || { oldWorkingDays: "", newWorkingDays: "", oldPaidDays: "", newPaidDays: "" };
+                  return <div key={id} className="rounded-xl border border-slate-200 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-slate-800">{item.employee.firstName} {item.employee.lastName} — Mid-month revision</p>
+                      <select aria-label={`Proration mode for ${item.employee.employeeCode}`} value={prorationModes[id] || "auto"} onChange={(e) => setProrationModes((prev) => ({ ...prev, [id]: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm"><option value="auto">Automatic split</option><option value="manual">Manual split</option></select>
+                    </div>
+                    {prorationModes[id] === "manual" && <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {(["oldWorkingDays", "newWorkingDays", "oldPaidDays", "newPaidDays"] as const).map((field) => <label key={field} className="text-xs font-semibold capitalize text-slate-600">{field.replace(/([A-Z])/g, " $1")}<input type="number" min="0" step="0.5" value={split[field]} onChange={(e) => setManualSplits((prev) => ({ ...prev, [id]: { ...split, [field]: e.target.value } }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></label>)}
+                    </div>}
+                  </div>;
+                })}
+              </div>
+              <div className="mt-4 rounded-xl border border-slate-200 p-4">
+                <h3 className="text-sm font-bold text-slate-800">Salary revision history</h3>
+                <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
+                  {structures.map((item) => <div key={item._id} className="rounded-lg bg-slate-50 p-3">
+                    <p className="text-sm font-semibold text-slate-800">{item.employee?.firstName} {item.employee?.lastName} <span className="text-xs font-normal text-slate-500">({item.employee?.employeeCode})</span></p>
+                    {(item.revisions || [{ _id: item._id, monthlyBasic: item.monthlyBasic, earnings: item.earnings, deductions: item.deductions, effectiveFrom: item.effectiveFrom }]).map((revision) => <div key={revision._id} className="mt-2 flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-2 text-xs text-slate-600"><span>Effective {new Date(revision.effectiveFrom).toLocaleDateString("en-IN")}</span><b>{money(revision.monthlyBasic + revision.earnings.reduce((sum, line) => sum + line.amount, 0))} gross</b></div>)}
+                  </div>)}
+                </div>
+              </div>
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                 <p className="max-w-2xl text-xs leading-5 text-amber-700"><Clock3 size={14} className="mr-1 inline" /> Processing creates final records for this employee/month. Verify paid days and statutory deductions before proceeding. Existing payroll records are not overwritten.</p>
                 <button type="button" onClick={processPayroll} disabled={busy || !structures.length || !period || Number(workingDays) < 1} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Processing..." : "Process payroll"}<ChevronRight size={17} /></button>
