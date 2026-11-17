@@ -16,7 +16,7 @@ const router = express.Router();
 
 router.post("/login", loginRateLimit, login);
 router.get("/me", protect, getMe);
-router.put("/me/photo", protect, updateProfilePhoto);
+router.put("/me/photo", protect, auditAction("auth", "profile.photo_updated"), updateProfilePhoto);
 router.put("/change-password", protect, auditAction("auth", "password.changed"), changePassword);
 router.post("/logout-all-devices", protect, auditAction("auth", "sessions.revoked"), logoutAllDevices);
 
