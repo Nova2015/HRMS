@@ -9,7 +9,7 @@ import { protect } from "../src/middleware/authMiddleware.js";
 const SECRET = "session-middleware-test-secret-with-at-least-32-characters";
 const USER_ID = "64b000000000000000000021";
 const EMPLOYEE_ID = "64b000000000000000000022";
-const original = { user: User.findById, session: Session.findOne };
+const original = { user: User.findById, session: Session.findOne, employee: Employee.findById, update: Session.updateOne };
 
 test("protect rejects a revoked individual session", async () => {
     process.env.JWT_SECRET = SECRET;
@@ -39,8 +39,6 @@ test("protect skips lastSeenAt writes while session activity is recent", async (
     Employee.findById = () => ({ select: async () => ({ _id: EMPLOYEE_ID, employmentStatus: "active" }) });
     const req = { headers: { authorization: "Bearer " + jwt.sign({ userId: USER_ID, tokenVersion: 0, jti: "recent-session-id" }, SECRET) } };
     const res = { status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } };
-    const originalEmployeeFind = Employee.findById;
-    const originalUpdate = Session.updateOne;
     try {
         await protect(req, res, () => {});
         assert.equal(calls.updates, 0);
@@ -48,8 +46,8 @@ test("protect skips lastSeenAt writes while session activity is recent", async (
     } finally {
         User.findById = original.user;
         Session.findOne = original.session;
-        Session.updateOne = originalUpdate;
-        Employee.findById = originalEmployeeFind;
+        Session.updateOne = original.update;
+        Employee.findById = original.employee;
     }
 });
 
@@ -58,8 +56,6 @@ test("protect refreshes lastSeenAt when session activity is older than five minu
     const calls = { updates: 0 };
     User.findById = () => ({ select: async () => ({ _id: USER_ID, employee: EMPLOYEE_ID, role: "employee", isActive: true, tokenVersion: 0 }) });
     Session.findOne = () => ({ select: async () => ({ _id: "64b000000000000000000024", jti: "stale-session-id", lastSeenAt: new Date(Date.now() - 6 * 60 * 1000) }) });
-    const originalUpdate = Session.updateOne;
-    const originalEmployeeFind = Employee.findById;
     Session.updateOne = async () => { calls.updates += 1; };
     Employee.findById = () => ({ select: async () => ({ _id: EMPLOYEE_ID, employmentStatus: "active" }) });
     const req = { headers: { authorization: "Bearer " + jwt.sign({ userId: USER_ID, tokenVersion: 0, jti: "stale-session-id" }, SECRET) } };
@@ -70,7 +66,7 @@ test("protect refreshes lastSeenAt when session activity is older than five minu
     } finally {
         User.findById = original.user;
         Session.findOne = original.session;
-        Session.updateOne = originalUpdate;
-        Employee.findById = originalEmployeeFind;
+        Session.updateOne = original.update;
+        Employee.findById = original.employee;
     }
 });
