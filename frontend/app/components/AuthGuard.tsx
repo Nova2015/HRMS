@@ -95,6 +95,16 @@ export default function AuthGuard({
     };
   }, [router]);
 
+  useEffect(() => {
+    // Browsers may restore a previously authenticated page from the back-forward cache.
+    // Reload it so AuthGuard revalidates the session before showing protected content.
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) window.location.reload();
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   const handleAttendanceAction = async (action: "check-in" | "check-out") => {
     const token = sessionStorage.getItem("hrms_token");
     if (!token) { router.replace("/login"); return; }
@@ -123,7 +133,7 @@ export default function AuthGuard({
     sessionStorage.removeItem("hrms_token");
     sessionStorage.removeItem("hrms_user");
     sessionStorage.removeItem("hrms_attendance_prompt");
-    router.replace("/login");
+    window.location.replace("/login");
   };
 
   if (checking || !authorized) {
