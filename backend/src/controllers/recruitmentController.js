@@ -135,6 +135,32 @@ export const updateCandidateStatus = async (req, res) => {
     }
 };
 
+export const reserveJobOpeningForHire = async (candidate, session) => {
+    // Write to the job document inside the transaction to serialize concurrent hires
+    // for the same opening before checking the number of already-hired candidates.
+    const job = await JobOpening.findOneAndUpdate(
+        { _id: candidate.jobOpening },
+        { $inc: { hiringVersion: 1 } },
+        { new: true, session }
+    );
+    if (!job) {
+        const conflict = new Error("The job opening for this candidate no longer exists");
+        conflict.code = 409;
+        throw conflict;
+    }
+
+    const hiredCount = await Candidate.countDocuments({
+        jobOpening: candidate.jobOpening,
+        status: "hired"
+    }).session(session);
+
+    if (hiredCount >= job.openings) {
+        const conflict = new Error("All openings for this job have been filled");
+        conflict.code = 409;
+        throw conflict;
+    }
+};
+
 export const hireCandidate = async (req, res) => {
     try {
         const { id } = req.params;
@@ -161,6 +187,8 @@ export const hireCandidate = async (req, res) => {
                     conflict.code = 409;
                     throw conflict;
                 }
+
+                await reserveJobOpeningForHire(candidate, session);
 
                 const [duplicateCode, duplicateEmail, department, designation] = await Promise.all([
                     Employee.exists({ employeeCode: normalizedCode }).session(session),
