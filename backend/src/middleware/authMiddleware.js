@@ -65,11 +65,16 @@ export const protect = async (req, res, next) => {
                 tokenVersion: user.tokenVersion ?? 0,
                 revokedAt: null,
                 expiresAt: { $gt: new Date() }
-            }).select("_id jti");
+            }).select("_id jti lastSeenAt");
             if (!activeSession) {
                 return res.status(401).json({ success: false, message: "Session has been signed out. Please login again." });
             }
-            await Session.updateOne({ _id: activeSession._id }, { $set: { lastSeenAt: new Date() } });
+            // Avoid a MongoDB write on every API request; refresh activity at most once every 5 minutes.
+            const now = new Date();
+            const lastSeenAt = activeSession.lastSeenAt ? new Date(activeSession.lastSeenAt) : null;
+            if (!lastSeenAt || now.getTime() - lastSeenAt.getTime() >= 5 * 60 * 1000) {
+                await Session.updateOne({ _id: activeSession._id }, { $set: { lastSeenAt: now } });
+            }
         }
 
         if (!user.employee || !mongoose.isValidObjectId(user.employee)) {
