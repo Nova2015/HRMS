@@ -4,7 +4,7 @@ import LeaveRequest from "../models/LeaveRequest.js";
 import Employee from "../models/Employee.js";
 
 const TYPES = ["casual", "sick", "earned"];
-const validYear = (value) => /^\\d{4}$/.test(String(value)) && Number(value) >= 2000 && Number(value) <= 2100;
+const validYear = (value) => /^\d{4}$/.test(String(value)) && Number(value) >= 2000 && Number(value) <= 2100;
 
 const summarize = async (allocations, year) => {
     const employeeIds = allocations.map((item) => item.employee?._id || item.employee).filter(Boolean);
