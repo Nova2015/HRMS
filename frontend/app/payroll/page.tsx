@@ -127,6 +127,7 @@ function PayrollContent() {
     const activeEmployeeIds = new Set(employees.map((item) => item._id));
     return structures.filter((item) => item.employee?._id && activeEmployeeIds.has(item.employee._id));
   }, [structures, employees]);
+  const hasIneffectiveSalary = payrollStructures.some((item) => !getSalaryAtPeriodStart(item, period));
   const totalNet = records.reduce((sum, item) => sum + item.netPay, 0);
   const totalGross = records.reduce((sum, item) => sum + item.grossEarnings, 0);
   const paidCount = records.filter((item) => item.status === "paid").length;
@@ -168,6 +169,7 @@ function PayrollContent() {
         };
       });
       if (!payload.length) throw new Error("No active employees with salary structures are available for this payroll period.");
+      if (hasIneffectiveSalary) throw new Error("At least one selected employee has no salary effective from the first day of this payroll month. Correct the effective date or remove that employee before processing.");
       const result = await apiRequest("/payroll/process", { method: "POST", body: JSON.stringify({ period, workingDays: days, employees: payload }) });
       setMessage(result.message);
       await loadPage();
@@ -258,6 +260,7 @@ function PayrollContent() {
                   <tbody className="divide-y divide-slate-100">{payrollStructures.map((item) => <tr key={item._id} className="transition hover:bg-slate-50/70"><td className="px-4 py-3"><p className="font-semibold text-slate-800">{item.employee?.firstName} {item.employee?.lastName}</p><p className="mt-0.5 text-xs text-slate-400">{item.employee?.employeeCode}</p></td><td className="px-4 py-3 font-medium text-slate-700">{getSalaryAtPeriodStart(item, period) ? money(getSalaryAtPeriodStart(item, period)!.monthlyBasic + getSalaryAtPeriodStart(item, period)!.earnings.reduce((sum, line) => sum + line.amount, 0)) : "Not effective"}<p className="mt-1 text-xs text-slate-400">{item.revisions?.length || 1} revision(s)</p></td><td className="px-4 py-3"><input aria-label={`Paid days for ${item.employee?.employeeCode}`} type="number" min="0" max={workingDays} step="0.5" value={paidDays[item.employee._id] ?? workingDays} onChange={(e) => setPaidDays((prev) => ({ ...prev, [item.employee._id]: e.target.value }))} className="w-28 rounded-lg border border-slate-200 px-3 py-2 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" /></td></tr>)}</tbody>
                 </table></div>
               </div> : <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center"><Users className="mx-auto text-slate-400" size={28} /><p className="mt-3 font-semibold text-slate-700">No active salary structures available</p><p className="mt-1 text-sm text-slate-500">Only active employees with configured salary structures can be included in payroll.</p></div>}
+              {hasIneffectiveSalary && <div role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Payroll processing is blocked: at least one active employee has a salary structure that becomes effective after the first day of this month. The current payroll calculation requires a salary effective from the month start.</div>}
               <div className="mt-4 space-y-3">
                 {payrollStructures.filter((item) => hasSingleMidMonthRevision(item, period)).map((item) => {
                   const id = item.employee._id;
@@ -284,7 +287,7 @@ function PayrollContent() {
               </div>
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                 <p className="max-w-2xl text-xs leading-5 text-amber-700"><Clock3 size={14} className="mr-1 inline" /> Processing creates final records for this employee/month. Verify paid days and statutory deductions before proceeding. Existing payroll records are not overwritten.</p>
-                <button type="button" onClick={processPayroll} disabled={busy || !payrollStructures.length || !period || Number(workingDays) < 1} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Processing..." : "Process payroll"}<ChevronRight size={17} /></button>
+                <button type="button" onClick={processPayroll} disabled={busy || !payrollStructures.length || hasIneffectiveSalary || !period || Number(workingDays) < 1} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Processing..." : "Process payroll"}<ChevronRight size={17} /></button>
               </div>
             </div>
           </section>
