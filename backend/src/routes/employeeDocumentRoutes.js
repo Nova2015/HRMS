@@ -12,6 +12,7 @@ import {
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import { uploadEmployeeDocument } from "../middleware/documentUpload.js";
+import { auditAction } from "../middleware/auditLogMiddleware.js";
 
 const handleDocumentUpload = (req, res, next) => {
     uploadEmployeeDocument(req, res, (error) => {
@@ -30,13 +31,13 @@ const handleDocumentUpload = (req, res, next) => {
 
 const router = express.Router();
 router.use(protect);
-router.post("/my", handleDocumentUpload, uploadMyDocument);
-router.post("/issue", authorizeRoles("admin", "hr"), handleDocumentUpload, issueDocumentToEmployee);
-router.post("/generate/:employeeId/appointment", authorizeRoles("admin", "hr"), generateAppointmentLetter);
-router.post("/generate/:employeeId/:documentType", authorizeRoles("admin", "hr"), generateEmploymentDocument);
+router.post("/my", handleDocumentUpload, auditAction("employee_documents", "employee.document_submitted"), uploadMyDocument);
+router.post("/issue", authorizeRoles("admin", "hr"), handleDocumentUpload, auditAction("employee_documents", "employee.document_issued"), issueDocumentToEmployee);
+router.post("/generate/:employeeId/appointment", authorizeRoles("admin", "hr"), auditAction("employee_documents", "employee.appointment_letter_generated"), generateAppointmentLetter);
+router.post("/generate/:employeeId/:documentType", authorizeRoles("admin", "hr"), auditAction("employee_documents", "employee.employment_document_generated"), generateEmploymentDocument);
 router.get("/my", getMyDocuments);
 router.get("/", authorizeRoles("admin", "hr"), getAllEmployeeDocuments);
-router.patch("/:id/review", authorizeRoles("admin", "hr"), reviewEmployeeDocument);
+router.patch("/:id/review", authorizeRoles("admin", "hr"), auditAction("employee_documents", "employee.document_reviewed"), reviewEmployeeDocument);
 router.get("/:id/download", downloadEmployeeDocument);
 
 export default router;
