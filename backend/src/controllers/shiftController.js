@@ -69,8 +69,8 @@ export const createShift = async (req, res) => {
     try {
         const { error, updates } = validate(req.body, true);
         if (error) return res.status(400).json({ success: false, message: error });
-        if (timeToMinutes(updates.endTime) <= timeToMinutes(updates.startTime)) {
-            return res.status(400).json({ success: false, message: "End time must be later than start time. Overnight shifts are not supported yet." });
+        if (timeToMinutes(updates.endTime) === timeToMinutes(updates.startTime)) {
+            return res.status(400).json({ success: false, message: "Start time and end time cannot be the same" });
         }
         const data = await Shift.create(updates);
         return res.status(201).json({ success: true, message: "Shift created successfully", data });
@@ -96,8 +96,8 @@ export const updateShift = async (req, res) => {
         if (!current) return res.status(404).json({ success: false, message: "Shift not found" });
         const startTime = updates.startTime || current.startTime;
         const endTime = updates.endTime || current.endTime;
-        if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
-            return res.status(400).json({ success: false, message: "End time must be later than start time. Overnight shifts are not supported yet." });
+        if (timeToMinutes(endTime) === timeToMinutes(startTime)) {
+            return res.status(400).json({ success: false, message: "Start time and end time cannot be the same" });
         }
         const data = await Shift.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true });
         if (!data) return res.status(404).json({ success: false, message: "Shift not found" });
