@@ -109,6 +109,7 @@ export const getExpenseWorkspace = async (req, res) => {
 
 export const createExpenseClaim = async (req, res) => {
     const file = req.file;
+    let claimPersisted = false;
     try {
         if (!(await validateReceipt(file, res))) return;
         const { category, amount, expenseDate, merchant = "", description } = req.body || {};
@@ -152,10 +153,18 @@ export const createExpenseClaim = async (req, res) => {
             policyLimitAtSubmission: limit?.monthlyLimit ?? null,
             overLimitAtSubmission: Boolean(limit && projectedMonthlySpend > limit.monthlyLimit)
         });
-        const data = await populateClaim(ExpenseClaim.findById(claim._id));
+        claimPersisted = true;
+
+        // A populate/read failure must not turn a successfully stored receipt into a missing file.
+        let data = claim;
+        try {
+            data = await populateClaim(ExpenseClaim.findById(claim._id));
+        } catch (populateError) {
+            console.error("Expense claim saved; unable to populate response:", populateError.message);
+        }
         return res.status(201).json({ success: true, message: "Expense claim submitted for approval", data });
     } catch (error) {
-        await removeUploadedFile(file?.path);
+        if (!claimPersisted) await removeUploadedFile(file?.path);
         console.error("Create expense claim:", error.message);
         return res.status(500).json({ success: false, message: "Unable to submit expense claim" });
     }
