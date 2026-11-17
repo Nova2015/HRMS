@@ -89,48 +89,70 @@ export const createLeaveRequest = async (req, res) => {
             });
         }
 
-        const overlapping = await LeaveRequest.findOne({
-            employee: employee._id,
-            status: { $in: ["pending", "approved"] },
-            startDate: { $lte: endDate },
-            endDate: { $gte: startDate }
-        });
+        const session = await mongoose.startSession();
+        let leave;
+        let totalDays = 0;
+        try {
+            await session.withTransaction(async () => {
+                // Serialize submissions for this employee. Concurrent transactions
+                // contend on this employee document; a retried transaction then
+                // re-checks the overlap against the committed leave request.
+                const lock = await Employee.updateOne(
+                    { _id: employee._id, employmentStatus: "active" },
+                    { $inc: { leaveRequestVersion: 1 } },
+                    { session }
+                );
+                if (lock.matchedCount !== 1) {
+                    const inactive = new Error("Active employee account required");
+                    inactive.code = 40301;
+                    throw inactive;
+                }
 
-        if (overlapping) {
-            return res.status(409).json({
-                success: false,
-                message: "This date range overlaps an existing pending or approved leave request"
+                const overlapping = await LeaveRequest.findOne({
+                    employee: employee._id,
+                    status: { $in: ["pending", "approved"] },
+                    startDate: { $lte: endDate },
+                    endDate: { $gte: startDate }
+                }).session(session);
+
+                if (overlapping) {
+                    const conflict = new Error("This date range overlaps an existing pending or approved leave request");
+                    conflict.code = 40901;
+                    throw conflict;
+                }
+
+                const holidays = await Holiday.find({
+                    dateKey: { $gte: startDate, $lte: endDate },
+                    isActive: true,
+                    type: { $in: ["public", "company"] }
+                }).select("dateKey -_id").session(session);
+                const holidayDates = new Set(holidays.map((holiday) => holiday.dateKey));
+                totalDays = countWorkingDays(
+                    startDate,
+                    endDate,
+                    employee.shift.weeklyOffDays,
+                    holidayDates
+                );
+
+                if (totalDays < 1) {
+                    const noWorkingDays = new Error("The selected date range contains no working days for your assigned shift");
+                    noWorkingDays.code = 40001;
+                    throw noWorkingDays;
+                }
+
+                leave = new LeaveRequest({
+                    employee: employee._id,
+                    leaveType,
+                    startDate,
+                    endDate,
+                    totalDays,
+                    reason: cleanReason
+                });
+                await leave.save({ session });
             });
+        } finally {
+            await session.endSession();
         }
-
-        const holidays = await Holiday.find({
-            dateKey: { $gte: startDate, $lte: endDate },
-            isActive: true,
-            type: { $in: ["public", "company"] }
-        }).select("dateKey -_id");
-        const holidayDates = new Set(holidays.map((holiday) => holiday.dateKey));
-        const totalDays = countWorkingDays(
-            startDate,
-            endDate,
-            employee.shift.weeklyOffDays,
-            holidayDates
-        );
-
-        if (totalDays < 1) {
-            return res.status(400).json({
-                success: false,
-                message: "The selected date range contains no working days for your assigned shift"
-            });
-        }
-
-        const leave = await LeaveRequest.create({
-            employee: employee._id,
-            leaveType,
-            startDate,
-            endDate,
-            totalDays,
-            reason: cleanReason
-        });
 
         const data = await populateLeave(LeaveRequest.findById(leave._id));
 
@@ -141,9 +163,25 @@ export const createLeaveRequest = async (req, res) => {
         });
     } catch (error) {
         console.error("Create leave request error:", error);
-        return res.status(500).json({
+        const knownErrors = {
+            40001: [400, "The selected date range contains no working days for your assigned shift"],
+            40301: [403, "Active employee account required"],
+            40901: [409, "This date range overlaps an existing pending or approved leave request"]
+        };
+        if (knownErrors[error.code]) {
+            const [status, message] = knownErrors[error.code];
+            return res.status(status).json({ success: false, message });
+        }
+        const transactionUnavailable = Boolean(
+            error.hasErrorLabel?.("TransientTransactionError") ||
+            error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+            /transaction numbers are only allowed|replica set|mongos/i.test(error.message || "")
+        );
+        return res.status(transactionUnavailable ? 503 : 500).json({
             success: false,
-            message: "Unable to submit leave request"
+            message: transactionUnavailable
+                ? "Leave request could not be submitted safely. Please retry."
+                : "Unable to submit leave request"
         });
     }
 };
