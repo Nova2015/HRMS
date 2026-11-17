@@ -842,7 +842,6 @@ export const activateEmployee = async (req, res) => {
                 }
 
                 if (employee.department && employee.designation) {
-                    await lockEmployeeReferences({ departmentId: employee.department, designationId: employee.designation, shiftId: employee.shift, session });
                     // Keep operations sequential within the MongoDB transaction session.
                     const department = await Department.findById(employee.department).session(session);
                     const designation = await Designation.findById(employee.designation).session(session);
@@ -866,6 +865,10 @@ export const activateEmployee = async (req, res) => {
                         invalidShift.code = 40905;
                         throw invalidShift;
                     }
+                }
+
+                if (employee.department && employee.designation) {
+                    await lockEmployeeReferences({ departmentId: employee.department, designationId: employee.designation, shiftId: employee.shift, session });
                 }
 
                 const linkedUser = await User.findOneAndUpdate(
