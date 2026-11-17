@@ -5,6 +5,8 @@ import Department from "../models/Department.js";
 import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
 import User from "../models/User.js";
+import { lockEmployeeReferences, lockReportingManager } from "../services/employeeReferenceGuards.js";
+import { createsReportingCycle, hasDirectReports } from "../services/reportingHierarchy.js";
 
 // External sources must never change login credentials or sensitive HR/bank identifiers.
 const ALLOWED_PROPOSAL_FIELDS = new Set([
@@ -200,6 +202,23 @@ export const decideEmployeeUpdateProposal = async (req, res) => {
                     throw archivedError;
                 }
 
+                await lockEmployeeReferences({
+                    departmentId: changes.department || currentEmployee.department,
+                    designationId: changes.designation || currentEmployee.designation,
+                    shiftId: changes.shift !== undefined ? changes.shift : currentEmployee.shift,
+                    session
+                });
+                if (changes.reportingManager) {
+                    await lockReportingManager(changes.reportingManager, session);
+                    const managerUser = await User.findOne({
+                        employee: changes.reportingManager, role: "manager", isActive: true
+                    }).session(session);
+                    if (!managerUser || await createsReportingCycle(currentEmployee._id, changes.reportingManager, session)) {
+                        const invalidManager = new Error("Selected reporting manager is invalid or would create a circular hierarchy");
+                        invalidManager.statusCode = 409;
+                        throw invalidManager;
+                    }
+                }
                 const transactionOldValues = {};
                 for (const field of Object.keys(changes)) {
                     transactionOldValues[field] = currentEmployee[field] ?? null;
@@ -223,6 +242,11 @@ export const decideEmployeeUpdateProposal = async (req, res) => {
                     throw conflictError;
                 }
 
+                if (changes.employmentStatus && changes.employmentStatus !== "active" && await hasDirectReports(currentEmployee._id, session)) {
+                    const assignedReports = new Error("Reassign all employees reporting to this manager before changing employment status");
+                    assignedReports.statusCode = 409;
+                    throw assignedReports;
+                }
                 Object.assign(currentEmployee, changes);
                 await currentEmployee.save({ session });
 
