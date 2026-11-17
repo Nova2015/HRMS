@@ -358,11 +358,12 @@ export const updateEmployee = async (req, res) => {
         }
         if (
             ["resigned", "terminated"].includes(employee.employmentStatus) &&
-            req.body.employmentStatus === "active"
+            req.body.employmentStatus !== undefined &&
+            req.body.employmentStatus !== employee.employmentStatus
         ) {
             return res.status(409).json({
                 success: false,
-                message: "Resigned or terminated employees cannot be reactivated through profile editing"
+                message: "Employment status cannot be changed after resignation or termination"
             });
         }
 
