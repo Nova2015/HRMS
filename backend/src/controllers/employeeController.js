@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import Department from "../models/Department.js";
 import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
+import { createsReportingCycle } from "../services/reportingHierarchy.js";
 import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
 
 const ALLOWED_ROLES = ["employee", "manager", "hr", "admin"];
@@ -487,6 +488,12 @@ export const updateEmployee = async (req, res) => {
                     : null;
                 if (!managerEmployee) {
                     return res.status(400).json({ success: false, message: "Select an active employee with Manager role" });
+                }
+                if (await createsReportingCycle(employee._id, updates.reportingManager)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Reporting manager assignment would create a circular reporting hierarchy"
+                    });
                 }
             }
         }
