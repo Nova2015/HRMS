@@ -9,6 +9,7 @@ const auditLogSchema = new mongoose.Schema({
     method: { type: String, required: true, maxlength: 10 },
     route: { type: String, required: true, maxlength: 240 },
     resourceId: { type: String, default: "", maxlength: 80 },
+    outcome: { type: String, enum: ["approved", "rejected", ""], default: "" },
     statusCode: { type: Number, required: true },
     ipAddress: { type: String, default: "", maxlength: 80 },
     userAgent: { type: String, default: "", maxlength: 300 }
