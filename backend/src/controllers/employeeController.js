@@ -819,10 +819,9 @@ export const activateEmployee = async (req, res) => {
                 }
 
                 if (employee.department && employee.designation) {
-                    const [department, designation] = await Promise.all([
-                        Department.findById(employee.department).session(session),
-                        Designation.findById(employee.designation).session(session)
-                    ]);
+                    // Keep operations sequential within the MongoDB transaction session.
+                    const department = await Department.findById(employee.department).session(session);
+                    const designation = await Designation.findById(employee.designation).session(session);
                     if (
                         !department ||
                         !department.isActive ||
