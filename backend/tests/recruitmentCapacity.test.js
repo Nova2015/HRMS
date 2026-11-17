@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { reserveJobOpeningForHire, isValidJoiningDate, isValidResumeUrl, hasValidCandidateFieldLengths } from "../src/controllers/recruitmentController.js";
+import { reserveJobOpeningForHire, reserveOpenJobForCandidate, isValidJoiningDate, isValidResumeUrl, hasValidCandidateFieldLengths } from "../src/controllers/recruitmentController.js";
 import Candidate from "../src/models/Candidate.js";
 import JobOpening from "../src/models/JobOpening.js";
 
@@ -122,4 +122,40 @@ test("candidate field lengths reject values exceeding schema limits", () => {
     assert.equal(hasValidCandidateFieldLengths({ firstName: "A", lastName: "B", email: `${"a".repeat(243)}@example.com`, phone: "1" }), false);
     assert.equal(hasValidCandidateFieldLengths({ firstName: "A", lastName: "B", email: "a@example.com", phone: "1".repeat(26) }), false);
     assert.equal(hasValidCandidateFieldLengths({ firstName: "A", lastName: "B", email: "a@example.com", phone: "1", notes: "N".repeat(2001) }), false);
+});
+
+
+test("candidate registration atomically reserves only an open job", async () => {
+    const originalUpdate = JobOpening.findOneAndUpdate;
+    let filter;
+    let update;
+    let options;
+    try {
+        JobOpening.findOneAndUpdate = async (nextFilter, nextUpdate, nextOptions) => {
+            filter = nextFilter;
+            update = nextUpdate;
+            options = nextOptions;
+            return { _id: JOB_ID, department: "department-id", designation: "designation-id" };
+        };
+        const job = await reserveOpenJobForCandidate(JOB_ID, SESSION);
+        assert.equal(job._id, JOB_ID);
+        assert.deepEqual(filter, { _id: JOB_ID, status: "open" });
+        assert.deepEqual(update, { $inc: { hiringVersion: 1 } });
+        assert.equal(options.session, SESSION);
+    } finally {
+        JobOpening.findOneAndUpdate = originalUpdate;
+    }
+});
+
+test("candidate registration rejects a job closed before its atomic reservation", async () => {
+    const originalUpdate = JobOpening.findOneAndUpdate;
+    try {
+        JobOpening.findOneAndUpdate = async () => null;
+        await assert.rejects(
+            reserveOpenJobForCandidate(JOB_ID, SESSION),
+            (error) => error.code === 409 && /open job position/.test(error.message)
+        );
+    } finally {
+        JobOpening.findOneAndUpdate = originalUpdate;
+    }
 });
