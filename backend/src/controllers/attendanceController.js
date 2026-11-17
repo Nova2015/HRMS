@@ -616,7 +616,8 @@ export const saveManualAttendance = async (req, res) => {
             workMinutes,
             status,
             isLate: adjustedManualCheckIn !== null
-                ? adjustedManualCheckIn > lateThreshold
+                ? !(overnight && localCheckInMinutes < shiftEndMinutes) &&
+                    adjustedManualCheckIn > lateThreshold
                 : false,
             isEarlyLeaving: adjustedManualCheckOut !== null
                 ? adjustedManualCheckOut < expectedEnd
