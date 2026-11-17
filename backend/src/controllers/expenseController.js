@@ -168,6 +168,7 @@ export const reviewExpenseClaim = async (req, res) => {
         if (!mongoose.isValidObjectId(id)) return res.status(400).json({ success: false, message: "Invalid claim ID" });
         if (!["approved", "rejected"].includes(decision)) return res.status(400).json({ success: false, message: "Decision must be approved or rejected" });
         const comment = String(reviewComment).trim();
+        if (decision === "rejected" && !comment) return res.status(400).json({ success: false, message: "A review reason is required when rejecting an expense claim" });
         if (comment.length > 1000) return res.status(400).json({ success: false, message: "Review comment cannot exceed 1000 characters" });
         const claim = await ExpenseClaim.findOneAndUpdate(
             { _id: id, status: "pending" },
