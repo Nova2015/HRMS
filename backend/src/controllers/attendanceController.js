@@ -222,17 +222,31 @@ export const checkOut = async (req, res) => {
             : localMinutes;
         const expectedEndMinutes = overnight ? shiftEndMinutes + 1440 : shiftEndMinutes;
 
-        attendance.checkOut = now;
-        attendance.workMinutes = workMinutes;
-        attendance.status = getAttendanceStatus(workMinutes);
-        attendance.isEarlyLeaving = adjustedCheckOutMinutes < expectedEndMinutes;
+        // Compare-and-set prevents two simultaneous check-out requests from overwriting each other.
+        const updatedAttendance = await Attendance.findOneAndUpdate(
+            { _id: attendance._id, employee: employeeId, checkOut: null },
+            {
+                $set: {
+                    checkOut: now,
+                    workMinutes,
+                    status: getAttendanceStatus(workMinutes),
+                    isEarlyLeaving: adjustedCheckOutMinutes < expectedEndMinutes
+                }
+            },
+            { new: true, runValidators: true }
+        );
 
-        await attendance.save();
+        if (!updatedAttendance) {
+            return res.status(409).json({
+                success: false,
+                message: "You have already checked out today"
+            });
+        }
 
         return res.status(200).json({
             success: true,
             message: "Check-out recorded successfully",
-            data: attendance
+            data: updatedAttendance
         });
 
     } catch (error) {
