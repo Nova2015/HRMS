@@ -6,7 +6,8 @@ import User from "../src/models/User.js";
 import {
     archiveEmployee,
     deactivateEmployee,
-    activateEmployee
+    activateEmployee,
+    updateEmployee
 } from "../src/controllers/employeeController.js";
 
 const EMPLOYEE_ID = "64b000000000000000000031";
@@ -117,6 +118,34 @@ test("activateEmployee updates Employee and User in the same transaction", async
         assert.equal(employeeSaveSession, session);
         assert.equal(session.ended, true);
     });
+});
+
+test("updateEmployee refuses archived employees before changing profile or login", async () => {
+    const originalFindById = Employee.findById;
+    const originalUserFindOne = User.findOne;
+    let userLookupAttempted = false;
+    try {
+        Employee.findById = () => Promise.resolve({
+            _id: EMPLOYEE_ID,
+            isArchived: true
+        });
+        User.findOne = () => {
+            userLookupAttempted = true;
+            throw new Error("Archived employee must be rejected before account lookup");
+        };
+        const res = createResponse();
+        await updateEmployee({
+            params: { id: EMPLOYEE_ID },
+            body: { employmentStatus: "active" },
+            user: { role: "admin" }
+        }, res);
+        assert.equal(res.statusCode, 409);
+        assert.match(res.body.message, /Archived employees cannot be edited or reactivated/);
+        assert.equal(userLookupAttempted, false);
+    } finally {
+        Employee.findById = originalFindById;
+        User.findOne = originalUserFindOne;
+    }
 });
 
 test("activateEmployee refuses archived employees without re-enabling their login", async () => {
