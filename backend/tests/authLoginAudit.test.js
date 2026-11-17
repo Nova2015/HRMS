@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import User from "../src/models/User.js";
 import Employee from "../src/models/Employee.js";
 import AuditLog from "../src/models/AuditLog.js";
+import Session from "../src/models/Session.js";
 import { login } from "../src/controllers/authController.js";
 
 const SECRET = "auth-login-audit-test-secret-with-at-least-32-characters";
@@ -14,7 +16,8 @@ const originals = {
     findOne: User.findOne,
     findById: Employee.findById,
     compare: bcrypt.compare,
-    create: AuditLog.create
+    create: AuditLog.create,
+    createSession: Session.create
 };
 
 const runLogin = async ({ user, employee, passwordValid = true }) => {
@@ -24,6 +27,8 @@ const runLogin = async ({ user, employee, passwordValid = true }) => {
     Employee.findById = async () => employee;
     bcrypt.compare = async () => passwordValid;
     AuditLog.create = async (entry) => { logs.push(entry); return entry; };
+    const createdSessions = [];
+    Session.create = async (entry) => { createdSessions.push(entry); return entry; };
 
     const req = {
         body: { email: "person@example.com", password: "not-stored-password" },
@@ -40,12 +45,13 @@ const runLogin = async ({ user, employee, passwordValid = true }) => {
 
     try {
         await login(req, res);
-        return { logs, statusCode, responseBody };
+        return { logs, createdSessions, statusCode, responseBody };
     } finally {
         User.findOne = originals.findOne;
         Employee.findById = originals.findById;
         bcrypt.compare = originals.compare;
         AuditLog.create = originals.create;
+        Session.create = originals.createSession;
     }
 };
 
@@ -110,4 +116,10 @@ test("Successful login is audited with actor and HTTP success status", async () 
     assert.equal(String(result.logs[0].actor), USER_ID);
     assert.equal(result.logs[0].statusCode, 200);
     assert.equal(result.responseBody.success, true);
+    assert.equal(result.createdSessions.length, 1);
+    assert.equal(typeof result.createdSessions[0].jti, "string");
+    assert.equal(String(result.createdSessions[0].user), USER_ID);
+    assert.equal(result.createdSessions[0].userAgent, "HRMS auth test");
+    const decoded = jwt.decode(result.responseBody.token);
+    assert.equal(decoded.jti, result.createdSessions[0].jti);
 });
