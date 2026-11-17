@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import GoogleGmailIntegration from "../models/GoogleGmailIntegration.js";
 import GoogleOAuthState from "../models/GoogleOAuthState.js";
+import { consumeGoogleOAuthState } from "../services/googleOAuthStateService.js";
 import Employee from "../models/Employee.js";
 import User from "../models/User.js";
 import Session from "../models/Session.js";
@@ -169,13 +170,12 @@ router.get("/gmail/callback", async (req, res) => {
         }
 
         // Atomically consume the nonce so this signed callback can be used only once.
-        const consumedState = await GoogleOAuthState.findOneAndDelete({
+        const consumedState = await consumeGoogleOAuthState({
             nonce: decoded.nonce,
             userId: decoded.userId,
             sessionJti: decoded.sessionJti,
-            tokenVersion: decoded.tokenVersion ?? 0,
-            expiresAt: { $gt: new Date() }
-        }).select("_id");
+            tokenVersion: decoded.tokenVersion ?? 0
+        });
         if (!consumedState) {
             return res.status(400).json({ success: false, message: "Google OAuth state is invalid, expired, or already used" });
         }
