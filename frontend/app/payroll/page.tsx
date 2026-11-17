@@ -47,6 +47,14 @@ function hasSingleMidMonthRevision(item: Structure, period: string) {
   return priorExists && inMonth.length === 1;
 }
 
+function getSalaryAtPeriodStart(item: Structure, period: string) {
+  const start = new Date(`${period}-01T00:00:00.000Z`);
+  return [...(item.revisions || [])]
+    .filter((revision) => new Date(revision.effectiveFrom) <= start)
+    .sort((a, b) => new Date(a.effectiveFrom).getTime() - new Date(b.effectiveFrom).getTime())
+    .at(-1);
+}
+
 function PayrollContent() {
   const [role, setRole] = useState("");
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -242,7 +250,7 @@ function PayrollContent() {
               {structures.length > 0 ? <div className="overflow-hidden rounded-xl border border-slate-200">
                 <div className="overflow-x-auto"><p className="px-4 pb-2 text-[11px] font-medium text-slate-400 sm:hidden">Swipe horizontally to view all salary columns</p><table className="w-full min-w-[620px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3 font-semibold">Employee</th><th className="px-4 py-3 font-semibold">Monthly gross</th><th className="px-4 py-3 font-semibold">Paid days</th></tr></thead>
-                  <tbody className="divide-y divide-slate-100">{structures.map((item) => <tr key={item._id} className="transition hover:bg-slate-50/70"><td className="px-4 py-3"><p className="font-semibold text-slate-800">{item.employee?.firstName} {item.employee?.lastName}</p><p className="mt-0.5 text-xs text-slate-400">{item.employee?.employeeCode}</p></td><td className="px-4 py-3 font-medium text-slate-700">{money(item.monthlyBasic + item.earnings.reduce((s, x) => s + x.amount, 0))}<p className="mt-1 text-xs text-slate-400">{item.revisions?.length || 1} revision(s)</p></td><td className="px-4 py-3"><input aria-label={`Paid days for ${item.employee?.employeeCode}`} type="number" min="0" max={workingDays} step="0.5" value={paidDays[item.employee._id] ?? workingDays} onChange={(e) => setPaidDays((prev) => ({ ...prev, [item.employee._id]: e.target.value }))} className="w-28 rounded-lg border border-slate-200 px-3 py-2 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" /></td></tr>)}</tbody>
+                  <tbody className="divide-y divide-slate-100">{structures.map((item) => <tr key={item._id} className="transition hover:bg-slate-50/70"><td className="px-4 py-3"><p className="font-semibold text-slate-800">{item.employee?.firstName} {item.employee?.lastName}</p><p className="mt-0.5 text-xs text-slate-400">{item.employee?.employeeCode}</p></td><td className="px-4 py-3 font-medium text-slate-700">{getSalaryAtPeriodStart(item, period) ? money(getSalaryAtPeriodStart(item, period)!.monthlyBasic + getSalaryAtPeriodStart(item, period)!.earnings.reduce((sum, line) => sum + line.amount, 0)) : "Not effective"}<p className="mt-1 text-xs text-slate-400">{item.revisions?.length || 1} revision(s)</p></td><td className="px-4 py-3"><input aria-label={`Paid days for ${item.employee?.employeeCode}`} type="number" min="0" max={workingDays} step="0.5" value={paidDays[item.employee._id] ?? workingDays} onChange={(e) => setPaidDays((prev) => ({ ...prev, [item.employee._id]: e.target.value }))} className="w-28 rounded-lg border border-slate-200 px-3 py-2 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" /></td></tr>)}</tbody>
                 </table></div>
               </div> : <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center"><Users className="mx-auto text-slate-400" size={28} /><p className="mt-3 font-semibold text-slate-700">No salary structures yet</p><p className="mt-1 text-sm text-slate-500">Create employee salary structures above before processing payroll.</p></div>}
               <div className="mt-4 space-y-3">
