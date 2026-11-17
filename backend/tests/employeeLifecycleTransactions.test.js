@@ -541,3 +541,72 @@ test("lifecycle operations do not save Employee when a transaction write fails",
         assert.equal(session.ended, true);
     });
 });
+
+
+test("activateEmployee runs department and designation reads sequentially in its transaction", async () => {
+    const Department = (await import("../src/models/Department.js")).default;
+    const Designation = (await import("../src/models/Designation.js")).default;
+    const original = {
+        startSession: mongoose.startSession,
+        employeeFindById: Employee.findById,
+        departmentFindById: Department.findById,
+        designationFindById: Designation.findById,
+        userUpdate: User.findOneAndUpdate
+    };
+    const session = {
+        async withTransaction(callback) { return callback(); },
+        async endSession() {}
+    };
+    const departmentId = "64b000000000000000000041";
+    const designationId = "64b000000000000000000042";
+    const events = [];
+    const employee = {
+        _id: EMPLOYEE_ID,
+        department: departmentId,
+        designation: designationId,
+        employmentStatus: "inactive",
+        isArchived: false,
+        async save() { events.push("employee:save"); }
+    };
+
+    try {
+        mongoose.startSession = async () => session;
+        Employee.findById = () => ({
+            session: async () => employee
+        });
+        Department.findById = () => ({
+            session: async (providedSession) => {
+                assert.equal(providedSession, session);
+                events.push("department:start");
+                await new Promise((resolve) => setImmediate(resolve));
+                events.push("department:end");
+                return { isActive: true };
+            }
+        });
+        Designation.findById = () => ({
+            session: async (providedSession) => {
+                assert.equal(providedSession, session);
+                events.push("designation:start");
+                return { isActive: true, department: departmentId };
+            }
+        });
+        User.findOneAndUpdate = async () => ({ _id: "64b000000000000000000043" });
+
+        const res = createResponse();
+        await activateEmployee({ params: { id: EMPLOYEE_ID } }, res);
+
+        assert.equal(res.statusCode, 200);
+        assert.deepEqual(events, [
+            "department:start",
+            "department:end",
+            "designation:start",
+            "employee:save"
+        ]);
+    } finally {
+        mongoose.startSession = original.startSession;
+        Employee.findById = original.employeeFindById;
+        Department.findById = original.departmentFindById;
+        Designation.findById = original.designationFindById;
+        User.findOneAndUpdate = original.userUpdate;
+    }
+});
