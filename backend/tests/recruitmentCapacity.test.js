@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { reserveJobOpeningForHire, reserveOpenJobForCandidate, isValidJoiningDate, isValidResumeUrl, hasValidCandidateFieldLengths, hasValidJobOpeningFieldLengths } from "../src/controllers/recruitmentController.js";
+import { reserveJobOpeningForHire, reserveOpenJobForCandidate, isValidJoiningDate, isValidResumeUrl, hasValidCandidateFieldLengths, hasValidJobOpeningFieldLengths, loadHiringReferencesSequentially } from "../src/controllers/recruitmentController.js";
 import Candidate from "../src/models/Candidate.js";
 import JobOpening from "../src/models/JobOpening.js";
 
@@ -173,4 +173,60 @@ test("job opening field lengths reject values exceeding schema limits", () => {
     assert.equal(hasValidJobOpeningFieldLengths({ title: "T".repeat(121), description: "D", location: "L" }), false);
     assert.equal(hasValidJobOpeningFieldLengths({ title: "T", description: "D".repeat(5001), location: "L" }), false);
     assert.equal(hasValidJobOpeningFieldLengths({ title: "T", description: "D", location: "L".repeat(201) }), false);
+});
+
+
+test("candidate hiring transaction reference reads run sequentially on one session", async () => {
+    const originals = {
+        employeeExists: (await import("../src/models/Employee.js")).default.exists,
+        userExists: (await import("../src/models/User.js")).default.exists,
+        departmentFindOne: (await import("../src/models/Department.js")).default.findOne,
+        designationFindOne: (await import("../src/models/Designation.js")).default.findOne
+    };
+    const Employee = (await import("../src/models/Employee.js")).default;
+    const User = (await import("../src/models/User.js")).default;
+    const Department = (await import("../src/models/Department.js")).default;
+    const Designation = (await import("../src/models/Designation.js")).default;
+    const events = [];
+    const candidate = {
+        email: "candidate@example.com",
+        department: "department-id",
+        designation: "designation-id"
+    };
+    const query = (name, value) => ({
+        async session(session) {
+            assert.equal(session, SESSION);
+            events.push(name + ":start");
+            await new Promise((resolve) => setImmediate(resolve));
+            events.push(name + ":end");
+            return value;
+        }
+    });
+
+    try {
+        Employee.exists = () => query("employee", null);
+        User.exists = () => query("user", null);
+        Department.findOne = () => query("department", { isActive: true });
+        Designation.findOne = () => query("designation", { isActive: true });
+
+        const result = await loadHiringReferencesSequentially({
+            employeeCode: "EMP-001",
+            candidate,
+            session: SESSION
+        });
+
+        assert.deepEqual(events, [
+            "employee:start", "employee:end",
+            "user:start", "user:end",
+            "department:start", "department:end",
+            "designation:start", "designation:end"
+        ]);
+        assert.equal(result.department.isActive, true);
+        assert.equal(result.designation.isActive, true);
+    } finally {
+        Employee.exists = originals.employeeExists;
+        User.exists = originals.userExists;
+        Department.findOne = originals.departmentFindOne;
+        Designation.findOne = originals.designationFindOne;
+    }
 });
