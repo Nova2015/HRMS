@@ -129,7 +129,7 @@ export const updateShift = async (req, res) => {
         if (!data) return res.status(404).json({ success: false, message: "Shift not found" });
         return res.status(200).json({ success: true, message: "Shift updated successfully", data });
     } catch (error) {
-        return res.status(error.code === 11000 ? 409 : 400).json({
+        return res.status(error.code === 11000 || error.code === "SHIFT_IN_USE" ? 409 : isTransactionUnavailable(error) ? 503 : 400).json({
             success: false,
             message: error.code === 11000 ? "Shift code already exists" : error.code === "SHIFT_IN_USE" ? "Shift is assigned to employees. Reassign employees first." : isTransactionUnavailable(error) ? "Shift update is temporarily unavailable; please retry" : "Unable to update shift"
         });
