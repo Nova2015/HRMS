@@ -120,6 +120,7 @@ function PayrollContent() {
   }, [apiRequest, period, workingDays]);
 
   useEffect(() => { void Promise.resolve().then(loadPage); }, [loadPage]);
+  useEffect(() => { setProrationModes({}); setManualSplits({}); }, [period]);
 
   const structureEmployeeIds = useMemo(() => new Set(structures.map((item) => item.employee?._id)), [structures]);
   const totalNet = records.reduce((sum, item) => sum + item.netPay, 0);
