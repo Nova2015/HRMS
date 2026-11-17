@@ -257,3 +257,45 @@ test("An employee update proposal already decided cannot be processed again", as
         assert.match(res.body.message, /already decided/i);
     });
 });
+
+test("An archived employee cannot have a pending update proposal approved", async () => {
+    let decisionWriteCalled = false;
+    await withModelStubs({
+        Employee: {
+            findById: async () => ({
+                _id: IDS.teamEmployee,
+                isArchived: true,
+                department: IDS.teamEmployee,
+                designation: IDS.teamEmployee
+            })
+        },
+        EmployeeUpdateApproval: {
+            findOne: async (filter) => {
+                assert.deepEqual(filter, { _id: IDS.request, status: "pending" });
+                return {
+                    _id: IDS.request,
+                    status: "pending",
+                    employee: IDS.teamEmployee,
+                    proposedChanges: { employmentStatus: "active" }
+                };
+            },
+            findOneAndUpdate: async () => {
+                decisionWriteCalled = true;
+                return { _id: IDS.request };
+            }
+        }
+    }, async () => {
+        const req = {
+            params: { id: IDS.request },
+            body: { decision: "approve" },
+            user: { role: "admin", userId: IDS.user }
+        };
+        const res = createResponse();
+
+        await decideEmployeeUpdateProposal(req, res);
+
+        assert.equal(res.statusCode, 409);
+        assert.match(res.body.message, /Archived employees cannot be changed/);
+        assert.equal(decisionWriteCalled, false);
+    });
+});
