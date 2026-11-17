@@ -38,6 +38,8 @@ test("Google fetch timeout signal remains active after response headers arrive",
     });
     assert.equal(result, response);
     assert.equal(requestSignal.aborted, false);
-    await new Promise((resolve) => requestSignal.addEventListener("abort", resolve, { once: true }));
+    if (!requestSignal.aborted) {
+        await new Promise((resolve) => requestSignal.addEventListener("abort", resolve, { once: true }));
+    }
     assert.equal(requestSignal.aborted, true);
 });
