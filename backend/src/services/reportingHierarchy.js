@@ -24,3 +24,14 @@ export const createsReportingCycle = async (employeeId, managerId) => {
 
     return false;
 };
+
+
+// Check within the caller's transaction before disabling or demoting a manager.
+// Keep inactive, non-archived reports assigned until HR explicitly reassigns them.
+export const hasDirectReports = async (employeeId, session) => {
+    const existsQuery = Employee.exists({
+        reportingManager: employeeId,
+        isArchived: { $ne: true }
+    });
+    return Boolean(await existsQuery.session(session));
+};
