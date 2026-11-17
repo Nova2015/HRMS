@@ -202,7 +202,7 @@ export const checkOut = async (req, res) => {
 
         // Compare-and-set prevents two simultaneous check-out requests from overwriting each other.
         const updatedAttendance = await Attendance.findOneAndUpdate(
-            { _id: attendance._id, employee: employeeId, checkOut: null },
+            { _id: attendance._id, employee: employeeId, checkOut: null, source: { $ne: "manual" } },
             {
                 $set: {
                     checkOut: now,
