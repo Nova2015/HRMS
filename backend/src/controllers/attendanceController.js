@@ -516,6 +516,10 @@ export const saveManualAttendance = async (req, res) => {
 
         const checkInDate = checkIn ? new Date(checkIn) : null;
         const checkOutDate = checkOut ? new Date(checkOut) : null;
+        const shift = await getShiftForEmployee(employee);
+        const shiftStartMinutes = shift ? timeToMinutes(shift.startTime) : DEFAULT_LATE_AFTER_MINUTES - 15;
+        const shiftEndMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
+        const overnight = Boolean(shift && shiftEndMinutes <= shiftStartMinutes);
 
         if (checkInDate && getDateKey(checkInDate) !== dateKey) {
             return res.status(400).json({
@@ -524,11 +528,20 @@ export const saveManualAttendance = async (req, res) => {
             });
         }
 
-        if (checkOutDate && getDateKey(checkOutDate) !== dateKey) {
-            return res.status(400).json({
-                success: false,
-                message: "Check-out timestamp must match the attendance date in Asia/Kolkata"
-            });
+        if (checkOutDate) {
+            const checkOutDateKey = getDateKey(checkOutDate);
+            const nextDate = new Date(`${dateKey}T00:00:00.000Z`);
+            nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+            const nextDateKey = nextDate.toISOString().slice(0, 10);
+            const isSameAttendanceDate = checkOutDateKey === dateKey;
+            const isNextDayOvernightCheckout = overnight && checkOutDateKey === nextDateKey;
+
+            if (!isSameAttendanceDate && !isNextDayOvernightCheckout) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Check-out must match the attendance date, or the next day for an overnight shift, in Asia/Kolkata"
+                });
+            }
         }
 
         if (status === "absent" && (checkInDate || checkOutDate)) {
@@ -565,10 +578,6 @@ export const saveManualAttendance = async (req, res) => {
             ? getLocalMinutes(checkOutDate)
             : null;
 
-        const shift = await getShiftForEmployee(employee);
-        const shiftStartMinutes = shift ? timeToMinutes(shift.startTime) : DEFAULT_LATE_AFTER_MINUTES - 15;
-        const shiftEndMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
-        const overnight = Boolean(shift && shiftEndMinutes <= shiftStartMinutes);
         const adjustedManualCheckIn = localCheckInMinutes !== null && overnight && localCheckInMinutes < shiftEndMinutes
             ? localCheckInMinutes + 1440
             : localCheckInMinutes;
