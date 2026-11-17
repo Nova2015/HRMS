@@ -17,6 +17,7 @@ const employeeSchema = new mongoose.Schema(
         department: { type: mongoose.Schema.Types.ObjectId, ref: "Department", required: true },
         designation: { type: mongoose.Schema.Types.ObjectId, ref: "Designation", required: true },
         shift: { type: mongoose.Schema.Types.ObjectId, ref: "Shift", default: null },
+        leaveRequestVersion: { type: Number, default: 0, select: false },
         reportingManager: { type: mongoose.Schema.Types.ObjectId, ref: "Employee", default: null, index: true },
         joiningDate: { type: Date, required: true },
         dateOfBirth: { type: Date, default: null },
