@@ -242,7 +242,17 @@ function ApprovalInboxContent() {
         {confirmTarget && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setConfirmTarget(null); }}>
           <section role="dialog" aria-modal="true" aria-labelledby="approval-confirm-title" className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
             <h2 id="approval-confirm-title" className="text-base font-bold text-slate-900">{confirmTarget.decision === "approve" ? "Confirm approval" : "Confirm rejection"}</h2>
-            <p className="mt-2 text-sm text-slate-600">{confirmTarget.decision === "approve" ? "This will approve the request. Employee update proposals will be applied to the employee record." : "This will reject the request. The employee record will remain unchanged."}</p>
+            <p className="mt-2 text-sm text-slate-600">{confirmTarget.decision === "approve"
+              ? confirmTarget.item.type === "employee-update"
+                ? "This will approve the proposed changes and apply them to the employee record."
+                : confirmTarget.item.type === "leave"
+                  ? "This will approve the employee’s leave request."
+                  : "This will approve the expense claim. Reimbursement remains a separate action in the Expenses module."
+              : confirmTarget.item.type === "employee-update"
+                ? "This will reject the proposed changes. The employee record will remain unchanged."
+                : confirmTarget.item.type === "leave"
+                  ? "This will reject the employee’s leave request."
+                  : "This will reject the expense claim."}</p>
             {confirmTarget.decision === "reject" ? <p className="mt-2 rounded-lg bg-rose-50 p-2 text-xs text-rose-700">Reason: {notes[confirmTarget.item.id]}</p> : null}
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" disabled={!!busyId} onClick={() => setConfirmTarget(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600">Cancel</button>
