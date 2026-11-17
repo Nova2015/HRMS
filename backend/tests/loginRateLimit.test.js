@@ -1,0 +1,72 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import AuditLog from "../src/models/AuditLog.js";
+import { loginRateLimit } from "../src/middleware/loginRateLimit.js";
+
+test("Login rate limit returns 429 and audits the blocked request without credentials", async () => {
+    const originalCreate = AuditLog.create;
+    const logs = [];
+    AuditLog.create = async (entry) => {
+        logs.push(entry);
+        return entry;
+    };
+
+    const ip = `198.51.100.${Math.floor(Math.random() * 200) + 1}`;
+    const makeRequest = () => ({
+        ip,
+        socket: { remoteAddress: ip },
+        method: "POST",
+        originalUrl: "/api/auth/login",
+        body: { email: "private@example.com", password: "never-log-this" },
+        get: (name) => name === "user-agent" ? "HRMS rate-limit test" : ""
+    });
+
+    try {
+        for (let attempt = 1; attempt <= 10; attempt += 1) {
+            let continued = false;
+            const response = {
+                set() { return this; },
+                status() { throw new Error("Unexpected rate limit before attempt 11"); }
+            };
+            loginRateLimit(makeRequest(), response, () => { continued = true; });
+            assert.equal(continued, true);
+        }
+
+        let statusCode = 200;
+        let responseBody;
+        let retryAfter;
+        const response = {
+            set(name, value) {
+                if (name === "Retry-After") retryAfter = value;
+                return this;
+            },
+            status(code) {
+                statusCode = code;
+                return this;
+            },
+            json(body) {
+                responseBody = body;
+                return this;
+            }
+        };
+
+        loginRateLimit(makeRequest(), response, () => {
+            throw new Error("Blocked request must not continue");
+        });
+        await new Promise((resolve) => setImmediate(resolve));
+
+        assert.equal(statusCode, 429);
+        assert.equal(responseBody.success, false);
+        assert.ok(Number(retryAfter) > 0);
+        assert.equal(logs.length, 1);
+        assert.equal(logs[0].action, "login.rate_limited");
+        assert.equal(logs[0].module, "auth");
+        assert.equal(logs[0].role, "system");
+        assert.equal(logs[0].statusCode, 429);
+        assert.equal(logs[0].ipAddress, ip);
+        assert.equal(JSON.stringify(logs[0]).includes("private@example.com"), false);
+        assert.equal(JSON.stringify(logs[0]).includes("never-log-this"), false);
+    } finally {
+        AuditLog.create = originalCreate;
+    }
+});
