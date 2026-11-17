@@ -11,6 +11,19 @@ const payrollSchema = new mongoose.Schema({
     period: { type: String, required: true, match: /^\d{4}-\d{2}$/ },
     workingDays: { type: Number, required: true, min: 1 },
     paidDays: { type: Number, required: true, min: 0 },
+    salaryBreakdown: {
+        type: [{
+            salaryStructure: { type: mongoose.Schema.Types.ObjectId, ref: "SalaryStructure", required: true },
+            effectiveFrom: { type: Date, required: true },
+            effectiveTo: { type: Date, default: null },
+            workingDays: { type: Number, required: true, min: 0 },
+            paidDays: { type: Number, required: true, min: 0 },
+            basic: { type: Number, required: true, min: 0 },
+            earnings: { type: [lineSchema], default: [] },
+            deductions: { type: [lineSchema], default: [] }
+        }],
+        default: []
+    },
     basic: { type: Number, required: true, min: 0 },
     earnings: { type: [lineSchema], default: [] },
     deductions: { type: [lineSchema], default: [] },
