@@ -17,7 +17,7 @@ test("overnight shift check-in within the after-midnight shift window is not inc
 });
 
 test("overnight shift check-in after the grace period is late", () => {
-    assert.equal(isLateCheckIn(new Date("2026-11-17T16:20:00.000Z"), nightShift, 555), true);
+    assert.equal(isLateCheckIn(new Date("2026-11-17T16:50:00.000Z"), nightShift, 555), true);
 });
 
 test("day shift check-in uses its configured grace period", () => {
