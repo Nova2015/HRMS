@@ -38,6 +38,20 @@ export const hasValidCandidateFieldLengths = ({ firstName, lastName, email, phon
     String(notes ?? "").trim().length <= 2000
 );
 
+export const reserveOpenJobForCandidate = async (jobOpening, session) => {
+    const job = await JobOpening.findOneAndUpdate(
+        { _id: jobOpening, status: "open" },
+        { $inc: { hiringVersion: 1 } },
+        { new: true, session }
+    );
+    if (!job) {
+        const conflict = new Error("Select an open job position");
+        conflict.code = 409;
+        throw conflict;
+    }
+    return job;
+};
+
 const populatedCandidate = (query) => query
     .populate("jobOpening", "title status")
     .populate("department", "name code")
@@ -125,21 +139,34 @@ export const createCandidate = async (req, res) => {
             !Number.isFinite(Number(experienceYears)) || Number(experienceYears) < 0 || Number(experienceYears) > 60) {
             return res.status(400).json({ success: false, message: "Provide valid candidate name, email, phone, job opening and experience" });
         }
-        const job = await JobOpening.findOne({ _id: jobOpening, status: "open" });
-        if (!job) return res.status(400).json({ success: false, message: "Select an open job position" });
-        const candidate = await Candidate.create({
-            firstName: String(firstName).trim(), lastName: String(lastName).trim(),
-            email: cleanEmail, phone: String(phone).trim(),
-            jobOpening: job._id, department: job.department, designation: job.designation,
-            experienceYears: Number(experienceYears),
-            currentCompany: String(currentCompany).trim(),
-            resumeUrl: String(resumeUrl).trim(), notes: String(notes).trim(),
-            createdBy: req.user.userId
-        });
+        const session = await mongoose.startSession();
+        let candidate;
+        try {
+            await session.withTransaction(async () => {
+                const job = await reserveOpenJobForCandidate(jobOpening, session);
+                const [createdCandidate] = await Candidate.create([{
+                    firstName: String(firstName).trim(), lastName: String(lastName).trim(),
+                    email: cleanEmail, phone: String(phone).trim(),
+                    jobOpening: job._id, department: job.department, designation: job.designation,
+                    experienceYears: Number(experienceYears),
+                    currentCompany: String(currentCompany).trim(),
+                    resumeUrl: String(resumeUrl).trim(), notes: String(notes).trim(),
+                    createdBy: req.user.userId
+                }], { session });
+                candidate = createdCandidate;
+            });
+        } finally {
+            await session.endSession();
+        }
         const data = await populatedCandidate(Candidate.findById(candidate._id));
         return res.status(201).json({ success: true, message: "Candidate added successfully", data });
     } catch (error) {
         if (error.code === 11000) return res.status(409).json({ success: false, message: "This candidate is already registered for the selected job" });
+        if (error.code === 409) return res.status(409).json({ success: false, message: error.message });
+        const transactionUnavailable = error.hasErrorLabel?.("TransientTransactionError") ||
+            error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+            /transaction numbers are only allowed|replica set|mongos/i.test(error.message || "");
+        if (transactionUnavailable) return res.status(503).json({ success: false, message: "Candidate registration is temporarily unavailable; please retry" });
         console.error("Create candidate:", error.message);
         return res.status(500).json({ success: false, message: "Unable to add candidate" });
     }
