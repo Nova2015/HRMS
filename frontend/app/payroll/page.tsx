@@ -35,6 +35,18 @@ function money(value: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value || 0);
 }
 
+function hasSingleMidMonthRevision(item: Structure, period: string) {
+  if (!period || !item.revisions?.length) return false;
+  const start = new Date(`${period}-01T00:00:00.000Z`);
+  const end = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 1));
+  const priorExists = item.revisions.some((revision) => new Date(revision.effectiveFrom) <= start);
+  const inMonth = item.revisions.filter((revision) => {
+    const effective = new Date(revision.effectiveFrom);
+    return effective > start && effective < end;
+  });
+  return priorExists && inMonth.length === 1;
+}
+
 function PayrollContent() {
   const [role, setRole] = useState("");
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -135,7 +147,7 @@ function PayrollContent() {
         return {
           employeeId: id,
           paidDays: Number(paidDays[id] ?? workingDays),
-          prorationMode: mode === "manual" && (item.revisions || []).length > 1 && item.revisions.some((revision) => revision.effectiveFrom.slice(0, 7) === period) ? "manual" : "auto",
+          prorationMode: mode === "manual" && (hasSingleMidMonthRevision(item, period)) ? "manual" : "auto",
           ...(mode === "manual" && (item.revisions || []).length > 1 && item.revisions.some((revision) => revision.effectiveFrom.slice(0, 7) === period) ? {
             oldWorkingDays: Number(split.oldWorkingDays), newWorkingDays: Number(split.newWorkingDays),
             oldPaidDays: Number(split.oldPaidDays), newPaidDays: Number(split.newPaidDays),
