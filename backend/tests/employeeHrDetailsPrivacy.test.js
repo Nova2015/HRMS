@@ -66,7 +66,7 @@ test("HR can retrieve another employee's HR details with sensitive values masked
         assert.equal(res.statusCode, 200);
         assert.equal(queriedId, OTHER_ID);
         assert.equal(res.body.data.bankAccountNumberMasked, "********9012");
-        assert.equal(res.body.data.panNumberMasked, "*******234F");
+        assert.equal(res.body.data.panNumberMasked, "******234F");
         assert.equal(res.body.data.uanNumberMasked, "********9012");
         assert.equal("bankAccountNumber" in res.body.data, false);
         assert.equal("panNumber" in res.body.data, false);
@@ -92,7 +92,7 @@ test("employee HR details update encrypts sensitive values and returns only mask
         }, res);
         assert.equal(res.statusCode, 200);
         assert.equal(res.body.data.bankAccountNumberMasked, "********9012");
-        assert.equal(res.body.data.panNumberMasked, "*******234F");
+        assert.equal(res.body.data.panNumberMasked, "******234F");
         assert.equal(employee.hrDetailsEncrypted.includes("123456789012"), false);
         assert.deepEqual(decryptHrDetails(employee.hrDetailsEncrypted), {
             bankAccountNumber: "123456789012",
