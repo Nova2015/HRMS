@@ -8,6 +8,7 @@ import User from "../models/User.js";
 import CompanyEvent from "../models/CompanyEvent.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
+import { auditAction } from "../middleware/auditLogMiddleware.js";
 
 const router = express.Router();
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -247,7 +248,7 @@ router.get("/gmail/callback", async (req, res) => {
 });
 
 // Disconnect the saved Google account for the signed-in Admin/HR user.
-router.delete("/gmail/disconnect", protect, authorizeRoles("admin", "hr"), async (req, res) => {
+router.delete("/gmail/disconnect", protect, authorizeRoles("admin", "hr"), auditAction("integrations", "google.account_disconnected"), async (req, res) => {
     try {
         const result = await GoogleGmailIntegration.deleteOne({ userId: req.user.userId });
         return res.status(200).json({
@@ -605,7 +606,7 @@ router.get("/calendar/status", protect, authorizeRoles("admin", "hr"), async (re
 });
 
 // Two-way sync for the currently visible HRMS calendar date range.
-router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), async (req, res) => {
+router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), auditAction("integrations", "google.calendar_synced"), async (req, res) => {
     try {
         const { from, to } = req.body || {};
         if (typeof from !== "string" || typeof to !== "string" ||
