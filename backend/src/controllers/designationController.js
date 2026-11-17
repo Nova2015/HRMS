@@ -113,6 +113,22 @@ export const updateDesignation = async (req, res) => {
             }
         }
 
+        let designation;
+        if (updates.department !== undefined) {
+            const currentDesignation = await Designation.findById(id).select("department");
+            const departmentIsChanging = currentDesignation &&
+                currentDesignation.department.toString() !== updates.department.toString();
+            const assignedEmployeeCount = departmentIsChanging
+                ? await Employee.countDocuments({ designation: id })
+                : 0;
+            if (assignedEmployeeCount > 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Designation is assigned to employee records. It cannot be moved to another department."
+                });
+            }
+        }
+
         let deactivateSession = null;
         if (updates.isActive === false) {
             deactivateSession = await mongoose.startSession();
@@ -136,21 +152,6 @@ export const updateDesignation = async (req, res) => {
             } catch (error) {
                 await deactivateSession.endSession();
                 throw error;
-            }
-        }
-
-        if (updates.department !== undefined) {
-            const currentDesignation = await Designation.findById(id).select("department");
-            const departmentIsChanging = currentDesignation &&
-                currentDesignation.department.toString() !== updates.department.toString();
-            const assignedEmployeeCount = departmentIsChanging
-                ? await Employee.countDocuments({ designation: id })
-                : 0;
-            if (assignedEmployeeCount > 0) {
-                return res.status(409).json({
-                    success: false,
-                    message: "Designation is assigned to employee records. It cannot be moved to another department."
-                });
             }
         }
 
