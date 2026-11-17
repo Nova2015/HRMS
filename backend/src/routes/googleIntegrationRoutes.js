@@ -120,7 +120,7 @@ router.get("/gmail/connect", protect, authorizeRoles("admin", "hr"), (req, res) 
     try {
         const config = getOAuthConfig();
         const state = jwt.sign(
-            { userId: req.user.userId, purpose: "google-gmail-oauth", nonce: crypto.randomUUID() },
+            { userId: req.user.userId, purpose: "google-gmail-oauth", nonce: crypto.randomUUID(), sessionJti: req.user.sessionJti, tokenVersion: req.user.tokenVersion },
             config.jwtSecret,
             { algorithm: "HS256", expiresIn: "10m", issuer: "hrms", audience: "google-gmail-oauth" }
         );
@@ -173,8 +173,18 @@ router.get("/gmail/callback", async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid Google OAuth user" });
         }
         const initiatingUser = await User.findById(decoded.userId)
-            .select("_id employee role isActive");
+            .select("_id employee role isActive tokenVersion");
+        const Session = (await import("../models/Session.js")).default;
+        const initiatingSession = decoded.sessionJti ? await Session.findOne({
+            user: decoded.userId,
+            jti: decoded.sessionJti,
+            tokenVersion: decoded.tokenVersion,
+            revokedAt: null,
+            expiresAt: { $gt: new Date() }
+        }).select("_id") : null;
         if (!initiatingUser || !initiatingUser.isActive ||
+            initiatingUser.tokenVersion !== decoded.tokenVersion ||
+            !initiatingSession ||
             !["admin", "hr"].includes(initiatingUser.role)) {
             return res.status(403).json({
                 success: false,
