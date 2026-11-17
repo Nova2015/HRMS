@@ -172,31 +172,40 @@ export const createEmployee = async (req, res) => {
             }
         }
 
-        // Create employee record
-        createdEmployee = await Employee.create({
-            employeeCode: normalizedCode,
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            email: normalizedEmail,
-            phone: phone || "",
-            department,
-            designation,
-            shift,
-            reportingManager: reportingManager || null,
-            joiningDate,
-            employmentStatus: "active"
-        });
-
-        // Hash password before creating login account
+        // Hash the password before opening the database transaction.
         const passwordHash = await bcrypt.hash(initialPassword, 12);
 
-        createdUser = await User.create({
-            employee: createdEmployee._id,
-            email: normalizedEmail,
-            passwordHash,
-            role,
-            isActive: true
-        });
+        // Employee profile and login account must either both exist or neither exist.
+        const session = await mongoose.startSession();
+        try {
+            await session.withTransaction(async () => {
+                createdEmployee = new Employee({
+                    employeeCode: normalizedCode,
+                    firstName: firstName.trim(),
+                    lastName: lastName.trim(),
+                    email: normalizedEmail,
+                    phone: phone || "",
+                    department,
+                    designation,
+                    shift,
+                    reportingManager: reportingManager || null,
+                    joiningDate,
+                    employmentStatus: "active"
+                });
+                await createdEmployee.save({ session });
+
+                createdUser = new User({
+                    employee: createdEmployee._id,
+                    email: normalizedEmail,
+                    passwordHash,
+                    role,
+                    isActive: true
+                });
+                await createdUser.save({ session });
+            });
+        } finally {
+            await session.endSession();
+        }
 
         const employeeData = await populateEmployee(
             Employee.findById(createdEmployee._id)
@@ -222,22 +231,21 @@ export const createEmployee = async (req, res) => {
         });
 
     } catch (error) {
-        // Roll back records if account creation or later processing fails
-        if (createdUser) {
-            await User.findByIdAndDelete(createdUser._id).catch(() => {});
-        }
-
-        if (createdEmployee) {
-            await Employee.findByIdAndDelete(createdEmployee._id).catch(() => {});
-        }
-
         console.error("Create employee error:", error);
 
-        return res.status(error.code === 11000 ? 409 : 400).json({
+        const isConflict = error.code === 11000;
+        const isTransactionFailure = Boolean(
+            error.hasErrorLabel?.("TransientTransactionError") ||
+            error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+            /transaction numbers are only allowed|replica set|mongos/i.test(error.message || "")
+        );
+        return res.status(isConflict ? 409 : isTransactionFailure ? 503 : 400).json({
             success: false,
-            message: error.code === 11000
+            message: isConflict
                 ? "Employee code or email already exists"
-                : "Unable to create employee"
+                : isTransactionFailure
+                    ? "Employee creation is temporarily unavailable; please retry"
+                    : "Unable to create employee"
         });
     }
 };
