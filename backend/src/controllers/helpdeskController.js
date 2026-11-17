@@ -211,11 +211,26 @@ export const assignHelpdeskTicket = async (req, res) => {
             return res.status(409).json({ success: false, message: "Closed tickets cannot be reassigned" });
         }
 
-        ticket.assignedTo = assignee?._id || null;
-        ticket.assignedBy = assignee ? req.user.userId : null;
-        await ticket.save();
+        // Compare-and-set the observed status so a concurrent close cannot
+        // be overwritten by a stale assignment request.
+        const updatedTicket = await HelpdeskTicket.findOneAndUpdate(
+            { _id: id, status: ticket.status, ...access.filter },
+            {
+                $set: {
+                    assignedTo: assignee?._id || null,
+                    assignedBy: assignee ? req.user.userId : null
+                }
+            },
+            { new: true, runValidators: true }
+        );
+        if (!updatedTicket) {
+            return res.status(409).json({
+                success: false,
+                message: "Ticket status changed by another request. Refresh and try again."
+            });
+        }
 
-        const data = await populateTicket(HelpdeskTicket.findById(ticket._id));
+        const data = await populateTicket(HelpdeskTicket.findById(updatedTicket._id));
         return res.json({ success: true, message: assignee ? "Ticket assigned successfully" : "Ticket assignment removed", data });
     } catch (error) {
         console.error("Assign Helpdesk ticket:", error.message);
