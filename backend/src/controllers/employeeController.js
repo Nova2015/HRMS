@@ -660,8 +660,6 @@ export const archiveEmployee = async (req, res) => {
 };
 
 // DEACTIVATE EMPLOYEE + LOGIN ACCOUNT
-
-// DEACTIVATE EMPLOYEE + LOGIN ACCOUNT
 export const deactivateEmployee = async (req, res) => {
     try {
         const { id } = req.params;
@@ -723,8 +721,6 @@ export const deactivateEmployee = async (req, res) => {
 };
 
 // ACTIVATE EMPLOYEE + LOGIN ACCOUNT
-
-// ACTIVATE EMPLOYEE + LOGIN ACCOUNT
 export const activateEmployee = async (req, res) => {
     try {
         const { id } = req.params;
@@ -781,8 +777,6 @@ export const activateEmployee = async (req, res) => {
         });
     }
 };
-
-// ADMIN RESET EMPLOYEE PASSWORD
 
 // ADMIN RESET EMPLOYEE PASSWORD
 export const resetEmployeePassword = async (req, res) => {
