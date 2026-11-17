@@ -80,15 +80,24 @@ export const submitSelfReview = async (req, res) => {
             [goals, achievements, strengths, improvements].some((value) => typeof value !== "string" || value.length > 3000)) {
             return res.status(400).json({ success: false, message: "Provide valid review details" });
         }
-        const review = await PerformanceReview.findOne({ _id: id, employee: req.user.employeeId });
-        if (!review) return res.status(404).json({ success: false, message: "Review cycle not found for your account" });
-        if (["manager_reviewed", "finalized"].includes(review.status)) {
-            return res.status(409).json({ success: false, message: "Self-review is locked after manager review" });
+        const updated = await PerformanceReview.findOneAndUpdate(
+            { _id: id, employee: req.user.employeeId, status: { $nin: ["manager_reviewed", "finalized"] } },
+            {
+                $set: {
+                    selfReview: { goals: goals.trim(), achievements: achievements.trim(), strengths: strengths.trim(), improvements: improvements.trim(), submittedAt: new Date() },
+                    status: "self_submitted"
+                }
+            },
+            { new: true, runValidators: true }
+        );
+        if (!updated) {
+            const exists = await PerformanceReview.exists({ _id: id, employee: req.user.employeeId });
+            return res.status(exists ? 409 : 404).json({
+                success: false,
+                message: exists ? "Self-review is locked after manager review" : "Review cycle not found for your account"
+            });
         }
-        review.selfReview = { goals: goals.trim(), achievements: achievements.trim(), strengths: strengths.trim(), improvements: improvements.trim(), submittedAt: new Date() };
-        review.status = "self_submitted";
-        await review.save();
-        return res.json({ success: true, message: "Self-review submitted successfully", data: await populateReview(PerformanceReview.findById(review._id)) });
+        return res.json({ success: true, message: "Self-review submitted successfully", data: await populateReview(PerformanceReview.findById(updated._id)) });
     } catch (error) {
         console.error("Self-review submit:", error.message);
         return res.status(500).json({ success: false, message: "Unable to submit self-review" });
@@ -107,13 +116,25 @@ export const submitManagerReview = async (req, res) => {
         const review = await PerformanceReview.findById(id);
         if (!review) return res.status(404).json({ success: false, message: "Performance review not found" });
         if (!(await canReview(req, review))) return res.status(403).json({ success: false, message: "You can review only your assigned team members" });
-        if (review.status === "finalized") return res.status(409).json({ success: false, message: "This review has already been finalized" });
         if (review.status === "pending") return res.status(409).json({ success: false, message: "Employee must submit the self-review before manager review" });
-        review.managerReview = { rating: numericRating, comments: comments.trim(), reviewedBy: req.user.userId, reviewedAt: new Date() };
-        review.status = finalize ? "finalized" : "manager_reviewed";
-        review.finalizedAt = finalize ? new Date() : null;
-        await review.save();
-        return res.json({ success: true, message: finalize ? "Performance review finalized" : "Manager review saved", data: await populateReview(PerformanceReview.findById(review._id)) });
+        const updated = await PerformanceReview.findOneAndUpdate(
+            { _id: id, status: { $in: ["self_submitted", "manager_reviewed"] } },
+            {
+                $set: {
+                    managerReview: { rating: numericRating, comments: comments.trim(), reviewedBy: req.user.userId, reviewedAt: new Date() },
+                    status: finalize ? "finalized" : "manager_reviewed",
+                    finalizedAt: finalize ? new Date() : null
+                }
+            },
+            { new: true, runValidators: true }
+        );
+        if (!updated) {
+            return res.status(409).json({
+                success: false,
+                message: "This review has already been finalized or is no longer ready for manager review"
+            });
+        }
+        return res.json({ success: true, message: finalize ? "Performance review finalized" : "Manager review saved", data: await populateReview(PerformanceReview.findById(updated._id)) });
     } catch (error) {
         console.error("Manager review submit:", error.message);
         return res.status(500).json({ success: false, message: "Unable to save manager review" });
