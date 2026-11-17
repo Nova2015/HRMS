@@ -202,6 +202,68 @@ test("updateEmployee blocks manager role demotion while non-archived direct repo
     }
 });
 
+test("activateEmployee blocks reactivation when department or designation is inactive", async () => {
+    const Department = (await import("../src/models/Department.js")).default;
+    const Designation = (await import("../src/models/Designation.js")).default;
+    const original = {
+        startSession: mongoose.startSession,
+        employeeFindById: Employee.findById,
+        departmentFindById: Department.findById,
+        designationFindById: Designation.findById,
+        userUpdate: User.findOneAndUpdate
+    };
+    const session = {
+        ended: false,
+        async withTransaction(callback) { return callback(); },
+        async endSession() { this.ended = true; }
+    };
+    const departmentId = "64b000000000000000000037";
+    const designationId = "64b000000000000000000038";
+    const employee = {
+        _id: EMPLOYEE_ID,
+        department: departmentId,
+        designation: designationId,
+        employmentStatus: "inactive",
+        isArchived: false,
+        async save() { throw new Error("Employee must not be saved"); }
+    };
+    let userUpdateAttempted = false;
+    try {
+        mongoose.startSession = async () => session;
+        Employee.findById = () => ({
+            session: async (providedSession) => {
+                assert.equal(providedSession, session);
+                return employee;
+            }
+        });
+        Department.findById = () => ({
+            session: async (providedSession) => {
+                assert.equal(providedSession, session);
+                return { isActive: false };
+            }
+        });
+        Designation.findById = () => ({
+            session: async () => ({ isActive: true, department: departmentId })
+        });
+        User.findOneAndUpdate = async () => {
+            userUpdateAttempted = true;
+            return { _id: "64b000000000000000000033" };
+        };
+        const res = createResponse();
+        await activateEmployee({ params: { id: EMPLOYEE_ID } }, res);
+        assert.equal(res.statusCode, 409);
+        assert.match(res.body.message, /department or designation is inactive or inconsistent/);
+        assert.equal(userUpdateAttempted, false);
+        assert.equal(session.ended, true);
+    } finally {
+        mongoose.startSession = original.startSession;
+        Employee.findById = original.employeeFindById;
+        Department.findById = original.departmentFindById;
+        Designation.findById = original.designationFindById;
+        User.findOneAndUpdate = original.userUpdate;
+    }
+});
+
 test("activateEmployee updates Employee and User in the same transaction", async () => {
     let employeeSaveSession;
     let capturedUserUpdate;
