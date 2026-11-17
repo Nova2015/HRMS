@@ -25,7 +25,7 @@ const createResponse = () => ({
     }
 });
 
-const withStubs = async ({ employeeMethod, employeeQuery, userUpdate, save }, run) => {
+const withStubs = async ({ employeeMethod, employeeQuery, employeeArchived = false, userUpdate, save }, run) => {
     const original = {
         startSession: mongoose.startSession,
         findById: Employee.findById,
@@ -44,7 +44,7 @@ const withStubs = async ({ employeeMethod, employeeQuery, userUpdate, save }, ru
     const employee = {
         _id: EMPLOYEE_ID,
         employmentStatus: "active",
-        isArchived: false,
+        isArchived: employeeArchived,
         async save(options) {
             save?.(options);
         }
@@ -115,6 +115,25 @@ test("activateEmployee updates Employee and User in the same transaction", async
         assert.equal(employee.employmentStatus, "active");
         assert.deepEqual(capturedUserUpdate, { $set: { isActive: true } });
         assert.equal(employeeSaveSession, session);
+        assert.equal(session.ended, true);
+    });
+});
+
+test("activateEmployee refuses archived employees without re-enabling their login", async () => {
+    let userUpdateAttempted = false;
+    let employeeSaveAttempted = false;
+    await withStubs({
+        employeeMethod: "findById",
+        employeeArchived: true,
+        userUpdate: () => { userUpdateAttempted = true; },
+        save: () => { employeeSaveAttempted = true; }
+    }, async ({ session }) => {
+        const res = createResponse();
+        await activateEmployee({ params: { id: EMPLOYEE_ID } }, res);
+        assert.equal(res.statusCode, 409);
+        assert.match(res.body.message, /Archived employees cannot be reactivated/);
+        assert.equal(userUpdateAttempted, false);
+        assert.equal(employeeSaveAttempted, false);
         assert.equal(session.ended, true);
     });
 });
