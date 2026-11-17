@@ -26,11 +26,12 @@ const createResponse = () => ({
     }
 });
 
-const withStubs = async ({ employeeMethod, employeeQuery, employeeArchived = false, employeeStatus = "active", userUpdate, save }, run) => {
+const withStubs = async ({ employeeMethod, employeeQuery, employeeArchived = false, employeeStatus = "active", directReports = false, userUpdate, save }, run) => {
     const original = {
         startSession: mongoose.startSession,
         findById: Employee.findById,
         findOne: Employee.findOne,
+        exists: Employee.exists,
         findOneAndUpdate: User.findOneAndUpdate
     };
     const session = {
@@ -68,6 +69,18 @@ const withStubs = async ({ employeeMethod, employeeQuery, employeeArchived = fal
                 }
             });
         }
+        Employee.exists = (filter) => {
+            assert.deepEqual(filter, {
+                reportingManager: EMPLOYEE_ID,
+                isArchived: { $ne: true }
+            });
+            return {
+                session: async (providedSession) => {
+                    assert.equal(providedSession, session);
+                    return directReports ? { _id: "64b000000000000000000034" } : null;
+                }
+            };
+        };
         User.findOneAndUpdate = async (filter, update, options) => {
             assert.deepEqual(filter, { employee: EMPLOYEE_ID });
             assert.equal(options.session, session);
@@ -79,6 +92,7 @@ const withStubs = async ({ employeeMethod, employeeQuery, employeeArchived = fal
         mongoose.startSession = original.startSession;
         Employee.findById = original.findById;
         Employee.findOne = original.findOne;
+        Employee.exists = original.exists;
         User.findOneAndUpdate = original.findOneAndUpdate;
     }
 };
@@ -97,6 +111,25 @@ test("deactivateEmployee updates Employee and User in the same transaction", asy
         assert.equal(employee.employmentStatus, "inactive");
         assert.deepEqual(capturedUserUpdate, { $set: { isActive: false }, $inc: { tokenVersion: 1 } });
         assert.equal(employeeSaveSession, session);
+        assert.equal(session.ended, true);
+    });
+});
+
+test("deactivateEmployee blocks deactivation while non-archived direct reports remain assigned", async () => {
+    let userUpdateAttempted = false;
+    let employeeSaveAttempted = false;
+    await withStubs({
+        employeeMethod: "findById",
+        directReports: true,
+        userUpdate: () => { userUpdateAttempted = true; },
+        save: () => { employeeSaveAttempted = true; }
+    }, async ({ session }) => {
+        const res = createResponse();
+        await deactivateEmployee({ params: { id: EMPLOYEE_ID } }, res);
+        assert.equal(res.statusCode, 409);
+        assert.match(res.body.message, /Reassign all employees reporting to this manager/);
+        assert.equal(userUpdateAttempted, false);
+        assert.equal(employeeSaveAttempted, false);
         assert.equal(session.ended, true);
     });
 });
@@ -273,6 +306,25 @@ test("archiveEmployee updates archive metadata and disables login in the same tr
         assert.equal(employee.archivedBy, ACTOR_ID);
         assert.deepEqual(capturedUserUpdate, { $set: { isActive: false }, $inc: { tokenVersion: 1 } });
         assert.equal(employeeSaveSession, session);
+        assert.equal(session.ended, true);
+    });
+});
+
+test("archiveEmployee blocks archiving while non-archived direct reports remain assigned", async () => {
+    let userUpdateAttempted = false;
+    let employeeSaveAttempted = false;
+    await withStubs({
+        employeeMethod: "findOne",
+        directReports: true,
+        userUpdate: () => { userUpdateAttempted = true; },
+        save: () => { employeeSaveAttempted = true; }
+    }, async ({ session }) => {
+        const res = createResponse();
+        await archiveEmployee({ params: { id: EMPLOYEE_ID }, user: { userId: ACTOR_ID } }, res);
+        assert.equal(res.statusCode, 409);
+        assert.match(res.body.message, /Reassign all employees reporting to this manager/);
+        assert.equal(userUpdateAttempted, false);
+        assert.equal(employeeSaveAttempted, false);
         assert.equal(session.ended, true);
     });
 });
