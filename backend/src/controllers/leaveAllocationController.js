@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import LeaveAllocation from "../models/LeaveAllocation.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import Employee from "../models/Employee.js";
+import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
 
 const TYPES = ["casual", "sick", "earned"];
 const validYear = (value) => /^\d{4}$/.test(String(value)) && Number(value) >= 2000 && Number(value) <= 2100;
@@ -114,13 +115,15 @@ export const saveLeaveAllocation = async (req, res) => {
         return res.status(200).json({ success: true, message: "Leave allocation saved successfully", data });
     } catch (error) {
         console.error("Save leave allocation error:", error);
-        const status = error.code === 40401 || error.code === 40901 || error.code === 11000 ? 409 : 500;
+        const status = error.code === 40401 || error.code === 40901 || error.code === 11000 ? 409 : isTransactionUnavailable(error) ? 503 : 500;
         const message = error.code === 40401
             ? "Active employee not found"
             : error.code === 40901
                 ? error.message
                 : error.code === 11000
                     ? "Leave allocation already exists. Refresh and try again."
+                    : isTransactionUnavailable(error)
+                    ? "Leave allocation is temporarily unavailable; please retry."
                     : "Unable to save leave allocation";
         return res.status(status).json({ success: false, message });
     }
