@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import path from "node:path";
+import { DOCUMENT_STORAGE_DIR } from "../src/middleware/documentUpload.js";
 import EmployeeDocument from "../src/models/EmployeeDocument.js";
 import { downloadEmployeeDocument } from "../src/controllers/employeeDocumentController.js";
 
@@ -117,9 +119,8 @@ test("download confines stored filenames to the private document directory", asy
         }, res);
         assert.equal(res.statusCode, 200);
         assert.equal(res.downloaded.fileName, "private-record.pdf");
-        assert.equal(res.downloaded.filePath, path.resolve(res.downloaded.filePath));
-        assert.equal(res.downloaded.filePath.split(/[\\/]/).at(-1), "secret.pdf");
-        assert.equal(res.downloaded.filePath.includes("outside"), false);
+        assert.equal(res.downloaded.filePath, path.join(DOCUMENT_STORAGE_DIR, "secret.pdf"));
+        assert.equal(path.dirname(res.downloaded.filePath), DOCUMENT_STORAGE_DIR);
     } finally {
         EmployeeDocument.findById = originals.findById;
         fs.access = originals.access;
