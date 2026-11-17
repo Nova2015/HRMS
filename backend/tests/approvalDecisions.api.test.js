@@ -1,5 +1,6 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
+import mongoose from "mongoose";
 import express from "express";
 import http from "node:http";
 import jwt from "jsonwebtoken";
@@ -67,6 +68,12 @@ const remember = (model, method) => {
 };
 
 before(async () => {
+    remember(mongoose, "startSession");
+    mongoose.startSession = async () => ({
+        withTransaction: async (callback) => callback(),
+        endSession: async () => {}
+    });
+
     for (const [model, methods] of [
         [User, ["findById"]],
         [Employee, ["findById", "find"]],
@@ -94,7 +101,8 @@ before(async () => {
         _id: IDS.teamEmployee,
         department: IDS.department,
         designation: IDS.designation,
-        save: async () => ({})
+        save: async () => ({}),
+        session() { return this; }
     });
     Department.findById = async () => ({ _id: IDS.department, isActive: true });
     Designation.findById = async () => ({ _id: IDS.designation, isActive: true, department: IDS.department });
