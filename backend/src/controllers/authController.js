@@ -177,6 +177,35 @@ export const updateProfilePhoto = async (req, res) => {
     }
 };
 
+// LOG OUT ALL DEVICES FOR THE CURRENT USER
+export const logoutAllDevices = async (req, res) => {
+    try {
+        const user = await User.findOneAndUpdate(
+            { _id: req.user.userId, isActive: true },
+            { $inc: { tokenVersion: 1 } },
+            { new: true }
+        ).select("_id");
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "User account not found or disabled"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "All devices have been signed out. Please login again."
+        });
+    } catch (error) {
+        console.error("Logout all devices error:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to sign out all devices"
+        });
+    }
+};
+
 // CHANGE PASSWORD
 export const changePassword = async (req, res) => {
     try {
