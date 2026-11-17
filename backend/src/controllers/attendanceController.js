@@ -601,7 +601,9 @@ export const saveManualAttendance = async (req, res) => {
         const adjustedManualCheckOut = localCheckOutMinutes !== null && overnight && localCheckOutMinutes < shiftStartMinutes
             ? localCheckOutMinutes + 1440
             : localCheckOutMinutes;
-        const lateThreshold = shift ? shiftStartMinutes + shift.gracePeriodMinutes : LATE_AFTER_MINUTES;
+        const lateThreshold = shift
+            ? (overnight ? shiftStartMinutes + 1440 : shiftStartMinutes) + shift.gracePeriodMinutes
+            : LATE_AFTER_MINUTES;
         const expectedEnd = overnight ? shiftEndMinutes + 1440 : shiftEndMinutes;
 
         const update = {
