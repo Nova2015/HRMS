@@ -32,8 +32,9 @@ const createResponse = () => ({
 });
 
 const withModelStubs = async (stubs, run) => {
-    const originals = Object.entries(stubs).map(([target, methods]) => ({
-        target,
+    const targets = { Employee, LeaveRequest, ExpenseClaim, EmployeeUpdateApproval };
+    const originals = Object.entries(stubs).map(([targetName, methods]) => ({
+        target: targets[targetName],
         methods: Object.entries(methods).map(([name, implementation]) => ({
             name,
             original: target[name],
@@ -70,7 +71,7 @@ test("Manager can review a pending leave request from an assigned team member", 
     const teamIds = [IDS.teamEmployee];
 
     await withModelStubs({
-        [Employee]: {
+        Employee: {
             find: (filter) => ({
                 distinct: async (field) => {
                     assert.deepEqual(filter, { reportingManager: IDS.manager });
@@ -79,7 +80,7 @@ test("Manager can review a pending leave request from an assigned team member", 
                 }
             })
         },
-        [LeaveRequest]: {
+        LeaveRequest: {
             findOneAndUpdate: async (filter) => {
                 capturedFilter = filter;
                 return { _id: IDS.request };
@@ -109,10 +110,10 @@ test("Manager cannot review a leave request outside the assigned team", async ()
     let capturedDecisionFilter;
     let capturedExistsFilter;
     await withModelStubs({
-        [Employee]: {
+        Employee: {
             find: () => ({ distinct: async () => [IDS.teamEmployee] })
         },
-        [LeaveRequest]: {
+        LeaveRequest: {
             findOneAndUpdate: async (filter) => {
                 capturedDecisionFilter = filter;
                 return null;
@@ -142,7 +143,7 @@ test("Admin and HR leave reviews are not restricted to a manager team", async ()
     for (const role of ["admin", "hr"]) {
         let capturedFilter;
         await withModelStubs({
-            [LeaveRequest]: {
+            LeaveRequest: {
                 findOneAndUpdate: async (filter) => {
                     capturedFilter = filter;
                     return { _id: IDS.request };
@@ -167,7 +168,7 @@ test("Admin and HR leave reviews are not restricted to a manager team", async ()
 
 test("A leave request that is no longer pending cannot be reviewed twice", async () => {
     await withModelStubs({
-        [LeaveRequest]: {
+        LeaveRequest: {
             findOneAndUpdate: async () => null,
             exists: async () => true
         }
@@ -190,7 +191,7 @@ test("Admin and HR can review pending expense claims", async () => {
     for (const role of ["admin", "hr"]) {
         let capturedFilter;
         await withModelStubs({
-            [ExpenseClaim]: {
+            ExpenseClaim: {
                 findOneAndUpdate: async (filter) => {
                     capturedFilter = filter;
                     return { _id: IDS.request };
@@ -215,7 +216,7 @@ test("Admin and HR can review pending expense claims", async () => {
 
 test("An expense claim that is no longer pending cannot be reviewed twice", async () => {
     await withModelStubs({
-        [ExpenseClaim]: {
+        ExpenseClaim: {
             findOneAndUpdate: async () => null,
             exists: async () => true
         }
@@ -236,7 +237,7 @@ test("An expense claim that is no longer pending cannot be reviewed twice", asyn
 
 test("An employee update proposal already decided cannot be processed again", async () => {
     await withModelStubs({
-        [EmployeeUpdateApproval]: {
+        EmployeeUpdateApproval: {
             findOne: async (filter) => {
                 assert.deepEqual(filter, { _id: IDS.request, status: "pending" });
                 return null;
