@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Employee from "../models/Employee.js";
 import SalaryStructure from "../models/SalaryStructure.js";
 import Payroll from "../models/Payroll.js";
+import { calculateAutomaticProration, calculateManualProration } from "../utils/salaryProration.js";
 import { generatePayslipDocument, generateSalaryRevisionDocument } from "../services/employeeDocumentGenerator.js";
 
 const isPeriod = (value) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value || "");
@@ -200,19 +201,23 @@ export const processPayroll = async (req, res) => {
             let segmentPaidDays;
             if (entry.prorationMode === "manual") {
                 if (segments.length !== 2) return res.status(400).json({ success: false, message: "Manual proration requires exactly one salary revision in the selected month. Use automatic proration for multiple revisions." });
-                const values = [entry.oldWorkingDays, entry.newWorkingDays, entry.oldPaidDays, entry.newPaidDays].map(Number);
-                const [oldWorking, newWorking, oldPaid, newPaid] = values;
-                if (!values.every(Number.isFinite) || oldWorking < 0 || newWorking < 0 ||
-                    oldWorking + newWorking !== days || oldPaid < 0 || newPaid < 0 ||
-                    oldPaid > oldWorking || newPaid > newWorking ||
-                    Math.abs(oldPaid + newPaid - totalPaidDays) > 0.001) {
+                try {
+                    const split = calculateManualProration(
+                        days, totalPaidDays,
+                        Number(entry.oldWorkingDays), Number(entry.newWorkingDays),
+                        Number(entry.oldPaidDays), Number(entry.newPaidDays)
+                    );
+                    segmentWorkingDays = split.workingDays;
+                    segmentPaidDays = split.paidDays;
+                } catch {
                     return res.status(400).json({ success: false, message: "Manual split totals must match monthly working days and paid days; paid days cannot exceed working days." });
                 }
-                segmentWorkingDays = [oldWorking, newWorking];
-                segmentPaidDays = [oldPaid, newPaid];
             } else {
-                segmentWorkingDays = segments.map((segment) => days * segment.calendarShare / calendarDays);
-                segmentPaidDays = segmentWorkingDays.map((working) => totalPaidDays * working / days);
+                const split = calculateAutomaticProration(
+                    days, totalPaidDays, calendarDays, segments.map((segment) => segment.calendarShare)
+                );
+                segmentWorkingDays = split.workingDays;
+                segmentPaidDays = split.paidDays;
             }
 
             const salaryBreakdown = [];
