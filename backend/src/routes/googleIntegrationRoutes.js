@@ -77,7 +77,7 @@ const getGmailAccessToken = async (integration) => {
             grant_type: "refresh_token"
         })
     });
-    const tokens = await response.json();
+    const tokens = await response.json().catch(() => ({}));
     if (!response.ok || !tokens.access_token) {
         console.error("Google Gmail access-token refresh failed:", tokens.error || response.status);
         const error = new Error("Google Gmail authorization expired; reconnect the account");
@@ -93,7 +93,7 @@ const getGmailAccessToken = async (integration) => {
 
 const gmailApiFetch = async (url, accessToken) => {
     const response = await googleFetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-    const payload = await response.json();
+    const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
         console.error("Gmail API request failed:", payload.error?.status || response.status);
         const error = new Error("Gmail could not be read. Check Gmail API access and reconnect if needed.");
@@ -240,7 +240,7 @@ router.get("/gmail/callback", async (req, res) => {
                 grant_type: "authorization_code"
             })
         });
-        const tokens = await tokenResponse.json();
+        const tokens = await tokenResponse.json().catch(() => ({}));
         if (!tokenResponse.ok || !tokens.access_token) {
             console.error("Google OAuth token exchange failed:", tokens.error || tokenResponse.status);
             return res.status(502).json({ success: false, message: "Google token exchange failed" });
@@ -249,7 +249,7 @@ router.get("/gmail/callback", async (req, res) => {
         const profileResponse = await googleFetch(GMAIL_PROFILE_URL, {
             headers: { Authorization: `Bearer ${tokens.access_token}` }
         });
-        const profile = await profileResponse.json();
+        const profile = await profileResponse.json().catch(() => ({}));
         if (!profileResponse.ok || typeof profile.emailAddress !== "string") {
             console.error("Google Gmail profile lookup failed:", profile.error?.status || profileResponse.status);
             return res.status(502).json({ success: false, message: "Could not verify the connected Gmail account" });
@@ -280,7 +280,7 @@ router.get("/gmail/callback", async (req, res) => {
             return res.status(400).json({ success: false, message: "Google OAuth state is invalid or expired" });
         }
         console.error("Google Gmail OAuth callback failed:", error.message);
-        return res.status(500).json({ success: false, message: "Google Gmail connection failed" });
+        return res.status(error.status || 500).json({ success: false, message: error.status ? error.message : "Google Gmail connection failed" });
     }
 });
 
