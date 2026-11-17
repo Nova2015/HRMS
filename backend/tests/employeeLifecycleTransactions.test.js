@@ -181,6 +181,39 @@ test("updateEmployee refuses to reactivate resigned or terminated employees thro
     }
 });
 
+test("updateEmployee prevents changing terminal employment status back to inactive", async (t) => {
+    for (const employmentStatus of ["resigned", "terminated"]) {
+        await t.test(employmentStatus, async () => {
+            const originalFindById = Employee.findById;
+            const originalUserFindOne = User.findOne;
+            let userLookupAttempted = false;
+            try {
+                Employee.findById = () => Promise.resolve({
+                    _id: EMPLOYEE_ID,
+                    isArchived: false,
+                    employmentStatus
+                });
+                User.findOne = () => {
+                    userLookupAttempted = true;
+                    throw new Error("Terminal employment status must be immutable");
+                };
+                const res = createResponse();
+                await updateEmployee({
+                    params: { id: EMPLOYEE_ID },
+                    body: { employmentStatus: "inactive" },
+                    user: { role: "admin" }
+                }, res);
+                assert.equal(res.statusCode, 409);
+                assert.match(res.body.message, /Employment status cannot be changed after resignation or termination/);
+                assert.equal(userLookupAttempted, false);
+            } finally {
+                Employee.findById = originalFindById;
+                User.findOne = originalUserFindOne;
+            }
+        });
+    }
+});
+
 test("activateEmployee refuses archived employees without re-enabling their login", async () => {
     let userUpdateAttempted = false;
     let employeeSaveAttempted = false;
