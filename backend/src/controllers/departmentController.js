@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import Department from "../models/Department.js";
 import Employee from "../models/Employee.js";
 import Designation from "../models/Designation.js";
+import { lockDepartmentReference } from "../services/employeeReferenceGuards.js";
+import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
 
 // CREATE
 export const createDepartment = async (req, res) => {
@@ -100,29 +102,38 @@ export const updateDepartment = async (req, res) => {
             updates.description = String(updates.description).trim();
         }
 
+        let department;
         if (updates.isActive === false) {
-            const [activeEmployeeCount, activeDesignationCount] = await Promise.all([
-                Employee.countDocuments({
-                    department: id,
-                    employmentStatus: "active",
-                    isArchived: { $ne: true }
-                }),
-                Designation.countDocuments({ department: id, isActive: true })
-            ]);
-
-            if (activeEmployeeCount > 0 || activeDesignationCount > 0) {
-                return res.status(409).json({
-                    success: false,
-                    message: "Department has active employees or designations. Reassign employees and deactivate designations before deactivating the department."
+            const session = await mongoose.startSession();
+            try {
+                await session.withTransaction(async () => {
+                    await lockDepartmentReference(id, session);
+                    const activeEmployeeCount = await Employee.countDocuments({
+                        department: id,
+                        employmentStatus: "active",
+                        isArchived: { $ne: true }
+                    }).session(session);
+                    const activeDesignationCount = await Designation.countDocuments({
+                        department: id,
+                        isActive: true
+                    }).session(session);
+                    if (activeEmployeeCount > 0 || activeDesignationCount > 0) {
+                        const inUse = new Error("Department has active employees or designations");
+                        inUse.code = "DEPARTMENT_IN_USE";
+                        throw inUse;
+                    }
+                    department = await Department.findByIdAndUpdate(
+                        id, { $set: updates }, { new: true, runValidators: true, session }
+                    );
                 });
+            } finally {
+                await session.endSession();
             }
+        } else {
+            department = await Department.findByIdAndUpdate(
+                id, { $set: updates }, { new: true, runValidators: true }
+            );
         }
-
-        const department = await Department.findByIdAndUpdate(
-            id,
-            { $set: updates },
-            { new: true, runValidators: true }
-        );
 
         if (!department) {
             return res.status(404).json({
@@ -137,11 +148,15 @@ export const updateDepartment = async (req, res) => {
             data: department
         });
     } catch (error) {
-        res.status(error.code === 11000 ? 409 : 400).json({
+        res.status(error.code === 11000 || error.code === "DEPARTMENT_IN_USE" ? 409 : isTransactionUnavailable(error) ? 503 : 400).json({
             success: false,
             message: error.code === 11000
                 ? "Department name or code already exists"
-                : "Unable to update department"
+                : error.code === "DEPARTMENT_IN_USE"
+                    ? "Department has active employees or designations. Reassign employees and deactivate designations first."
+                    : isTransactionUnavailable(error)
+                        ? "Department update is temporarily unavailable; please retry"
+                        : "Unable to update department"
         });
     }
 };
