@@ -374,6 +374,16 @@ export const getAttendanceRegister = async (req, res) => {
         const filter = {};
 
         const { date, from, to, employeeId } = req.query;
+        const page = Number.parseInt(req.query.page || "1", 10);
+        const limit = Number.parseInt(req.query.limit || "500", 10);
+
+        if (!Number.isInteger(page) || page < 1 ||
+            !Number.isInteger(limit) || limit < 1 || limit > 500) {
+            return res.status(400).json({
+                success: false,
+                message: "Page must be positive and limit must be between 1 and 500"
+            });
+        }
 
         if (req.user.role === "manager") {
             const teamIds = await Employee.find({
@@ -441,17 +451,25 @@ export const getAttendanceRegister = async (req, res) => {
             }
         }
 
+        const total = await Attendance.countDocuments(filter);
         const data = await Attendance.find(filter)
             .populate(
                 "employee",
                 "employeeCode firstName lastName email department"
             )
-            .sort({ dateKey: -1, createdAt: -1 })
-            .limit(500);
+            .sort({ dateKey: -1, createdAt: -1, _id: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit);
 
         return res.status(200).json({
             success: true,
             count: data.length,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit)
+            },
             data
         });
 
