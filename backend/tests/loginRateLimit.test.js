@@ -71,3 +71,42 @@ test("Login rate limit returns 429 and audits the blocked request without creden
         AuditLog.create = originalCreate;
     }
 });
+
+
+test("login rate limiter evicts oldest buckets when the active-key cap is reached", () => {
+    const prefix = `rate-limit-cap-test-${randomUUID()}`;
+    const makeRequest = (ip) => ({
+        ip,
+        socket: { remoteAddress: ip },
+        method: "POST",
+        originalUrl: "/api/auth/login",
+        get: () => "HRMS bucket cap test"
+    });
+    const pass = () => {
+        let continued = false;
+        const response = {
+            set() { return this; },
+            status(code) { throw new Error(`Unexpected rate-limit response: ${code}`); },
+            json(body) { throw new Error(body.message); }
+        };
+        loginRateLimit(makeRequest(prefix), response, () => { continued = true; });
+        assert.equal(continued, true);
+    };
+
+    for (let attempt = 0; attempt < 10; attempt += 1) pass();
+
+    for (let index = 0; index < 10000; index += 1) {
+        let continued = false;
+        const ip = `${prefix}-${index}`;
+        const response = {
+            set() { return this; },
+            status(code) { throw new Error(`Unexpected rate-limit response: ${code}`); },
+            json(body) { throw new Error(body.message); }
+        };
+        loginRateLimit(makeRequest(ip), response, () => { continued = true; });
+        assert.equal(continued, true);
+    }
+
+    // The oldest key is evicted at capacity, so memory remains bounded.
+    pass();
+});
