@@ -102,7 +102,7 @@ function SettingsContent() {
       if (!response.ok || !result.success) throw new Error(result.message || "Unable to sign out all devices");
       sessionStorage.removeItem("hrms_token");
       sessionStorage.removeItem("hrms_user");
-      router.replace("/");
+      window.location.replace("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign out all devices");
       setLogoutBusy(false);
