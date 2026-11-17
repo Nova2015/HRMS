@@ -6,7 +6,7 @@ const jobOpeningSchema = new mongoose.Schema({
     designation: { type: mongoose.Schema.Types.ObjectId, ref: "Designation", required: true },
     description: { type: String, required: true, trim: true, maxlength: 5000 },
     employmentType: { type: String, enum: ["full_time", "part_time", "contract", "internship"], default: "full_time" },
-    location: { type: String, trim: true, default: "" },
+    location: { type: String, trim: true, default: "", maxlength: 200 },
     openings: { type: Number, required: true, min: 1, default: 1 },
     hiringVersion: { type: Number, default: 0, select: false },
     status: { type: String, enum: ["open", "on_hold", "closed"], default: "open" },
