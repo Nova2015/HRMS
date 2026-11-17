@@ -13,19 +13,13 @@ import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import { uploadEmployeeDocument } from "../middleware/documentUpload.js";
 import { auditAction } from "../middleware/auditLogMiddleware.js";
+import { getUploadErrorResponse } from "../utils/uploadError.js";
 
 const handleDocumentUpload = (req, res, next) => {
     uploadEmployeeDocument(req, res, (error) => {
         if (!error) return next();
-        const status = error.code === "LIMIT_FILE_SIZE" ? 413 : error.code ? 500 : 400;
-        return res.status(status).json({
-            success: false,
-            message: error.code === "LIMIT_FILE_SIZE"
-                ? "Document must be 10 MB or smaller"
-                : error.code
-                    ? "Unable to store uploaded document"
-                    : "Only PDF, JPG and PNG documents are allowed"
-        });
+        const { status, message } = getUploadErrorResponse(error, "Document");
+        return res.status(status).json({ success: false, message });
     });
 };
 
