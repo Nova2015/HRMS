@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Attendance from "../models/Attendance.js";
 import Employee from "../models/Employee.js";
 import Shift from "../models/Shift.js";
-import { getAttendanceDateKey, isLateCheckIn } from "../utils/attendanceTime.js";
+import { getAttendanceDateKey, getShiftFromSnapshot, getShiftSnapshot, isLateCheckIn } from "../utils/attendanceTime.js";
 
 const TIME_ZONE = "Asia/Kolkata";
 
@@ -129,6 +129,7 @@ export const checkIn = async (req, res) => {
             checkIn: now,
             status: "present",
             isLate: isLateCheckIn(now, shift, DEFAULT_LATE_AFTER_MINUTES),
+            ...getShiftSnapshot(shift),
             source: "self"
         });
 
@@ -188,7 +189,8 @@ export const checkOut = async (req, res) => {
         );
 
         const employee = await Employee.findById(employeeId).select("shift");
-        const shift = await getShiftForEmployee(employee);
+        const currentShift = await getShiftForEmployee(employee);
+        const shift = getShiftFromSnapshot(attendance, currentShift);
         const localMinutes = getLocalMinutes(now);
         const shiftStartMinutes = shift ? timeToMinutes(shift.startTime) : null;
         const shiftEndMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
@@ -616,6 +618,7 @@ export const saveManualAttendance = async (req, res) => {
                 ? adjustedManualCheckOut < expectedEnd
                 : false,
             notes: String(notes || "").trim(),
+            ...getShiftSnapshot(shift),
             source: "manual",
             modifiedBy: req.user.userId
         };
