@@ -24,6 +24,6 @@ const salaryStructureSchema = new mongoose.Schema({
     revisions: { type: [revisionSchema], default: [] },
     isActive: { type: Boolean, default: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
-}, { timestamps: true });
+}, { timestamps: true, optimisticConcurrency: true });
 
 export default mongoose.model("SalaryStructure", salaryStructureSchema);
