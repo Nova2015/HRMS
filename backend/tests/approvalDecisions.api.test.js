@@ -77,8 +77,8 @@ before(async () => {
     for (const [model, methods] of [
         [User, ["findById"]],
         [Employee, ["findById", "find"]],
-        [Department, ["findById"]],
-        [Designation, ["findById"]],
+        [Department, ["findById", "findOneAndUpdate"]],
+        [Designation, ["findById", "findOneAndUpdate"]],
         [LeaveRequest, ["findOneAndUpdate", "exists", "findById"]],
         [ExpenseClaim, ["findOneAndUpdate", "exists", "findById"]],
         [EmployeeUpdateApproval, ["findOne", "findOneAndUpdate"]],
@@ -106,6 +106,16 @@ before(async () => {
     });
     Department.findById = async () => ({ _id: IDS.department, isActive: true });
     Designation.findById = async () => ({ _id: IDS.designation, isActive: true, department: IDS.department });
+    Department.findOneAndUpdate = async (filter, update, options) => {
+        assert.deepEqual(filter, { _id: IDS.department, isActive: true });
+        assert.equal(options.session != null, true);
+        return { _id: IDS.department, isActive: true };
+    };
+    Designation.findOneAndUpdate = async (filter, update, options) => {
+        assert.deepEqual(filter, { _id: IDS.designation, isActive: true });
+        assert.equal(options.session != null, true);
+        return { _id: IDS.designation, isActive: true, department: IDS.department };
+    };
     Employee.find = (filter) => {
         calls.teamFilters.push(filter);
         return { distinct: async () => [IDS.teamEmployee] };
