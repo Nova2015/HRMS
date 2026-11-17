@@ -25,6 +25,11 @@ const attendanceSchema = new mongoose.Schema(
             default: null
         },
 
+        // Immutable schedule snapshot used for this attendance record.
+        shiftStartTime: { type: String, default: null, match: /^([01]\\d|2[0-3]):[0-5]\\d$/ },
+        shiftEndTime: { type: String, default: null, match: /^([01]\\d|2[0-3]):[0-5]\\d$/ },
+        shiftGracePeriodMinutes: { type: Number, default: null, min: 0, max: 180 },
+
         workMinutes: {
             type: Number,
             default: 0,
