@@ -1,4 +1,4 @@
-﻿
+
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -603,30 +603,63 @@ export const archiveEmployee = async (req, res) => {
         if (!mongoose.isValidObjectId(id)) {
             return res.status(400).json({ success: false, message: "Invalid employee ID" });
         }
-        const employee = await Employee.findOne({ _id: id, isArchived: { $ne: true } });
-        if (!employee) {
-            return res.status(404).json({ success: false, message: "Active employee record not found" });
-        }
-        const linkedUser = await User.findOne({ employee: employee._id });
-        if (!linkedUser) {
-            return res.status(409).json({ success: false, message: "Employee login account is missing; cannot safely archive employee" });
-        }
-        linkedUser.isActive = false;
-        linkedUser.tokenVersion = (linkedUser.tokenVersion || 0) + 1;
-        await linkedUser.save();
 
-        employee.isArchived = true;
-        employee.archivedAt = new Date();
-        employee.archivedBy = req.user.userId;
-        employee.employmentStatus = "inactive";
-        await employee.save();
+        const session = await mongoose.startSession();
+        try {
+            await session.withTransaction(async () => {
+                const employee = await Employee.findOne({
+                    _id: id,
+                    isArchived: { $ne: true }
+                }).session(session);
+                if (!employee) {
+                    const notFound = new Error("Active employee record not found");
+                    notFound.code = 40401;
+                    throw notFound;
+                }
 
-        return res.status(200).json({ success: true, message: "Employee archived. Login disabled; historical records retained." });
+                const linkedUser = await User.findOneAndUpdate(
+                    { employee: employee._id },
+                    {
+                        $set: { isActive: false },
+                        $inc: { tokenVersion: 1 }
+                    },
+                    { new: true, session }
+                );
+                if (!linkedUser) {
+                    const missingAccount = new Error("Employee login account is missing");
+                    missingAccount.code = 40901;
+                    throw missingAccount;
+                }
+
+                employee.isArchived = true;
+                employee.archivedAt = new Date();
+                employee.archivedBy = req.user.userId;
+                employee.employmentStatus = "inactive";
+                await employee.save({ session });
+            });
+        } finally {
+            await session.endSession();
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Employee archived. Login disabled; historical records retained."
+        });
     } catch (error) {
         console.error("Archive employee error:", error);
-        return res.status(500).json({ success: false, message: "Unable to archive employee" });
+        const status = error.code === 40401 ? 404 : error.code === 40901 ? 409 : 500;
+        return res.status(status).json({
+            success: false,
+            message: error.code === 40401
+                ? "Active employee record not found"
+                : error.code === 40901
+                    ? "Employee login account is missing; cannot safely archive employee"
+                    : "Unable to archive employee"
+        });
     }
 };
+
+// DEACTIVATE EMPLOYEE + LOGIN ACCOUNT
 
 // DEACTIVATE EMPLOYEE + LOGIN ACCOUNT
 export const deactivateEmployee = async (req, res) => {
@@ -640,47 +673,56 @@ export const deactivateEmployee = async (req, res) => {
             });
         }
 
-        const employee = await Employee.findById(id);
+        const session = await mongoose.startSession();
+        try {
+            await session.withTransaction(async () => {
+                const employee = await Employee.findById(id).session(session);
+                if (!employee) {
+                    const notFound = new Error("Employee not found");
+                    notFound.code = 40401;
+                    throw notFound;
+                }
 
-        if (!employee) {
-            return res.status(404).json({
-                success: false,
-                message: "Employee not found"
+                const linkedUser = await User.findOneAndUpdate(
+                    { employee: employee._id },
+                    {
+                        $set: { isActive: false },
+                        $inc: { tokenVersion: 1 }
+                    },
+                    { new: true, session }
+                );
+                if (!linkedUser) {
+                    const missingAccount = new Error("Employee login account is missing");
+                    missingAccount.code = 40901;
+                    throw missingAccount;
+                }
+
+                employee.employmentStatus = "inactive";
+                await employee.save({ session });
             });
+        } finally {
+            await session.endSession();
         }
-
-        const linkedUser = await User.findOneAndUpdate(
-            { employee: employee._id },
-            {
-                $set: { isActive: false },
-                $inc: { tokenVersion: 1 }
-            },
-            { new: true }
-        );
-        if (!linkedUser) {
-            return res.status(409).json({
-                success: false,
-                message: "Employee login account is missing; cannot safely deactivate employee"
-            });
-        }
-
-        employee.employmentStatus = "inactive";
-        await employee.save();
 
         return res.status(200).json({
             success: true,
             message: "Employee and login account deactivated successfully"
         });
-
     } catch (error) {
         console.error("Deactivate employee error:", error);
-
-        return res.status(500).json({
+        const status = error.code === 40401 ? 404 : error.code === 40901 ? 409 : 500;
+        return res.status(status).json({
             success: false,
-            message: "Unable to deactivate employee"
+            message: error.code === 40401
+                ? "Employee not found"
+                : error.code === 40901
+                    ? "Employee login account is missing; cannot safely deactivate employee"
+                    : "Unable to deactivate employee"
         });
     }
 };
+
+// ACTIVATE EMPLOYEE + LOGIN ACCOUNT
 
 // ACTIVATE EMPLOYEE + LOGIN ACCOUNT
 export const activateEmployee = async (req, res) => {
@@ -694,44 +736,53 @@ export const activateEmployee = async (req, res) => {
             });
         }
 
-        const employee = await Employee.findById(id);
+        const session = await mongoose.startSession();
+        try {
+            await session.withTransaction(async () => {
+                const employee = await Employee.findById(id).session(session);
+                if (!employee) {
+                    const notFound = new Error("Employee not found");
+                    notFound.code = 40401;
+                    throw notFound;
+                }
 
-        if (!employee) {
-            return res.status(404).json({
-                success: false,
-                message: "Employee not found"
+                const linkedUser = await User.findOneAndUpdate(
+                    { employee: employee._id },
+                    { $set: { isActive: true } },
+                    { new: true, session }
+                );
+                if (!linkedUser) {
+                    const missingAccount = new Error("Employee login account is missing");
+                    missingAccount.code = 40901;
+                    throw missingAccount;
+                }
+
+                employee.employmentStatus = "active";
+                await employee.save({ session });
             });
+        } finally {
+            await session.endSession();
         }
-
-        const linkedUser = await User.findOneAndUpdate(
-            { employee: employee._id },
-            { $set: { isActive: true } },
-            { new: true }
-        );
-        if (!linkedUser) {
-            return res.status(409).json({
-                success: false,
-                message: "Employee login account is missing; cannot safely activate employee"
-            });
-        }
-
-        employee.employmentStatus = "active";
-        await employee.save();
 
         return res.status(200).json({
             success: true,
             message: "Employee and login account activated successfully"
         });
-
     } catch (error) {
         console.error("Activate employee error:", error);
-
-        return res.status(500).json({
+        const status = error.code === 40401 ? 404 : error.code === 40901 ? 409 : 500;
+        return res.status(status).json({
             success: false,
-            message: "Unable to activate employee"
+            message: error.code === 40401
+                ? "Employee not found"
+                : error.code === 40901
+                    ? "Employee login account is missing; cannot safely activate employee"
+                    : "Unable to activate employee"
         });
     }
 };
+
+// ADMIN RESET EMPLOYEE PASSWORD
 
 // ADMIN RESET EMPLOYEE PASSWORD
 export const resetEmployeePassword = async (req, res) => {
