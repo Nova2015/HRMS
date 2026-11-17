@@ -220,6 +220,12 @@ export const reviewLeaveRequest = async (req, res) => {
         }
 
         const comment = String(reviewComment).trim();
+        if (decision === "rejected" && !comment) {
+            return res.status(400).json({
+                success: false,
+                message: "A review reason is required when rejecting a leave request"
+            });
+        }
         if (comment.length > 1000) {
             return res.status(400).json({
                 success: false,
