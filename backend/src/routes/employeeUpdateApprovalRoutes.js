@@ -15,7 +15,7 @@ router.use(protect, authorizeRoles("admin", "hr"));
 router.get("/", getEmployeeUpdateProposals);
 router.post("/", auditAction("approvals", "approval.proposal_created"), createEmployeeUpdateProposal);
 router.patch("/:id/decision", auditAction("approvals", "approval.decided"), decideEmployeeUpdateProposal);
-router.post("/test-fixture", authorizeRoles("admin"), createApprovalTestFixture);
-router.delete("/test-fixture/:employeeId", authorizeRoles("admin"), deleteApprovalTestFixture);
+router.post("/test-fixture", authorizeRoles("admin"), auditAction("approvals", "approval.test_fixture_created"), createApprovalTestFixture);
+router.delete("/test-fixture/:employeeId", authorizeRoles("admin"), auditAction("approvals", "approval.test_fixture_deleted"), deleteApprovalTestFixture);
 
 export default router;
