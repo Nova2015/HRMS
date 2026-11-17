@@ -186,7 +186,7 @@ export const createEmployee = async (req, res) => {
                 if (reportingManager) {
                     await lockReportingManager(reportingManager, session);
                     const managerUser = await User.findOne({ employee: reportingManager, role: "manager", isActive: true }).session(session);
-                    if (!managerUser || await createsReportingCycle("new-employee", reportingManager, session)) {
+                    if (!managerUser) {
                         const invalidManager = new Error("Select an active employee with Manager role");
                         invalidManager.code = "MANAGER_INACTIVE";
                         throw invalidManager;
