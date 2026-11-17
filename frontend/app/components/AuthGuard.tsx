@@ -129,11 +129,11 @@ export default function AuthGuard({
     } finally { setAttendanceBusy(false); }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("hrms_token");
-    sessionStorage.removeItem("hrms_user");
-    sessionStorage.removeItem("hrms_attendance_prompt");
-    window.location.replace("/login");
+  const handleLogout = async () => {
+    const token = sessionStorage.getItem("hrms_token");
+    try { if (token) await fetch(API_URL + "/auth/logout", { method: "POST", headers: { Authorization: "Bearer " + token }, cache: "no-store" }); }
+    catch { /* Complete local logout even if the API is unreachable. */ }
+    finally { sessionStorage.removeItem("hrms_token"); sessionStorage.removeItem("hrms_user"); sessionStorage.removeItem("hrms_attendance_prompt"); window.location.replace("/login"); }
   };
 
   if (checking || !authorized) {
