@@ -123,6 +123,10 @@ function PayrollContent() {
   useEffect(() => { setProrationModes({}); setManualSplits({}); }, [period]);
 
   const structureEmployeeIds = useMemo(() => new Set(structures.map((item) => item.employee?._id)), [structures]);
+  const payrollStructures = useMemo(() => {
+    const activeEmployeeIds = new Set(employees.map((item) => item._id));
+    return structures.filter((item) => item.employee?._id && activeEmployeeIds.has(item.employee._id));
+  }, [structures, employees]);
   const totalNet = records.reduce((sum, item) => sum + item.netPay, 0);
   const totalGross = records.reduce((sum, item) => sum + item.grossEarnings, 0);
   const paidCount = records.filter((item) => item.status === "paid").length;
@@ -149,7 +153,7 @@ function PayrollContent() {
     setBusy(true); setError(""); setMessage("");
     try {
       const days = Number(workingDays);
-      const payload = structures.map((item) => {
+      const payload = payrollStructures.map((item) => {
         const id = item.employee._id;
         const mode = prorationModes[id] || "auto";
         const split = manualSplits[id] || { oldWorkingDays: "", newWorkingDays: "", oldPaidDays: "", newPaidDays: "" };
@@ -163,7 +167,7 @@ function PayrollContent() {
           } : {}),
         };
       });
-      if (!payload.length) throw new Error("Create salary structures before processing payroll.");
+      if (!payload.length) throw new Error("No active employees with salary structures are available for this payroll period.");
       const result = await apiRequest("/payroll/process", { method: "POST", body: JSON.stringify({ period, workingDays: days, employees: payload }) });
       setMessage(result.message);
       await loadPage();
@@ -241,7 +245,7 @@ function PayrollContent() {
           <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-7">
               <div><h2 className="text-lg font-bold text-slate-900">Process monthly payroll</h2><p className="mt-1 text-sm text-slate-500">Set working days and verify each employee&apos;s payable days.</p></div>
-              <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700">{structures.length} salary structures</span>
+              <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700">{payrollStructures.length} active salary structures</span>
             </div>
             <div className="p-5 sm:p-7">
               <div className="mb-5 grid gap-4 sm:max-w-xl sm:grid-cols-2">
@@ -280,7 +284,7 @@ function PayrollContent() {
               </div>
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                 <p className="max-w-2xl text-xs leading-5 text-amber-700"><Clock3 size={14} className="mr-1 inline" /> Processing creates final records for this employee/month. Verify paid days and statutory deductions before proceeding. Existing payroll records are not overwritten.</p>
-                <button type="button" onClick={processPayroll} disabled={busy || !structures.length || !period || Number(workingDays) < 1} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Processing..." : "Process payroll"}<ChevronRight size={17} /></button>
+                <button type="button" onClick={processPayroll} disabled={busy || !payrollStructures.length || !period || Number(workingDays) < 1} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Processing..." : "Process payroll"}<ChevronRight size={17} /></button>
               </div>
             </div>
           </section>
