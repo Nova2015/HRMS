@@ -395,7 +395,7 @@ export const updateEmployee = async (req, res) => {
             }
         }
 
-        if (Object.keys(updates).length === 0) {
+        if (Object.keys(updates).length === 0 && requestedRole === undefined) {
             return res.status(400).json({
                 success: false,
                 message: "No valid fields provided for update"
@@ -516,9 +516,6 @@ export const updateEmployee = async (req, res) => {
             });
         }
 
-        Object.assign(employee, updates);
-        await employee.save();
-
         const userUpdate = {};
 
         if (requestedRole !== undefined) {
@@ -538,18 +535,29 @@ export const updateEmployee = async (req, res) => {
             }
         }
 
-        if (Object.keys(userUpdate).length > 0) {
-            const syncedUser = await User.findOneAndUpdate(
-                { employee: employee._id },
-                { $set: userUpdate },
-                { new: true, runValidators: true }
-            );
-            if (!syncedUser) {
-                return res.status(409).json({
-                    success: false,
-                    message: "Employee login account could not be synchronized"
-                });
-            }
+        // Keep the employee profile and linked login account in one MongoDB transaction.
+        // Atlas replica-set deployments support multi-document transactions.
+        const session = await mongoose.startSession();
+        try {
+            await session.withTransaction(async () => {
+                Object.assign(employee, updates);
+                await employee.save({ session });
+
+                if (Object.keys(userUpdate).length > 0) {
+                    const syncedUser = await User.findOneAndUpdate(
+                        { employee: employee._id },
+                        { $set: userUpdate },
+                        { new: true, runValidators: true, session }
+                    );
+                    if (!syncedUser) {
+                        const syncError = new Error("Employee login account could not be synchronized");
+                        syncError.code = 40901;
+                        throw syncError;
+                    }
+                }
+            });
+        } finally {
+            await session.endSession();
         }
 
         const updatedEmployee = await populateEmployee(
@@ -569,11 +577,21 @@ export const updateEmployee = async (req, res) => {
     } catch (error) {
         console.error("Update employee error:", error);
 
-        return res.status(error.code === 11000 ? 409 : 400).json({
+        const isConflict = error.code === 11000 || error.code === 40901;
+        const isTransactionFailure = Boolean(
+            error.hasErrorLabel?.("TransientTransactionError") ||
+            error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+            /transaction numbers are only allowed|replica set|mongos/i.test(error.message || "")
+        );
+        return res.status(isConflict ? 409 : isTransactionFailure ? 503 : 400).json({
             success: false,
             message: error.code === 11000
                 ? "Employee email already exists"
-                : "Unable to update employee"
+                : error.code === 40901
+                    ? "Employee login account could not be synchronized"
+                    : isTransactionFailure
+                        ? "Employee update could not be completed safely. Please retry."
+                        : "Unable to update employee"
         });
     }
 };
