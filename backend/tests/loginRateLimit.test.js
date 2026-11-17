@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import AuditLog from "../src/models/AuditLog.js";
 import { loginRateLimit } from "../src/middleware/loginRateLimit.js";
 
@@ -11,7 +12,7 @@ test("Login rate limit returns 429 and audits the blocked request without creden
         return entry;
     };
 
-    const ip = `198.51.100.${Math.floor(Math.random() * 200) + 1}`;
+    const ip = `rate-limit-test-${randomUUID()}`;
     const makeRequest = () => ({
         ip,
         socket: { remoteAddress: ip },
