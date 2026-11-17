@@ -143,7 +143,9 @@ test("updateEmployee blocks manager role demotion while non-archived direct repo
         userFindOne: User.findOne,
         userFindOneAndUpdate: User.findOneAndUpdate,
         departmentFindById: (await import("../src/models/Department.js")).default.findById,
-        designationFindById: (await import("../src/models/Designation.js")).default.findById
+        designationFindById: (await import("../src/models/Designation.js")).default.findById,
+        departmentFindOneAndUpdate: (await import("../src/models/Department.js")).default.findOneAndUpdate,
+        designationFindOneAndUpdate: (await import("../src/models/Designation.js")).default.findOneAndUpdate
     };
     const session = {
         ended: false,
@@ -180,6 +182,8 @@ test("updateEmployee blocks manager role demotion while non-archived direct repo
         const Designation = (await import("../src/models/Designation.js")).default;
         Department.findById = async () => ({ isActive: true });
         Designation.findById = async () => ({ isActive: true, department: departmentId });
+        Department.findOneAndUpdate = async () => ({ _id: departmentId, isActive: true });
+        Designation.findOneAndUpdate = async () => ({ _id: designationId, isActive: true, department: departmentId });
         const res = createResponse();
         await updateEmployee({
             params: { id: EMPLOYEE_ID },
@@ -200,6 +204,8 @@ test("updateEmployee blocks manager role demotion while non-archived direct repo
         const Designation = (await import("../src/models/Designation.js")).default;
         Department.findById = original.departmentFindById;
         Designation.findById = original.designationFindById;
+        Department.findOneAndUpdate = original.departmentFindOneAndUpdate;
+        Designation.findOneAndUpdate = original.designationFindOneAndUpdate;
     }
 });
 
