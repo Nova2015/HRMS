@@ -66,29 +66,50 @@ export const saveLeaveAllocation = async (req, res) => {
         }
         const employee = await Employee.findOne({ _id: employeeId, employmentStatus: "active", isArchived: { $ne: true } }).select("_id");
         if (!employee) return res.status(404).json({ success: false, message: "Active employee not found" });
-        const existingUsage = await LeaveRequest.aggregate([
-            { $match: {
-                employee: employee._id,
-                status: { $in: ["pending", "approved"] },
-                startDate: { $gte: String(Number(year)) + "-01-01", $lte: String(Number(year)) + "-12-31" },
-                leaveType: { $in: TYPES }
-            } },
-            { $group: { _id: "$leaveType", total: { $sum: "$totalDays" } } }
-        ]);
-        const usedByType = new Map(existingUsage.map((item) => [item._id, item.total]));
-        for (const type of TYPES) {
-            if (values[type] < (usedByType.get(type) || 0)) {
-                return res.status(409).json({
-                    success: false,
-                    message: "Cannot reduce " + type + " allocation below " + usedByType.get(type) + " day(s) already pending or approved."
-                });
-            }
+        const session = await mongoose.startSession();
+        let allocation;
+        try {
+            await session.withTransaction(async () => {
+                // Use the same employee-document lock as leave submission so
+                // allocation changes and new leave reservations serialize.
+                const lock = await Employee.updateOne(
+                    { _id: employee._id, employmentStatus: "active", isArchived: { $ne: true } },
+                    { $inc: { leaveRequestVersion: 1 } },
+                    { session }
+                );
+                if (lock.matchedCount !== 1) {
+                    const inactive = new Error("Active employee not found");
+                    inactive.code = 40401;
+                    throw inactive;
+                }
+
+                const existingUsage = await LeaveRequest.aggregate([
+                    { $match: {
+                        employee: employee._id,
+                        status: { $in: ["pending", "approved"] },
+                        startDate: { $gte: String(Number(year)) + "-01-01", $lte: String(Number(year)) + "-12-31" },
+                        leaveType: { $in: TYPES }
+                    } },
+                    { $group: { _id: "$leaveType", total: { $sum: "$totalDays" } } }
+                ]).session(session);
+                const usedByType = new Map(existingUsage.map((item) => [item._id, item.total]));
+                for (const type of TYPES) {
+                    if (values[type] < (usedByType.get(type) || 0)) {
+                        const conflict = new Error("Cannot reduce " + type + " allocation below " + usedByType.get(type) + " day(s) already pending or approved.");
+                        conflict.code = 40901;
+                        throw conflict;
+                    }
+                }
+
+                allocation = await LeaveAllocation.findOneAndUpdate(
+                    { employee: employeeId, year: Number(year) },
+                    { $set: { ...values, updatedBy: req.user.userId } },
+                    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true, session }
+                ).populate("employee", "employeeCode firstName lastName employmentStatus");
+            });
+        } finally {
+            await session.endSession();
         }
-        const allocation = await LeaveAllocation.findOneAndUpdate(
-            { employee: employeeId, year: Number(year) },
-            { $set: { ...values, updatedBy: req.user.userId } },
-            { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
-        ).populate("employee", "employeeCode firstName lastName employmentStatus");
         const [data] = await summarize([allocation], Number(year));
         return res.status(200).json({ success: true, message: "Leave allocation saved successfully", data });
     } catch (error) {
