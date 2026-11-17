@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { reserveJobOpeningForHire } from "../src/controllers/recruitmentController.js";
+import { reserveJobOpeningForHire, isValidJoiningDate } from "../src/controllers/recruitmentController.js";
 import Candidate from "../src/models/Candidate.js";
 import JobOpening from "../src/models/JobOpening.js";
 
@@ -70,4 +70,20 @@ test("hiring is rejected when the candidate job opening no longer exists", async
             (error) => error.code === 409 && /no longer exists/.test(error.message)
         );
     });
+});
+
+
+test("joining date accepts a valid date-only value", () => {
+    assert.equal(isValidJoiningDate("2026-11-17"), true);
+});
+
+test("joining date rejects impossible calendar dates", () => {
+    assert.equal(isValidJoiningDate("2026-02-30"), false);
+    assert.equal(isValidJoiningDate("2026-13-01"), false);
+});
+
+test("joining date rejects timestamps and non-date input", () => {
+    assert.equal(isValidJoiningDate("2026-11-17T00:00:00.000Z"), false);
+    assert.equal(isValidJoiningDate("17-11-2026"), false);
+    assert.equal(isValidJoiningDate(""), false);
 });
