@@ -79,14 +79,19 @@ export const protect = async (req, res, next) => {
 
         return next();
     } catch (error) {
-        if (error.name !== "JsonWebTokenError" && error.name !== "TokenExpiredError" &&
-            error.name !== "CastError") {
-            console.error("Authentication middleware error:", error.message);
+        if (
+            error.name === "JsonWebTokenError" ||
+            error.name === "TokenExpiredError" ||
+            error.name === "NotBeforeError"
+        ) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid or expired authentication token"
+            });
         }
 
-        return res.status(401).json({
-            success: false,
-            message: "Invalid or expired authentication token"
-        });
+        // Database and unexpected failures must reach Express error handling,
+        // not be misreported to clients as invalid credentials.
+        return next(error);
     }
 };
