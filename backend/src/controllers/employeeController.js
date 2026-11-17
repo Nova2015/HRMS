@@ -10,6 +10,7 @@ import Shift from "../models/Shift.js";
 import { createsReportingCycle, hasDirectReports } from "../services/reportingHierarchy.js";
 import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
 import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
+import { lockEmployeeReferences, lockReportingManager } from "../services/employeeReferenceGuards.js";
 
 const ALLOWED_ROLES = ["employee", "manager", "hr", "admin"];
 const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
@@ -181,6 +182,16 @@ export const createEmployee = async (req, res) => {
         const session = await mongoose.startSession();
         try {
             await session.withTransaction(async () => {
+                await lockEmployeeReferences({ departmentId: department, designationId: designation, shiftId: shift, session });
+                if (reportingManager) {
+                    await lockReportingManager(reportingManager, session);
+                    const managerUser = await User.findOne({ employee: reportingManager, role: "manager", isActive: true }).session(session);
+                    if (!managerUser || await createsReportingCycle("new-employee", reportingManager, session)) {
+                        const invalidManager = new Error("Select an active employee with Manager role");
+                        invalidManager.code = "MANAGER_INACTIVE";
+                        throw invalidManager;
+                    }
+                }
                 createdEmployee = new Employee({
                     employeeCode: normalizedCode,
                     firstName: firstName.trim(),
@@ -568,6 +579,21 @@ export const updateEmployee = async (req, res) => {
         const session = await mongoose.startSession();
         try {
             await session.withTransaction(async () => {
+                await lockEmployeeReferences({
+                    departmentId: updates.department || employee.department,
+                    designationId: updates.designation || employee.designation,
+                    shiftId: updates.shift !== undefined ? updates.shift : employee.shift,
+                    session
+                });
+                if (updates.reportingManager) {
+                    await lockReportingManager(updates.reportingManager, session);
+                    const managerUser = await User.findOne({ employee: updates.reportingManager, role: "manager", isActive: true }).session(session);
+                    if (!managerUser || await createsReportingCycle(employee._id, updates.reportingManager, session)) {
+                        const invalidManager = new Error("Reporting manager assignment is invalid or circular");
+                        invalidManager.code = "MANAGER_INACTIVE";
+                        throw invalidManager;
+                    }
+                }
                 const nextRole = requestedRole === undefined
                     ? linkedUser.role
                     : String(requestedRole).trim().toLowerCase();
@@ -816,6 +842,7 @@ export const activateEmployee = async (req, res) => {
                 }
 
                 if (employee.department && employee.designation) {
+                    await lockEmployeeReferences({ departmentId: employee.department, designationId: employee.designation, shiftId: employee.shift, session });
                     // Keep operations sequential within the MongoDB transaction session.
                     const department = await Department.findById(employee.department).session(session);
                     const designation = await Designation.findById(employee.designation).session(session);
