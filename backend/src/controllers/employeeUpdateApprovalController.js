@@ -176,29 +176,89 @@ export const decideEmployeeUpdateProposal = async (req, res) => {
         const oldValues = {};
         for (const field of Object.keys(changes)) oldValues[field] = employee[field] ?? null;
 
-        // Atomically claim the pending request so HR and Admin cannot both apply it.
-        const claimed = await EmployeeUpdateApproval.findOneAndUpdate(
-            { _id: id, status: "pending" },
-            { $set: { status: "approved", decidedBy: req.user.userId, decidedAt: new Date(), decisionNote: note.trim(), oldValues, appliedValues: changes } },
-            { new: true }
-        );
-        if (!claimed) return res.status(409).json({ success: false, message: "This request was already decided" });
-
+        // Apply the employee change and finalize its approval in one transaction.
+        // Employment status changes must also synchronize the linked login account.
+        const session = await mongoose.startSession();
+        let claimed = null;
         try {
-            Object.assign(employee, changes);
-            await employee.save();
-        } catch (applyError) {
-            await EmployeeUpdateApproval.updateOne(
-                { _id: id, status: "approved", decidedBy: req.user.userId },
-                { $set: { status: "pending", decidedBy: null, decidedAt: null, decisionNote: "", oldValues: null, appliedValues: null } }
-            );
-            throw applyError;
+            await session.withTransaction(async () => {
+                const currentEmployee = await Employee.findById(employee._id).session(session);
+                if (!currentEmployee) {
+                    const missingError = new Error("Employee no longer exists");
+                    missingError.statusCode = 404;
+                    throw missingError;
+                }
+
+                const transactionOldValues = {};
+                for (const field of Object.keys(changes)) {
+                    transactionOldValues[field] = currentEmployee[field] ?? null;
+                }
+
+                claimed = await EmployeeUpdateApproval.findOneAndUpdate(
+                    { _id: id, status: "pending" },
+                    { $set: {
+                        status: "approved",
+                        decidedBy: req.user.userId,
+                        decidedAt: new Date(),
+                        decisionNote: note.trim(),
+                        oldValues: transactionOldValues,
+                        appliedValues: changes
+                    } },
+                    { new: true, session }
+                );
+                if (!claimed) {
+                    const conflictError = new Error("This request was already decided");
+                    conflictError.statusCode = 409;
+                    throw conflictError;
+                }
+
+                Object.assign(currentEmployee, changes);
+                await currentEmployee.save({ session });
+
+                if (changes.employmentStatus !== undefined) {
+                    const userUpdate = { isActive: changes.employmentStatus === "active" };
+                    if (changes.employmentStatus !== "active") {
+                        userUpdate.tokenVersion = (await User.findOne({ employee: currentEmployee._id }).session(session))?.tokenVersion + 1;
+                        if (!Number.isFinite(userUpdate.tokenVersion)) {
+                            const missingUserError = new Error("Employee login account is missing");
+                            missingUserError.statusCode = 409;
+                            throw missingUserError;
+                        }
+                    }
+                    const linkedUser = await User.findOneAndUpdate(
+                        { employee: currentEmployee._id },
+                        { $set: userUpdate },
+                        { new: true, runValidators: true, session }
+                    );
+                    if (!linkedUser) {
+                        const missingUserError = new Error("Employee login account is missing");
+                        missingUserError.statusCode = 409;
+                        throw missingUserError;
+                    }
+                }
+            });
+        } finally {
+            await session.endSession();
         }
 
         return res.status(200).json({ success: true, message: "Proposal approved and employee record updated", data: claimed });
     } catch (error) {
         console.error("Decide employee update proposal failed:", error.message);
-        return res.status(500).json({ success: false, message: "Could not process approval decision" });
+        const statusCode = [404, 409].includes(error.statusCode)
+            ? error.statusCode
+            : error.code === 11000 ? 409
+            : error.hasErrorLabel?.("TransientTransactionError") ||
+              error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+              /transaction numbers are only allowed|replica set|mongos/i.test(error.message || "")
+                ? 503
+                : 500;
+        return res.status(statusCode).json({
+            success: false,
+            message: statusCode === 404 ? "Employee no longer exists"
+                : statusCode === 409 ? "This request was already decided or its login account is missing"
+                : statusCode === 503 ? "Approval is temporarily unavailable; please retry"
+                : "Could not process approval decision"
+        });
     }
 };
 
