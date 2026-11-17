@@ -25,13 +25,6 @@ const runManualAttendance = async (checkIn) => {
             gracePeriodMinutes: 15
         })
     });
-    Attendance.findOneAndUpdate = () => ({
-        populate: async () => {
-            savedUpdate = arguments;
-            return { status: "present" };
-        }
-    });
-
     // Capture the update passed to the persistence layer.
     Attendance.findOneAndUpdate = (filter, update) => {
         savedUpdate = update.$set;
