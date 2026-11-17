@@ -350,6 +350,12 @@ export const updateEmployee = async (req, res) => {
                 message: "Employee not found"
             });
         }
+        if (employee.isArchived) {
+            return res.status(409).json({
+                success: false,
+                message: "Archived employees cannot be edited or reactivated"
+            });
+        }
 
         const linkedUser = await User.findOne({ employee: employee._id });
         if (!linkedUser) {
