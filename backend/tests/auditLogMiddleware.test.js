@@ -65,12 +65,14 @@ test("Audit log leaves outcome empty for actions without a decision and records 
 
     assert.equal(ordinaryAction.outcome, "");
     assert.equal(failedAction.statusCode, 400);
+    assert.equal(failedAction.action, "leave.reviewed.failed");
     assert.equal(failedAction.outcome, "");
 
     const serverFailure = await runAudit("approve", 500, {
         body: { password: "never-store-this", bankAccountNumber: "1234567890" }
     });
     assert.equal(serverFailure.statusCode, 500);
+    assert.equal(serverFailure.action, "leave.reviewed.failed");
     assert.equal(serverFailure.outcome, "");
     assert.equal(JSON.stringify(serverFailure).includes("never-store-this"), false);
     assert.equal(JSON.stringify(serverFailure).includes("1234567890"), false);
