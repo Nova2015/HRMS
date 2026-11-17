@@ -129,6 +129,9 @@ export const updateDesignation = async (req, res) => {
                         inUse.code = "DESIGNATION_IN_USE";
                         throw inUse;
                     }
+                    designation = await Designation.findByIdAndUpdate(
+                        id, { $set: updates }, { new: true, runValidators: true, session: deactivateSession }
+                    ).populate("department", "name code");
                 });
             } catch (error) {
                 await deactivateSession.endSession();
@@ -151,15 +154,12 @@ export const updateDesignation = async (req, res) => {
             }
         }
 
-        let designation;
-        try {
+        if (deactivateSession) {
+            await deactivateSession.endSession();
+        } else {
             designation = await Designation.findByIdAndUpdate(
-                id,
-                { $set: updates },
-                { new: true, runValidators: true, ...(deactivateSession ? { session: deactivateSession } : {}) }
+                id, { $set: updates }, { new: true, runValidators: true }
             ).populate("department", "name code");
-        } finally {
-            if (deactivateSession) await deactivateSession.endSession();
         }
 
         if (!designation) {
