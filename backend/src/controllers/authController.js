@@ -5,6 +5,8 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Employee from "../models/Employee.js";
 import AuditLog from "../models/AuditLog.js";
+import Session from "../models/Session.js";
+import crypto from "node:crypto";
 
 const recordLoginAudit = async (req, user, action, statusCode) => {
     try {
@@ -95,18 +97,29 @@ export const login = async (req, res) => {
             });
         }
 
+        const sessionJti = crypto.randomUUID();
         const token = jwt.sign(
             {
                 userId: user._id.toString(),
                 role: user.role,
                 employeeId: employee._id.toString(),
-                tokenVersion: user.tokenVersion || 0
+                tokenVersion: user.tokenVersion || 0,
+                jti: sessionJti
             },
             process.env.JWT_SECRET,
-            {
-                expiresIn: process.env.JWT_EXPIRES_IN || "1d"
-            }
+            { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
         );
+        const tokenPayload = jwt.decode(token);
+        await Session.create({
+            user: user._id,
+            jti: sessionJti,
+            tokenVersion: user.tokenVersion || 0,
+            createdAt: new Date(),
+            lastSeenAt: new Date(),
+            expiresAt: new Date(tokenPayload.exp * 1000),
+            ipAddress: String(req.ip || req.socket?.remoteAddress || "").slice(0, 80),
+            userAgent: String(req.get?.("user-agent") || "").slice(0, 300)
+        });
 
         user.lastLogin = new Date();
         await user.save();
@@ -133,6 +146,60 @@ export const login = async (req, res) => {
             success: false,
             message: "Login failed"
         });
+    }
+};
+
+export const getSessions = async (req, res) => {
+    try {
+        const sessions = await Session.find({
+            user: req.user.userId,
+            tokenVersion: req.user.tokenVersion,
+            revokedAt: null,
+            expiresAt: { $gt: new Date() }
+        }).sort({ lastSeenAt: -1 }).select("_id jti createdAt lastSeenAt expiresAt userAgent ipAddress");
+        return res.status(200).json({ success: true, data: sessions.map(session => ({
+            id: session._id,
+            current: session.jti === req.user.sessionJti,
+            createdAt: session.createdAt,
+            lastSeenAt: session.lastSeenAt,
+            expiresAt: session.expiresAt,
+            userAgent: session.userAgent,
+            ipAddress: session.ipAddress
+        })) });
+    } catch (error) {
+        console.error("Load sessions error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load active sessions" });
+    }
+};
+
+export const revokeSession = async (req, res) => {
+    try {
+        const session = await Session.findOneAndUpdate(
+            { _id: req.params.sessionId, user: req.user.userId, revokedAt: null, expiresAt: { $gt: new Date() } },
+            { $set: { revokedAt: new Date() } },
+            { new: true }
+        ).select("_id jti");
+        if (!session) return res.status(404).json({ success: false, message: "Active session not found" });
+        return res.status(200).json({ success: true, current: session.jti === req.user.sessionJti, message: "Session signed out successfully" });
+    } catch (error) {
+        if (error.name === "CastError") return res.status(400).json({ success: false, message: "Invalid session ID" });
+        console.error("Revoke session error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to sign out this session" });
+    }
+};
+
+export const logout = async (req, res) => {
+    try {
+        if (req.user.sessionJti) {
+            await Session.updateOne(
+                { user: req.user.userId, jti: req.user.sessionJti, revokedAt: null },
+                { $set: { revokedAt: new Date() } }
+            );
+        }
+        return res.status(200).json({ success: true, message: "Signed out successfully" });
+    } catch (error) {
+        console.error("Logout error:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to sign out" });
     }
 };
 
@@ -220,6 +287,10 @@ export const logoutAllDevices = async (req, res) => {
             });
         }
 
+        await Session.updateMany(
+            { user: req.user.userId, revokedAt: null },
+            { $set: { revokedAt: new Date() } }
+        );
         return res.status(200).json({
             success: true,
             message: "All devices have been signed out. Please login again."
