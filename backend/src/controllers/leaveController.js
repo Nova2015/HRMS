@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import LeaveRequest from "../models/LeaveRequest.js";
 import Employee from "../models/Employee.js";
 import Holiday from "../models/Holiday.js";
+import LeaveAllocation from "../models/LeaveAllocation.js";
 
 const ALLOWED_LEAVE_TYPES = ["casual", "sick", "earned", "unpaid"];
 const REVIEW_ROLES = ["admin", "hr"];
@@ -57,6 +58,10 @@ export const createLeaveRequest = async (req, res) => {
                 success: false,
                 message: "Valid start and end dates are required (YYYY-MM-DD)"
             });
+        }
+
+        if (startDate.slice(0, 4) !== endDate.slice(0, 4)) {
+            return res.status(400).json({ success: false, message: "Leave requests cannot cross calendar years. Please submit separate requests for each year." });
         }
 
         if (endDate < startDate) {
@@ -121,6 +126,36 @@ export const createLeaveRequest = async (req, res) => {
                     throw conflict;
                 }
 
+                if (leaveType !== "unpaid") {
+                    const allocationYear = Number(startDate.slice(0, 4));
+                    const allocation = await LeaveAllocation.findOne({
+                        employee: employee._id,
+                        year: allocationYear
+                    }).session(session);
+                    if (!allocation) {
+                        const missing = new Error("HR has not assigned leave for " + allocationYear + ". Please contact HR.");
+                        missing.code = 40302;
+                        throw missing;
+                    }
+                    const allocatedDays = allocation[leaveType] || 0;
+                    const existingUsage = await LeaveRequest.aggregate([
+                        { $match: {
+                            employee: employee._id,
+                            leaveType,
+                            status: { $in: ["pending", "approved"] },
+                            startDate: { $gte: allocationYear + "-01-01", $lte: allocationYear + "-12-31" }
+                        } },
+                        { $group: { _id: null, total: { $sum: "$totalDays" } } }
+                    ]).session(session);
+                    const reservedDays = existingUsage[0]?.total || 0;
+                    const remainingDays = allocatedDays - reservedDays;
+                    if (remainingDays <= 0 || remainingDays < 1) {
+                        const exhausted = new Error("No " + leaveType + " leave balance remaining for " + allocationYear);
+                        exhausted.code = 40002;
+                        throw exhausted;
+                    }
+                }
+
                 const holidays = await Holiday.find({
                     dateKey: { $gte: startDate, $lte: endDate },
                     isActive: true,
@@ -166,7 +201,9 @@ export const createLeaveRequest = async (req, res) => {
         const knownErrors = {
             40001: [400, "The selected date range contains no working days for your assigned shift"],
             40301: [403, "Active employee account required"],
-            40901: [409, "This date range overlaps an existing pending or approved leave request"]
+            40901: [409, "This date range overlaps an existing pending or approved leave request"],
+            40302: [403, error.message],
+            40002: [400, error.message]
         };
         if (knownErrors[error.code]) {
             const [status, message] = knownErrors[error.code];
