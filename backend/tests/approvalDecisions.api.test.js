@@ -68,7 +68,7 @@ before(async () => {
         [Employee, ["findById", "find"]],
         [LeaveRequest, ["findOneAndUpdate", "exists", "findById"]],
         [ExpenseClaim, ["findOneAndUpdate", "exists", "findById"]],
-        [EmployeeUpdateApproval, ["findOneAndUpdate"]],
+        [EmployeeUpdateApproval, ["findOne", "findOneAndUpdate"]],
         [AuditLog, ["create"]]
     ]) {
         for (const method of methods) remember(model, method);
@@ -106,6 +106,10 @@ before(async () => {
     ExpenseClaim.exists = async () => false;
     ExpenseClaim.findById = () => populatedQuery({ _id: IDS.record, status: "approved" });
 
+    EmployeeUpdateApproval.findOne = async (filter) => {
+        assert.deepEqual(filter, { _id: IDS.record, status: "pending" });
+        return { _id: IDS.record, status: "pending" };
+    };
     EmployeeUpdateApproval.findOneAndUpdate = async (filter, update) => {
         calls.updateFilters.push({ filter, update });
         return { _id: IDS.record, status: "rejected" };
