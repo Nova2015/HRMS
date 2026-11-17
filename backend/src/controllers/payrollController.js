@@ -25,7 +25,17 @@ export const listSalaryStructures = async (req, res) => {
         const structures = await SalaryStructure.find()
             .populate("employee", "employeeCode firstName lastName department")
             .sort({ updatedAt: -1 });
-        res.json({ success: true, count: structures.length, data: structures });
+        const data = structures.map((item) => {
+            const value = item.toObject();
+            if (!value.revisions?.length) value.revisions = [{
+                _id: item._id, monthlyBasic: item.monthlyBasic, earnings: item.earnings,
+                deductions: item.deductions, effectiveFrom: item.effectiveFrom,
+                createdBy: item.createdBy, createdAt: item.createdAt
+            }];
+            value.revisions.sort((a, b) => new Date(a.effectiveFrom) - new Date(b.effectiveFrom));
+            return value;
+        });
+        res.json({ success: true, count: data.length, data });
     } catch (error) {
         console.error("List salary structures:", error);
         res.status(500).json({ success: false, message: "Unable to load salary structures" });
@@ -55,40 +65,55 @@ export const saveSalaryStructure = async (req, res) => {
         }
 
         const existingStructure = await SalaryStructure.findOne({ employee: employeeId });
-        const previousStructure = existingStructure ? existingStructure.toObject() : null;
-        const data = await SalaryStructure.findOneAndUpdate(
-            { employee: employeeId },
-            { $set: { monthlyBasic: money(basic), earnings: earningLines, deductions: deductionLines, effectiveFrom: date, isActive: true, createdBy: req.user.userId } },
-            { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
-        ).populate("employee", "employeeCode firstName lastName");
+        const previousRevisions = existingStructure?.revisions?.length
+            ? existingStructure.revisions.map((item) => item.toObject())
+            : existingStructure ? [{
+                monthlyBasic: existingStructure.monthlyBasic,
+                earnings: existingStructure.earnings,
+                deductions: existingStructure.deductions,
+                effectiveFrom: existingStructure.effectiveFrom,
+                createdBy: existingStructure.createdBy,
+                createdAt: existingStructure.createdAt
+            }] : [];
+        if (previousRevisions.some((item) => new Date(item.effectiveFrom).getTime() === date.getTime())) {
+            return res.status(409).json({ success: false, message: "A salary revision already exists for this effective date" });
+        }
+        const revision = {
+            monthlyBasic: money(basic), earnings: earningLines, deductions: deductionLines,
+            effectiveFrom: date, createdBy: req.user.userId, createdAt: new Date()
+        };
+        const nextRevisions = [...previousRevisions, revision].sort((x, y) => new Date(x.effectiveFrom) - new Date(y.effectiveFrom));
+        let data;
+        if (existingStructure) {
+            existingStructure.revisions = nextRevisions;
+            const latest = nextRevisions[nextRevisions.length - 1];
+            existingStructure.monthlyBasic = latest.monthlyBasic;
+            existingStructure.earnings = latest.earnings;
+            existingStructure.deductions = latest.deductions;
+            existingStructure.effectiveFrom = latest.effectiveFrom;
+            existingStructure.createdBy = latest.createdBy;
+            await existingStructure.save();
+            data = await SalaryStructure.findById(existingStructure._id).populate("employee", "employeeCode firstName lastName");
+        } else {
+            data = await SalaryStructure.create({
+                employee: employeeId, monthlyBasic: revision.monthlyBasic, earnings: revision.earnings,
+                deductions: revision.deductions, effectiveFrom: revision.effectiveFrom,
+                revisions: nextRevisions, isActive: true, createdBy: req.user.userId
+            });
+            await data.populate("employee", "employeeCode firstName lastName");
+        }
 
+        const previousRevision = [...previousRevisions]
+            .filter((item) => new Date(item.effectiveFrom) < date)
+            .sort((x, y) => new Date(y.effectiveFrom) - new Date(x.effectiveFrom))[0];
         let generatedDocument = null;
         let documentWarning = "";
-        if (previousStructure) {
-            const previousSnapshot = {
-                monthlyBasic: previousStructure.monthlyBasic,
-                earnings: (previousStructure.earnings || []).map(({ name, amount }) => ({ name, amount })),
-                deductions: (previousStructure.deductions || []).map(({ name, amount }) => ({ name, amount })),
-                effectiveFrom: new Date(previousStructure.effectiveFrom).toISOString()
-            };
-            const currentSnapshot = {
-                monthlyBasic: data.monthlyBasic,
-                earnings: (data.earnings || []).map(({ name, amount }) => ({ name, amount })),
-                deductions: (data.deductions || []).map(({ name, amount }) => ({ name, amount })),
-                effectiveFrom: new Date(data.effectiveFrom).toISOString()
-            };
-            if (JSON.stringify(previousSnapshot) !== JSON.stringify(currentSnapshot)) {
-                try {
-                    generatedDocument = await generateSalaryRevisionDocument(
-                        employee,
-                        previousStructure,
-                        data,
-                        req.user.userId
-                    );
-                } catch (documentError) {
-                    documentWarning = " Salary structure was saved, but automatic revision letter generation failed.";
-                    console.error("Automatic salary revision letter generation failed:", documentError.message);
-                }
+        if (previousRevision) {
+            try {
+                generatedDocument = await generateSalaryRevisionDocument(employee, previousRevision, revision, req.user.userId);
+            } catch (documentError) {
+                documentWarning = " Salary structure was saved, but automatic revision letter generation failed.";
+                console.error("Automatic salary revision letter generation failed:", documentError.message);
             }
         }
 
