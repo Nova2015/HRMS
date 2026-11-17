@@ -173,19 +173,26 @@ export const deleteDepartment = async (req, res) => {
             });
         }
 
-        const [employeeCount, designationCount] = await Promise.all([
-            Employee.countDocuments({ department: id }),
-            Designation.countDocuments({ department: id })
-        ]);
-
-        if (employeeCount > 0 || designationCount > 0) {
-            return res.status(409).json({
-                success: false,
-                message: "Department is in use. Deactivate it instead of deleting it."
+        const session = await mongoose.startSession();
+        let department;
+        try {
+            await session.withTransaction(async () => {
+                const locked = await Department.findOneAndUpdate(
+                    { _id: id }, { $inc: { assignmentVersion: 1 } }, { new: true, session }
+                );
+                if (!locked) return;
+                const employeeCount = await Employee.countDocuments({ department: id }).session(session);
+                const designationCount = await Designation.countDocuments({ department: id }).session(session);
+                if (employeeCount > 0 || designationCount > 0) {
+                    const inUse = new Error("Department is in use");
+                    inUse.code = "DEPARTMENT_IN_USE";
+                    throw inUse;
+                }
+                department = await Department.findByIdAndDelete(id, { session });
             });
+        } finally {
+            await session.endSession();
         }
-
-        const department = await Department.findByIdAndDelete(id);
 
         if (!department) {
             return res.status(404).json({
@@ -199,9 +206,13 @@ export const deleteDepartment = async (req, res) => {
             message: "Department deleted successfully"
         });
     } catch (error) {
-        res.status(500).json({
+        res.status(error.code === "DEPARTMENT_IN_USE" ? 409 : isTransactionUnavailable(error) ? 503 : 500).json({
             success: false,
-            message: "Unable to delete department"
+            message: error.code === "DEPARTMENT_IN_USE"
+                ? "Department is in use. Deactivate it instead of deleting it."
+                : isTransactionUnavailable(error)
+                    ? "Department deletion is temporarily unavailable; please retry"
+                    : "Unable to delete department"
         });
     }
 };
