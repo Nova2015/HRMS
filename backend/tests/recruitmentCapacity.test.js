@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { reserveJobOpeningForHire, isValidJoiningDate, isValidResumeUrl } from "../src/controllers/recruitmentController.js";
+import { reserveJobOpeningForHire, isValidJoiningDate, isValidResumeUrl, hasValidCandidateFieldLengths } from "../src/controllers/recruitmentController.js";
 import Candidate from "../src/models/Candidate.js";
 import JobOpening from "../src/models/JobOpening.js";
 
@@ -101,4 +101,25 @@ test("resume URL rejects executable, data and unsupported schemes", () => {
     assert.equal(isValidResumeUrl("data:text/html,<script>alert(1)</script>"), false);
     assert.equal(isValidResumeUrl("ftp://example.com/resume.pdf"), false);
     assert.equal(isValidResumeUrl("not-a-url"), false);
+});
+
+
+test("candidate field lengths accept values at schema limits", () => {
+    assert.equal(hasValidCandidateFieldLengths({
+        firstName: "A".repeat(80),
+        lastName: "B".repeat(80),
+        email: `${"a".repeat(242)}@example.com`,
+        phone: "1".repeat(25),
+        currentCompany: "C".repeat(120),
+        resumeUrl: `https://example.com/${"r".repeat(478)}`,
+        notes: "N".repeat(2000)
+    }), true);
+});
+
+test("candidate field lengths reject values exceeding schema limits", () => {
+    assert.equal(hasValidCandidateFieldLengths({ firstName: "A".repeat(81), lastName: "B", email: "a@example.com", phone: "1" }), false);
+    assert.equal(hasValidCandidateFieldLengths({ firstName: "A", lastName: "B".repeat(81), email: "a@example.com", phone: "1" }), false);
+    assert.equal(hasValidCandidateFieldLengths({ firstName: "A", lastName: "B", email: `${"a".repeat(243)}@example.com`, phone: "1" }), false);
+    assert.equal(hasValidCandidateFieldLengths({ firstName: "A", lastName: "B", email: "a@example.com", phone: "1".repeat(26) }), false);
+    assert.equal(hasValidCandidateFieldLengths({ firstName: "A", lastName: "B", email: "a@example.com", phone: "1", notes: "N".repeat(2001) }), false);
 });
