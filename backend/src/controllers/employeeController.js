@@ -7,7 +7,7 @@ import User from "../models/User.js";
 import Department from "../models/Department.js";
 import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
-import { createsReportingCycle } from "../services/reportingHierarchy.js";
+import { createsReportingCycle, hasDirectReports } from "../services/reportingHierarchy.js";
 import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
 
 const ALLOWED_ROLES = ["employee", "manager", "hr", "admin"];
@@ -571,6 +571,22 @@ export const updateEmployee = async (req, res) => {
         const session = await mongoose.startSession();
         try {
             await session.withTransaction(async () => {
+                const nextRole = requestedRole === undefined
+                    ? linkedUser.role
+                    : String(requestedRole).trim().toLowerCase();
+                const nextStatus = updates.employmentStatus === undefined
+                    ? employee.employmentStatus
+                    : updates.employmentStatus;
+                const managerWillBecomeUnavailable =
+                    (linkedUser.role === "manager" || nextRole === "manager") &&
+                    (nextRole !== "manager" || nextStatus !== "active");
+
+                if (managerWillBecomeUnavailable && await hasDirectReports(employee._id, session)) {
+                    const assignedReports = new Error("Reassign all employees reporting to this manager before changing their role or employment status");
+                    assignedReports.code = 40902;
+                    throw assignedReports;
+                }
+
                 Object.assign(employee, updates);
                 await employee.save({ session });
 
@@ -608,7 +624,7 @@ export const updateEmployee = async (req, res) => {
     } catch (error) {
         console.error("Update employee error:", error);
 
-        const isConflict = error.code === 11000 || error.code === 40901;
+        const isConflict = error.code === 11000 || error.code === 40901 || error.code === 40902;
         const isTransactionFailure = Boolean(
             error.hasErrorLabel?.("TransientTransactionError") ||
             error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
@@ -620,7 +636,9 @@ export const updateEmployee = async (req, res) => {
                 ? "Employee email already exists"
                 : error.code === 40901
                     ? "Employee login account could not be synchronized"
-                    : isTransactionFailure
+                    : error.code === 40902
+                        ? "Reassign all employees reporting to this manager before changing their role or employment status"
+                        : isTransactionFailure
                         ? "Employee update could not be completed safely. Please retry."
                         : "Unable to update employee"
         });
@@ -646,6 +664,11 @@ export const archiveEmployee = async (req, res) => {
                     const notFound = new Error("Active employee record not found");
                     notFound.code = 40401;
                     throw notFound;
+                }
+                if (await hasDirectReports(employee._id, session)) {
+                    const assignedReports = new Error("Reassign all employees reporting to this manager before archiving");
+                    assignedReports.code = 40902;
+                    throw assignedReports;
                 }
 
                 const linkedUser = await User.findOneAndUpdate(
@@ -678,14 +701,16 @@ export const archiveEmployee = async (req, res) => {
         });
     } catch (error) {
         console.error("Archive employee error:", error);
-        const status = error.code === 40401 ? 404 : error.code === 40901 ? 409 : 500;
+        const status = error.code === 40401 ? 404 : [40901, 40902].includes(error.code) ? 409 : 500;
         return res.status(status).json({
             success: false,
             message: error.code === 40401
                 ? "Active employee record not found"
                 : error.code === 40901
                     ? "Employee login account is missing; cannot safely archive employee"
-                    : "Unable to archive employee"
+                    : error.code === 40902
+                        ? "Reassign all employees reporting to this manager before archiving"
+                        : "Unable to archive employee"
         });
     }
 };
@@ -710,6 +735,11 @@ export const deactivateEmployee = async (req, res) => {
                     const notFound = new Error("Employee not found");
                     notFound.code = 40401;
                     throw notFound;
+                }
+                if (await hasDirectReports(employee._id, session)) {
+                    const assignedReports = new Error("Reassign all employees reporting to this manager before deactivation");
+                    assignedReports.code = 40902;
+                    throw assignedReports;
                 }
 
                 const linkedUser = await User.findOneAndUpdate(
@@ -739,14 +769,16 @@ export const deactivateEmployee = async (req, res) => {
         });
     } catch (error) {
         console.error("Deactivate employee error:", error);
-        const status = error.code === 40401 ? 404 : error.code === 40901 ? 409 : 500;
+        const status = error.code === 40401 ? 404 : [40901, 40902].includes(error.code) ? 409 : 500;
         return res.status(status).json({
             success: false,
             message: error.code === 40401
                 ? "Employee not found"
                 : error.code === 40901
                     ? "Employee login account is missing; cannot safely deactivate employee"
-                    : "Unable to deactivate employee"
+                    : error.code === 40902
+                        ? "Reassign all employees reporting to this manager before deactivation"
+                        : "Unable to deactivate employee"
         });
     }
 };
