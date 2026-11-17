@@ -34,3 +34,18 @@ export const lockEmployeeReferences = async ({ departmentId, designationId, shif
 export const lockDepartmentReference = (id, session) => lockActive(Department, id, session, "department");
 export const lockDesignationReference = (id, session) => lockActive(Designation, id, session, "designation");
 export const lockShiftReference = (id, session) => lockActive(Shift, id, session, "shift");
+
+export const lockReportingManager = async (managerId, session) => {
+    if (!managerId) return null;
+    const manager = await (await import("../models/Employee.js")).default.findOneAndUpdate(
+        { _id: managerId, employmentStatus: "active", isArchived: { $ne: true } },
+        { $inc: { hierarchyVersion: 1 } },
+        { new: true, session }
+    );
+    if (!manager) {
+        const error = new Error("Selected reporting manager is inactive or unavailable");
+        error.code = "MANAGER_INACTIVE";
+        throw error;
+    }
+    return manager;
+};
