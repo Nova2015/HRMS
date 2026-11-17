@@ -818,6 +818,24 @@ export const activateEmployee = async (req, res) => {
                     throw employmentEnded;
                 }
 
+                if (employee.department && employee.designation) {
+                    const [department, designation] = await Promise.all([
+                        Department.findById(employee.department).session(session),
+                        Designation.findById(employee.designation).session(session)
+                    ]);
+                    if (
+                        !department ||
+                        !department.isActive ||
+                        !designation ||
+                        !designation.isActive ||
+                        designation.department.toString() !== employee.department.toString()
+                    ) {
+                        const invalidOrganization = new Error("Employee department or designation is inactive or inconsistent");
+                        invalidOrganization.code = 40904;
+                        throw invalidOrganization;
+                    }
+                }
+
                 const linkedUser = await User.findOneAndUpdate(
                     { employee: employee._id },
                     { $set: { isActive: true } },
@@ -842,7 +860,7 @@ export const activateEmployee = async (req, res) => {
         });
     } catch (error) {
         console.error("Activate employee error:", error);
-        const status = error.code === 40401 ? 404 : [40901, 40902, 40903].includes(error.code) ? 409 : 500;
+        const status = error.code === 40401 ? 404 : [40901, 40902, 40903, 40904].includes(error.code) ? 409 : 500;
         return res.status(status).json({
             success: false,
             message: error.code === 40401
@@ -853,7 +871,9 @@ export const activateEmployee = async (req, res) => {
                         ? "Archived employees cannot be reactivated. Restore the archive through an authorized process."
                         : error.code === 40903
                             ? "Resigned or terminated employees cannot be reactivated through this action"
-                            : "Unable to activate employee"
+                            : error.code === 40904
+                                ? "Employee department or designation is inactive or inconsistent. Correct the assignment before reactivation."
+                                : "Unable to activate employee"
         });
     }
 };
