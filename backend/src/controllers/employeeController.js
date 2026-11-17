@@ -749,6 +749,11 @@ export const activateEmployee = async (req, res) => {
                     notFound.code = 40401;
                     throw notFound;
                 }
+                if (employee.isArchived) {
+                    const archived = new Error("Archived employees cannot be reactivated");
+                    archived.code = 40902;
+                    throw archived;
+                }
 
                 const linkedUser = await User.findOneAndUpdate(
                     { employee: employee._id },
@@ -774,14 +779,16 @@ export const activateEmployee = async (req, res) => {
         });
     } catch (error) {
         console.error("Activate employee error:", error);
-        const status = error.code === 40401 ? 404 : error.code === 40901 ? 409 : 500;
+        const status = error.code === 40401 ? 404 : [40901, 40902].includes(error.code) ? 409 : 500;
         return res.status(status).json({
             success: false,
             message: error.code === 40401
                 ? "Employee not found"
                 : error.code === 40901
                     ? "Employee login account is missing; cannot safely activate employee"
-                    : "Unable to activate employee"
+                    : error.code === 40902
+                        ? "Archived employees cannot be reactivated. Restore the archive through an authorized process."
+                        : "Unable to activate employee"
         });
     }
 };
