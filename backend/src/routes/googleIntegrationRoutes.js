@@ -612,6 +612,13 @@ router.post("/calendar/sync", protect, authorizeRoles("admin", "hr"), auditActio
         let pushed = 0;
         let cancelled = 0;
         for (const local of localEvents) {
+            // Legacy two-way sync may have imported a personal event from a secondary
+            // Google calendar. Never forward such records to the Primary Calendar.
+            const hasSecondaryGoogleMapping = (local.googleCalendarMappings || []).some(
+                (item) => item.calendarId && item.calendarId !== "primary"
+            );
+            if (hasSecondaryGoogleMapping) continue;
+
             const mapping = getCalendarMapping(local, req.user.userId, "primary");
             if (local.status === "cancelled" && !mapping?.googleEventId) continue;
 
