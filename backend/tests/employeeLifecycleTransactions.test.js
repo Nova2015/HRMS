@@ -171,7 +171,7 @@ test("updateEmployee refuses to reactivate resigned or terminated employees thro
                     user: { role: "admin" }
                 }, res);
                 assert.equal(res.statusCode, 409);
-                assert.match(res.body.message, /Resigned or terminated employees cannot be reactivated/);
+                assert.match(res.body.message, /Employment status cannot be changed after resignation or termination/);
                 assert.equal(userLookupAttempted, false);
             } finally {
                 Employee.findById = originalFindById;
