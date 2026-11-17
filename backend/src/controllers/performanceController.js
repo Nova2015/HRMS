@@ -16,8 +16,13 @@ const populateReview = (query) => query
 const canReview = async (req, review) => {
     if (adminRoles.includes(req.user.role)) return true;
     if (req.user.role !== "manager") return false;
-    const employee = await Employee.findById(review.employee).select("reportingManager");
-    return Boolean(employee?.reportingManager?.toString() === req.user.employeeId);
+    const employee = await Employee.findById(review.employee).select("reportingManager employmentStatus isArchived");
+    return Boolean(
+        employee &&
+        employee.reportingManager?.toString() === req.user.employeeId &&
+        employee.employmentStatus === "active" &&
+        employee.isArchived !== true
+    );
 };
 
 export const getPerformanceReviews = async (req, res) => {
