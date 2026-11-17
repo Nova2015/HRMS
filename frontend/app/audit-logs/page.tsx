@@ -16,6 +16,7 @@ type AuditItem = {
   method: string;
   route: string;
   resourceId?: string;
+  outcome?: "approved" | "rejected" | "";
   statusCode: number;
   ipAddress?: string;
   createdAt: string;
@@ -107,7 +108,7 @@ function AuditLogsContent() {
         {loading ? <div className="p-10 text-center text-sm text-slate-500">Loading audit activity…</div> : items.length === 0 ? <div className="p-12 text-center"><div className="mx-auto mb-3 w-fit rounded-2xl bg-slate-100 p-3 text-slate-500"><CalendarDays size={22}/></div><p className="font-semibold text-slate-800">No activity found</p><p className="mt-1 text-sm text-slate-500">Try changing the date range or filters. New successful actions will appear here.</p></div> : <>
           <div className="divide-y divide-slate-100">
             {items.map((item) => <article key={item._id} className="grid gap-3 px-5 py-4 transition hover:bg-slate-50/80 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] md:items-center">
-              <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">{pretty(item.module)}</span><span className="text-sm font-bold text-slate-900">{pretty(item.action)}</span></div><p className="mt-1 truncate text-xs text-slate-500">{item.method} {item.route}{item.resourceId ? ` · Ref: ${item.resourceId}` : ""}</p></div>
+              <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">{pretty(item.module)}</span><span className="text-sm font-bold text-slate-900">{pretty(item.action)}</span>{item.outcome && <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${item.outcome === "approved" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{pretty(item.outcome)}</span>}</div><p className="mt-1 truncate text-xs text-slate-500">{item.method} {item.route}{item.resourceId ? ` · Ref: ${item.resourceId}` : ""}</p></div>
               <div className="min-w-0"><p className="truncate text-sm font-medium text-slate-800">{item.actor?.email || "Account unavailable"}</p><p className="mt-1 flex items-center gap-1.5 text-xs capitalize text-slate-500"><UserRound size={12}/>{item.role}{item.employee?.employeeCode ? ` · ${item.employee.employeeCode}` : ""}</p></div>
               <div className="flex items-center justify-between gap-3 md:flex-col md:items-end"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">HTTP {item.statusCode}</span><time className="text-xs tabular-nums text-slate-500">{dateTime(item.createdAt)}</time></div>
             </article>)}
