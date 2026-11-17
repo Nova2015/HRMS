@@ -259,17 +259,27 @@ export const updateHelpdeskTicketStatus = async (req, res) => {
             return res.status(409).json({ success: false, message: "Resolve the ticket before closing it" });
         }
 
-        ticket.status = status;
-        if (resolutionNote.trim()) ticket.resolutionNote = resolutionNote.trim();
-        if (status === "resolved") ticket.resolvedAt = new Date();
-        if (status === "closed") ticket.closedAt = new Date();
+        const statusUpdate = { status };
+        if (resolutionNote.trim()) statusUpdate.resolutionNote = resolutionNote.trim();
+        if (status === "resolved") statusUpdate.resolvedAt = new Date();
+        if (status === "closed") statusUpdate.closedAt = new Date();
         if (status === "in_progress") {
-            ticket.resolvedAt = null;
-            ticket.closedAt = null;
+            statusUpdate.resolvedAt = null;
+            statusUpdate.closedAt = null;
         }
-        await ticket.save();
+        const updatedTicket = await HelpdeskTicket.findOneAndUpdate(
+            { _id: id, status: ticket.status, ...access.filter },
+            { $set: statusUpdate },
+            { new: true, runValidators: true }
+        );
+        if (!updatedTicket) {
+            return res.status(409).json({
+                success: false,
+                message: "Ticket status changed by another request. Refresh and try again."
+            });
+        }
 
-        const data = await populateTicket(HelpdeskTicket.findById(ticket._id));
+        const data = await populateTicket(HelpdeskTicket.findById(updatedTicket._id));
         return res.json({ success: true, message: "Ticket status updated successfully", data });
     } catch (error) {
         console.error("Update Helpdesk ticket status:", error.message);
