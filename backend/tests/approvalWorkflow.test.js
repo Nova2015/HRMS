@@ -37,7 +37,7 @@ const withModelStubs = async (stubs, run) => {
         target: targets[targetName],
         methods: Object.entries(methods).map(([name, implementation]) => ({
             name,
-            original: target[name],
+            original: targets[targetName][name],
             implementation
         }))
     }));
