@@ -4,6 +4,12 @@ import LeaveRequest from "../models/LeaveRequest.js";
 import Payroll from "../models/Payroll.js";
 import PerformanceReview from "../models/PerformanceReview.js";
 
+const excludeTestEmployeeStages = () => [
+    { $lookup: { from: "employees", localField: "employee", foreignField: "_id", as: "reportEmployee" } },
+    { $unwind: "$reportEmployee" },
+    { $match: { "reportEmployee.isTestRecord": { $ne: true } } }
+];
+
 const isDateKey = (value) => typeof value === "string" &&
     /^\d{4}-\d{2}-\d{2}$/.test(value) &&
     !Number.isNaN(new Date(value + "T00:00:00.000Z").getTime()) &&
@@ -38,18 +44,22 @@ export const getReportsSummary = async (req, res) => {
             Employee.countDocuments({ isTestRecord: { $ne: true } }),
             Attendance.aggregate([
                 { $match: { dateKey: { $gte: from, $lte: to } } },
+                ...excludeTestEmployeeStages(),
                 { $group: { _id: "$status", count: { $sum: 1 }, late: { $sum: { $cond: ["$isLate", 1, 0] } }, workMinutes: { $sum: "$workMinutes" } } }
             ]),
             LeaveRequest.aggregate([
                 { $match: { startDate: { $lte: to }, endDate: { $gte: from } } },
+                ...excludeTestEmployeeStages(),
                 { $group: { _id: "$status", requests: { $sum: 1 }, days: { $sum: "$totalDays" } } }
             ]),
             Payroll.aggregate([
                 { $match: { period: { $gte: payrollFrom, $lte: payrollTo } } },
+                ...excludeTestEmployeeStages(),
                 { $group: { _id: "$status", records: { $sum: 1 }, netPay: { $sum: "$netPay" }, grossPay: { $sum: "$grossEarnings" } } }
             ]),
             PerformanceReview.aggregate([
                 { $match: performanceYearFilter },
+                ...excludeTestEmployeeStages(),
                 { $group: { _id: "$status", reviews: { $sum: 1 }, ratedReviews: { $sum: { $cond: [{ $isNumber: "$managerReview.rating" }, 1, 0] } }, averageRating: { $avg: "$managerReview.rating" } } }
             ]),
             Employee.aggregate([
