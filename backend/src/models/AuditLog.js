@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 
 const auditLogSchema = new mongoose.Schema({
-    actor: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    actor: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     employee: { type: mongoose.Schema.Types.ObjectId, ref: "Employee", default: null },
-    role: { type: String, required: true, enum: ["admin", "hr", "manager", "employee"] },
+    role: { type: String, required: true, enum: ["admin", "hr", "manager", "employee", "system"] },
     action: { type: String, required: true, maxlength: 120, index: true },
     module: { type: String, required: true, maxlength: 60, index: true },
     method: { type: String, required: true, maxlength: 10 },
