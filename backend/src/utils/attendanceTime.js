@@ -33,6 +33,27 @@ export const getAttendanceDateKey = (date, shift) => {
     return previous.toISOString().slice(0, 10);
 };
 
+export const getShiftSnapshot = (shift) => shift ? {
+    shiftStartTime: shift.startTime,
+    shiftEndTime: shift.endTime,
+    shiftGracePeriodMinutes: shift.gracePeriodMinutes
+} : {
+    shiftStartTime: null,
+    shiftEndTime: null,
+    shiftGracePeriodMinutes: null
+};
+
+export const getShiftFromSnapshot = (attendance, fallbackShift = null) => {
+    if (attendance?.shiftStartTime && attendance?.shiftEndTime) {
+        return {
+            startTime: attendance.shiftStartTime,
+            endTime: attendance.shiftEndTime,
+            gracePeriodMinutes: attendance.shiftGracePeriodMinutes ?? 0
+        };
+    }
+    return fallbackShift;
+};
+
 export const isLateCheckIn = (date, shift, defaultLateAfterMinutes) => {
     const parts = getLocalParts(date);
     const localMinutes = Number(parts.hour) * 60 + Number(parts.minute);
