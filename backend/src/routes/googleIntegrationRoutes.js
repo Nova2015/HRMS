@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import GoogleGmailIntegration from "../models/GoogleGmailIntegration.js";
 import Employee from "../models/Employee.js";
 import User from "../models/User.js";
+import Session from "../models/Session.js";
 import CompanyEvent from "../models/CompanyEvent.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
@@ -174,7 +175,6 @@ router.get("/gmail/callback", async (req, res) => {
         }
         const initiatingUser = await User.findById(decoded.userId)
             .select("_id employee role isActive tokenVersion");
-        const Session = (await import("../models/Session.js")).default;
         const initiatingSession = decoded.sessionJti ? await Session.findOne({
             user: decoded.userId,
             jti: decoded.sessionJti,
@@ -183,7 +183,7 @@ router.get("/gmail/callback", async (req, res) => {
             expiresAt: { $gt: new Date() }
         }).select("_id") : null;
         if (!initiatingUser || !initiatingUser.isActive ||
-            initiatingUser.tokenVersion !== decoded.tokenVersion ||
+            (initiatingUser.tokenVersion ?? 0) !== (decoded.tokenVersion ?? 0) ||
             !initiatingSession ||
             !["admin", "hr"].includes(initiatingUser.role)) {
             return res.status(403).json({
