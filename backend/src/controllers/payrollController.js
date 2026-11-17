@@ -6,6 +6,11 @@ import { calculateAutomaticProration, calculateManualProration } from "../utils/
 import { generatePayslipDocument, generateSalaryRevisionDocument } from "../services/employeeDocumentGenerator.js";
 
 const isPeriod = (value) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value || "");
+const isValidDateOnly = (value) => {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
 const money = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const normalizeLines = (lines) => {
     if (!Array.isArray(lines)) return null;
@@ -53,7 +58,7 @@ export const saveSalaryStructure = async (req, res) => {
         const deductionLines = normalizeLines(deductions);
         const date = new Date(effectiveFrom);
         if (!Number.isFinite(basic) || basic < 0 || basic > 1_000_000_000 ||
-            !earningLines || !deductionLines || !effectiveFrom || Number.isNaN(date.getTime())) {
+            !earningLines || !deductionLines || !isValidDateOnly(effectiveFrom) || Number.isNaN(date.getTime())) {
             return res.status(400).json({ success: false, message: "Provide valid basic salary, component lines and effective date" });
         }
 
@@ -126,7 +131,8 @@ export const saveSalaryStructure = async (req, res) => {
         });
     } catch (error) {
         console.error("Save salary structure:", error);
-        return res.status(error.code === 11000 ? 409 : 400).json({ success: false, message: error.code === 11000 ? "Salary structure already exists" : "Unable to save salary structure" });
+        const conflict = error.code === 11000 || error.name === "VersionError";
+        return res.status(conflict ? 409 : 400).json({ success: false, message: error.name === "VersionError" ? "Salary structure changed concurrently. Refresh and retry the salary revision." : error.code === 11000 ? "Salary structure already exists" : "Unable to save salary structure" });
     }
 };
 
