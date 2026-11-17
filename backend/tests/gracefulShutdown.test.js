@@ -94,3 +94,26 @@ test("shutdown exits with failure if MongoDB disconnect fails", async () => {
 
     assert.equal(exitCode, 1);
 });
+
+test("shutdown force-closes active HTTP connections after the timeout", async () => {
+    let closeAllCalls = 0;
+    let disconnectCalls = 0;
+    let exitCode;
+    const shutdown = createGracefulShutdown({
+        server: {
+            close() {},
+            closeAllConnections() { closeAllCalls += 1; }
+        },
+        disconnect: async () => { disconnectCalls += 1; },
+        exit: (code) => { exitCode = code; },
+        logger: createLogger(),
+        timeoutMs: 5
+    });
+
+    shutdown("SIGTERM");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    assert.equal(closeAllCalls, 1);
+    assert.equal(disconnectCalls, 1);
+    assert.equal(exitCode, 1);
+});
