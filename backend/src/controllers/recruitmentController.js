@@ -10,6 +10,12 @@ import Designation from "../models/Designation.js";
 const candidateStatuses = new Set(["applied", "screening", "interview", "selected", "rejected"]);
 const jobStatuses = new Set(["open", "on_hold", "closed"]);
 
+export const isValidJoiningDate = (value) => {
+    if (typeof value !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
 const populatedCandidate = (query) => query
     .populate("jobOpening", "title status")
     .populate("department", "name code")
@@ -166,7 +172,7 @@ export const hireCandidate = async (req, res) => {
         const { id } = req.params;
         const { employeeCode, joiningDate, initialPassword } = req.body || {};
         if (!mongoose.isValidObjectId(id)) return res.status(400).json({ success: false, message: "Invalid candidate ID" });
-        if (!String(employeeCode || "").trim() || !joiningDate || !initialPassword ||
+        if (!String(employeeCode || "").trim() || !isValidJoiningDate(joiningDate) || !initialPassword ||
             String(initialPassword).length < 12 || Buffer.byteLength(String(initialPassword), "utf8") > 72) {
             return res.status(400).json({ success: false, message: "Enter employee code, joining date and an initial password of at least 12 characters (maximum 72 UTF-8 bytes)" });
         }
