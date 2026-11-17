@@ -13,6 +13,7 @@ import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import { auditAction } from "../middleware/auditLogMiddleware.js";
 import { googleFetch } from "../utils/googleFetch.js";
+import { requireGoogleRefreshToken } from "../utils/googleRefreshToken.js";
 
 const router = express.Router();
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -65,12 +66,7 @@ const getGmailAccessToken = async (integration) => {
     const expiresSoon = !integration.tokenExpiresAt || integration.tokenExpiresAt.getTime() <= Date.now() + 60_000;
     if (!expiresSoon) return decryptToken(integration.accessTokenEncrypted);
 
-    if (!integration.refreshTokenEncrypted) {
-        const error = new Error("Google authorization is unavailable; reconnect the account");
-        error.status = 401;
-        throw error;
-    }
-    const refreshToken = decryptToken(integration.refreshTokenEncrypted);
+    const refreshToken = decryptToken(requireGoogleRefreshToken(integration.refreshTokenEncrypted));
     const config = getOAuthConfig();
     const response = await googleFetch(GOOGLE_TOKEN_URL, {
         method: "POST",
