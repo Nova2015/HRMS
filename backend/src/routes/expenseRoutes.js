@@ -11,21 +11,15 @@ import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import { uploadExpenseReceipt } from "../middleware/expenseReceiptUpload.js";
 import { auditAction } from "../middleware/auditLogMiddleware.js";
+import { getUploadErrorResponse } from "../utils/uploadError.js";
 
 const router = express.Router();
 
 const handleReceiptUpload = (req, res, next) => {
     uploadExpenseReceipt(req, res, (error) => {
         if (!error) return next();
-        const status = error.code === "LIMIT_FILE_SIZE" ? 413 : error.code ? 500 : 400;
-        return res.status(status).json({
-            success: false,
-            message: error.code === "LIMIT_FILE_SIZE"
-                ? "Receipt must be 10 MB or smaller"
-                : error.code
-                    ? "Unable to store receipt"
-                    : "Only PDF, JPG and PNG receipts are allowed"
-        });
+        const { status, message } = getUploadErrorResponse(error, "Receipt");
+        return res.status(status).json({ success: false, message });
     });
 };
 
