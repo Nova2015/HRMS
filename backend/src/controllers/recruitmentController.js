@@ -38,6 +38,12 @@ export const hasValidCandidateFieldLengths = ({ firstName, lastName, email, phon
     String(notes ?? "").trim().length <= 2000
 );
 
+export const hasValidJobOpeningFieldLengths = ({ title, description, location = "" }) => (
+    String(title ?? "").trim().length <= 120 &&
+    String(description ?? "").trim().length <= 5000 &&
+    String(location ?? "").trim().length <= 200
+);
+
 export const reserveOpenJobForCandidate = async (jobOpening, session) => {
     const job = await JobOpening.findOneAndUpdate(
         { _id: jobOpening, status: "open" },
@@ -84,6 +90,7 @@ export const createJobOpening = async (req, res) => {
     try {
         const { title, department, designation, description, employmentType = "full_time", location = "", openings = 1 } = req.body || {};
         if (!String(title || "").trim() || !String(description || "").trim() ||
+            !hasValidJobOpeningFieldLengths({ title, description, location }) ||
             !mongoose.isValidObjectId(department) || !mongoose.isValidObjectId(designation) ||
             !Number.isInteger(Number(openings)) || Number(openings) < 1 ||
             !["full_time", "part_time", "contract", "internship"].includes(employmentType)) {
@@ -105,6 +112,7 @@ export const createJobOpening = async (req, res) => {
         const data = await JobOpening.findById(job._id).populate("department", "name").populate("designation", "name");
         return res.status(201).json({ success: true, message: "Job opening created successfully", data });
     } catch (error) {
+        if (error.name === "ValidationError") return res.status(400).json({ success: false, message: "Job opening contains invalid field values" });
         console.error("Create job opening:", error.message);
         return res.status(500).json({ success: false, message: "Unable to create job opening" });
     }
