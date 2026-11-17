@@ -1,4 +1,4 @@
-﻿import mongoose from "mongoose";
+import mongoose from "mongoose";
 import Designation from "../models/Designation.js";
 import Department from "../models/Department.js";
 
@@ -107,6 +107,33 @@ export const updateDesignation = async (req, res) => {
             const department = await Department.findById(departmentId);
             if (!department || !department.isActive) {
                 return res.status(400).json({ success: false, message: "An active department is required" });
+            }
+        }
+
+        if (updates.isActive === false) {
+            const activeEmployeeCount = await (await import("../models/Employee.js")).default.countDocuments({
+                designation: id,
+                employmentStatus: "active",
+                isArchived: { $ne: true }
+            });
+
+            if (activeEmployeeCount > 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Designation is assigned to active employees. Reassign those employees before deactivating the designation."
+                });
+            }
+        }
+
+        if (updates.department !== undefined) {
+            const assignedEmployeeCount = await (await import("../models/Employee.js")).default.countDocuments({
+                designation: id
+            });
+            if (assignedEmployeeCount > 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Designation is assigned to employee records. It cannot be moved to another department."
+                });
             }
         }
 
