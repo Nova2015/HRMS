@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, Clock3, FileText, RefreshCw, Search, ShieldCheck, Wallet, CalendarDays, UserRound, X } from "lucide-react";
 import AuthGuard from "../components/AuthGuard";
 
@@ -96,6 +97,13 @@ function ApprovalInboxContent() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
+    const appShell = document.querySelector<HTMLElement>(".hrms-app-shell");
+    if (!appShell) return;
+    appShell.inert = !!confirmTarget;
+    return () => { appShell.inert = false; };
+  }, [confirmTarget]);
+
+  useEffect(() => {
     if (!confirmTarget) return;
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     cancelButtonRef.current?.focus();
@@ -162,7 +170,7 @@ function ApprovalInboxContent() {
 
   return (
     <main className="min-h-screen bg-[#f5f7fb] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1440px]" inert={!!confirmTarget} aria-hidden={confirmTarget ? true : undefined}>
+      <div className="mx-auto max-w-[1440px]">
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-indigo-700"><ShieldCheck size={14} /> HR workspace</p>
@@ -250,7 +258,7 @@ function ApprovalInboxContent() {
         </section>
         <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400"><Clock3 size={12} /> Expense reimbursement remains in the Expenses module after approval.</p>
       </div>
-      {confirmTarget && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setConfirmTarget(null); }}>
+      {confirmTarget && typeof document !== "undefined" && createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setConfirmTarget(null); }}>
           <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="approval-confirm-title" aria-describedby="approval-confirm-description" onKeyDown={(event) => { if (event.key === "Escape" && !busyId) { event.preventDefault(); setConfirmTarget(null); } if (event.key === "Tab") { const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'); if (!focusable?.length) return; const first = focusable[0]; const last = focusable[focusable.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } }} className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
             <h2 id="approval-confirm-title" className="text-base font-bold text-slate-900">{confirmTarget.decision === "approve" ? "Confirm approval" : "Confirm rejection"}</h2>
             <p id="approval-confirm-description" className="mt-2 text-sm text-slate-600">{confirmTarget.decision === "approve"
@@ -270,7 +278,7 @@ function ApprovalInboxContent() {
               <button type="button" disabled={!!busyId} onClick={() => void decide()} className={"min-h-11 rounded-lg px-3 py-2 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 " + (confirmTarget.decision === "approve" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700")}>{busyId ? "Processing…" : confirmTarget.decision === "approve" ? "Yes, approve" : "Yes, reject"}</button>
             </div>
           </section>
-        </div>}
+        </div>, document.body)}
 
     </main>
   );
