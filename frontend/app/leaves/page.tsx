@@ -12,6 +12,9 @@ import AuthGuard from "../components/AuthGuard";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
+type LeaveEmployee = { _id: string; employeeCode: string; firstName: string; lastName: string; employmentStatus?: string };
+type LeaveBalance = { _id: string; year: number; employee: LeaveEmployee; casual: number; sick: number; earned: number; balances: Record<"casual" | "sick" | "earned", { allocated: number; reserved: number; available: number }> };
+
 type LeaveRequest = {
   _id: string;
   leaveType: "casual" | "sick" | "earned" | "unpaid";
@@ -125,6 +128,50 @@ function LeaveManagement() {
   useEffect(() => {
     void Promise.resolve().then(loadLeaves);
   }, [loadLeaves]);
+
+  const loadAllocations = useCallback(async () => {
+    try {
+      const result = await request(`/leave-allocations?year=${encodeURIComponent(allocationYear)}`);
+      setAllocations(result.data || []);
+      if (canManage) {
+        const employeeResult = await request("/employees");
+        const activeEmployees = (employeeResult.data || []).filter((employee: LeaveEmployee) => employee.employmentStatus === "active");
+        setAllocationEmployees(activeEmployees);
+        if (!allocationForm.employeeId && activeEmployees.length) {
+          setAllocationForm((current) => ({ ...current, employeeId: activeEmployees[0]._id }));
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load leave allocations");
+    }
+  }, [request, allocationYear, canManage, allocationForm.employeeId]);
+
+  useEffect(() => {
+    void loadAllocations();
+  }, [loadAllocations]);
+
+  const saveAllocation = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true); setError(""); setMessage("");
+    try {
+      const result = await request("/leave-allocations", {
+        method: "PUT",
+        body: JSON.stringify({
+          employeeId: allocationForm.employeeId,
+          year: Number(allocationYear),
+          casual: Number(allocationForm.casual),
+          sick: Number(allocationForm.sick),
+          earned: Number(allocationForm.earned),
+        }),
+      });
+      setMessage(result.message || "Leave allocation saved.");
+      await loadAllocations();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save leave allocation");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const submitLeave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -263,6 +310,52 @@ function LeaveManagement() {
             <p className="mt-3 text-3xl font-bold text-slate-900">{summary.rejected}</p>
             <p className="mt-1 text-xs text-slate-500">Requests not approved</p>
           </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">{canManage ? "Leave Allocation & Balance" : "My Leave Balance"}</h2>
+              <p className="mt-1 text-sm text-slate-500">Annual Casual, Sick and Earned Leave balances. Pending requests are reserved until approved or rejected.</p>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-slate-600">Year
+              <input type="number" min="2000" max="2100" value={allocationYear} onChange={(e) => setAllocationYear(e.target.value)} className="w-24 rounded-lg border border-slate-300 px-2 py-1.5" />
+            </label>
+          </div>
+          {canManage && (
+            <form onSubmit={saveAllocation} className="mb-4 grid gap-3 rounded-xl bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-5">
+              <label className="text-xs font-medium text-slate-600 lg:col-span-2">Employee
+                <select required value={allocationForm.employeeId} onChange={(e) => setAllocationForm({ ...allocationForm, employeeId: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                  {allocationEmployees.map((employee) => <option key={employee._id} value={employee._id}>{employee.firstName} {employee.lastName} ({employee.employeeCode})</option>)}
+                </select>
+              </label>
+              {(["casual", "sick", "earned"] as const).map((type) => (
+                <label key={type} className="text-xs font-medium capitalize text-slate-600">{type} Leave (days)
+                  <input required type="number" min="0" max="366" step="1" value={allocationForm[type]} onChange={(e) => setAllocationForm({ ...allocationForm, [type]: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+                </label>
+              ))}
+              <div className="flex items-end lg:col-span-5">
+                <button type="submit" disabled={saving || !allocationForm.employeeId} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{saving ? "Saving..." : "Save Allocation"}</button>
+              </div>
+            </form>
+          )}
+          {allocations.length === 0 ? (
+            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{canManage ? "No leave allocations found for this year. Select an employee and assign leave days above." : "HR has not assigned leave for this year. Please contact HR."}</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full min-w-[520px] text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{canManage && <th className="px-3 py-2">Employee</th>}<th className="px-3 py-2">Leave Type</th><th className="px-3 py-2">Allocated</th><th className="px-3 py-2">Pending / Used</th><th className="px-3 py-2">Available</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {allocations.flatMap((allocation) => (["casual", "sick", "earned"] as const).map((type) => (
+                    <tr key={allocation._id + type}>
+                      {canManage && type === "casual" && <td rowSpan={3} className="px-3 py-2 font-medium text-slate-800">{allocation.employee?.firstName} {allocation.employee?.lastName}<span className="block text-xs text-slate-500">{allocation.employee?.employeeCode}</span></td>}
+                      <td className="px-3 py-2 capitalize">{type} Leave</td><td className="px-3 py-2">{allocation.balances[type].allocated}</td><td className="px-3 py-2">{allocation.balances[type].reserved}</td><td className="px-3 py-2 font-semibold">{allocation.balances[type].available}</td>
+                    </tr>
+                  )))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         {showForm && (
