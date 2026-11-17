@@ -24,7 +24,8 @@ const mockLeaveFind = (capture) => {
         return {
             populate() { return this; },
             sort() { return this; },
-            limit: async () => []
+            limit() { return this; },
+            then(resolve, reject) { return Promise.resolve([]).then(resolve, reject); }
         };
     };
 };
