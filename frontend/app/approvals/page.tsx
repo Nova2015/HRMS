@@ -53,12 +53,17 @@ function ApprovalInboxContent() {
       },
       cache: "no-store",
     });
-    const result = await response.json();
     if (response.status === 401) {
       sessionStorage.removeItem("hrms_token");
       sessionStorage.removeItem("hrms_user");
       window.location.replace("/login");
       throw new Error("Session expired. Please log in again.");
+    }
+    let result: { success?: boolean; message?: string; data?: Approval[] };
+    try {
+      result = await response.json();
+    } catch {
+      throw new Error("The server returned an invalid response. Please try again.");
     }
     if (!response.ok || !result.success) throw new Error(result.message || "Request failed");
     return result;
@@ -71,6 +76,7 @@ function ApprovalInboxContent() {
       const result = await request("/approvals?status=" + encodeURIComponent(status));
       setItems(Array.isArray(result.data) ? result.data : []);
     } catch (err) {
+      setItems([]);
       setError(err instanceof Error ? err.message : "Unable to load approvals");
     } finally {
       setLoading(false);
