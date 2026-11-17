@@ -1,4 +1,5 @@
 import test from "node:test";
+import mongoose from "mongoose";
 import assert from "node:assert/strict";
 
 import { reviewLeaveRequest } from "../src/controllers/leaveController.js";
@@ -32,7 +33,7 @@ const createResponse = () => ({
 });
 
 const withModelStubs = async (stubs, run) => {
-    const targets = { Employee, LeaveRequest, ExpenseClaim, EmployeeUpdateApproval };
+    const targets = { mongoose, Employee, LeaveRequest, ExpenseClaim, EmployeeUpdateApproval };
     const originals = Object.entries(stubs).map(([targetName, methods]) => ({
         target: targets[targetName],
         methods: Object.entries(methods).map(([name, implementation]) => ({
@@ -67,22 +68,30 @@ const populatedQuery = (value) => ({
 });
 
 test("Manager can review a pending leave request from an assigned team member", async () => {
-    let capturedFilter;
-    const teamIds = [IDS.teamEmployee];
+    let capturedLock;
+    let capturedDecision;
+    const session = { withTransaction: async (callback) => callback(), endSession: async () => {} };
 
     await withModelStubs({
+        mongoose: {
+            startSession: async () => session
+        },
         Employee: {
-            find: (filter) => ({
-                distinct: async (field) => {
-                    assert.deepEqual(filter, { reportingManager: IDS.manager });
-                    assert.equal(field, "_id");
-                    return teamIds;
-                }
-            })
+            findOneAndUpdate: async (filter, update, options) => {
+                capturedLock = { filter, update, options };
+                return { _id: IDS.teamEmployee };
+            }
         },
         LeaveRequest: {
-            findOneAndUpdate: async (filter) => {
-                capturedFilter = filter;
+            findOne: (filter) => ({
+                session: async (activeSession) => {
+                    assert.equal(activeSession, session);
+                    assert.deepEqual(filter, { _id: IDS.request, status: "pending" });
+                    return { _id: IDS.request, employee: IDS.teamEmployee, status: "pending" };
+                }
+            }),
+            findOneAndUpdate: async (filter, update, options) => {
+                capturedDecision = { filter, update, options };
                 return { _id: IDS.request };
             },
             findById: () => populatedQuery({ _id: IDS.request })
@@ -98,29 +107,49 @@ test("Manager can review a pending leave request from an assigned team member", 
         await reviewLeaveRequest(req, res);
 
         assert.equal(res.statusCode, 200);
-        assert.deepEqual(capturedFilter, {
-            _id: IDS.request,
-            status: "pending",
-            employee: { $in: teamIds }
+        assert.deepEqual(capturedLock.filter, {
+            _id: IDS.teamEmployee,
+            reportingManager: IDS.manager,
+            employmentStatus: "active",
+            isArchived: { $ne: true }
         });
+        assert.deepEqual(capturedLock.update, { $inc: { hierarchyVersion: 1 } });
+        assert.equal(capturedLock.options.session, session);
+        assert.deepEqual(capturedDecision.filter, {
+            _id: IDS.request,
+            employee: IDS.teamEmployee,
+            status: "pending"
+        });
+        assert.equal(capturedDecision.options.session, session);
     });
 });
 
 test("Manager cannot review a leave request outside the assigned team", async () => {
-    let capturedDecisionFilter;
-    let capturedExistsFilter;
+    let decisionWriteCalled = false;
+    const session = { withTransaction: async (callback) => callback(), endSession: async () => {} };
+
     await withModelStubs({
-        Employee: {
-            find: () => ({ distinct: async () => [IDS.teamEmployee] })
+        mongoose: {
+            startSession: async () => session
         },
         LeaveRequest: {
+            findOne: () => ({
+                session: async () => ({
+                    _id: IDS.request,
+                    employee: IDS.otherEmployee,
+                    status: "pending"
+                })
+            }),
+            findOneAndUpdate: async () => {
+                decisionWriteCalled = true;
+                return { _id: IDS.request };
+            }
+        },
+        Employee: {
             findOneAndUpdate: async (filter) => {
-                capturedDecisionFilter = filter;
+                assert.equal(String(filter._id), IDS.otherEmployee);
+                assert.equal(String(filter.reportingManager), IDS.manager);
                 return null;
-            },
-            exists: async (filter) => {
-                capturedExistsFilter = filter;
-                return false;
             }
         }
     }, async () => {
@@ -134,8 +163,7 @@ test("Manager cannot review a leave request outside the assigned team", async ()
         await reviewLeaveRequest(req, res);
 
         assert.equal(res.statusCode, 404);
-        assert.deepEqual(capturedDecisionFilter.employee, { $in: [IDS.teamEmployee] });
-        assert.deepEqual(capturedExistsFilter.employee, { $in: [IDS.teamEmployee] });
+        assert.equal(decisionWriteCalled, false);
     });
 });
 
