@@ -12,6 +12,13 @@ const CATEGORIES = new Set(["travel", "meals", "equipment"]);
 const isPrivileged = (role) => ["admin", "hr"].includes(role);
 const money = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
+export const parseExpenseDateOnly = (value) => {
+    if (typeof value !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return null;
+    const date = new Date(value + "T00:00:00.000Z");
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null;
+    return date;
+};
+
 const removeUploadedFile = async (filePath) => {
     if (!filePath) return;
     try { await fs.unlink(filePath); }
@@ -114,9 +121,9 @@ export const createExpenseClaim = async (req, res) => {
         if (!(await validateReceipt(file, res))) return;
         const { category, amount, expenseDate, merchant = "", description } = req.body || {};
         const value = Number(amount);
-        const date = new Date(expenseDate);
+        const date = parseExpenseDateOnly(expenseDate);
         if (!CATEGORIES.has(category) || !Number.isFinite(value) || value <= 0 || value > 100000000 ||
-            !expenseDate || Number.isNaN(date.getTime()) || date > new Date() ||
+            !date || date > new Date() ||
             !String(description || "").trim() || String(description).trim().length > 1000 ||
             String(merchant).trim().length > 120) {
             await removeUploadedFile(file.path);
