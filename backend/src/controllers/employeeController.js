@@ -9,6 +9,7 @@ import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
 import { createsReportingCycle, hasDirectReports } from "../services/reportingHierarchy.js";
 import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
+import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
 
 const ALLOWED_ROLES = ["employee", "manager", "hr", "admin"];
 const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
@@ -235,11 +236,7 @@ export const createEmployee = async (req, res) => {
         console.error("Create employee error:", error);
 
         const isConflict = error.code === 11000;
-        const isTransactionFailure = Boolean(
-            error.hasErrorLabel?.("TransientTransactionError") ||
-            error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
-            /transaction numbers are only allowed|replica set|mongos/i.test(error.message || "")
-        );
+        const isTransactionFailure = isTransactionUnavailable(error);
         return res.status(isConflict ? 409 : isTransactionFailure ? 503 : 400).json({
             success: false,
             message: isConflict
@@ -628,11 +625,7 @@ export const updateEmployee = async (req, res) => {
         console.error("Update employee error:", error);
 
         const isConflict = error.code === 11000 || error.code === 40901 || error.code === 40902;
-        const isTransactionFailure = Boolean(
-            error.hasErrorLabel?.("TransientTransactionError") ||
-            error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
-            /transaction numbers are only allowed|replica set|mongos/i.test(error.message || "")
-        );
+        const isTransactionFailure = isTransactionUnavailable(error);
         return res.status(isConflict ? 409 : isTransactionFailure ? 503 : 400).json({
             success: false,
             message: error.code === 11000
@@ -704,7 +697,7 @@ export const archiveEmployee = async (req, res) => {
         });
     } catch (error) {
         console.error("Archive employee error:", error);
-        const status = error.code === 40401 ? 404 : [40901, 40902].includes(error.code) ? 409 : 500;
+        const status = error.code === 40401 ? 404 : [40901, 40902].includes(error.code) ? 409 : isTransactionUnavailable(error) ? 503 : 500;
         return res.status(status).json({
             success: false,
             message: error.code === 40401
@@ -713,7 +706,9 @@ export const archiveEmployee = async (req, res) => {
                     ? "Employee login account is missing; cannot safely archive employee"
                     : error.code === 40902
                         ? "Reassign all employees reporting to this manager before archiving"
-                        : "Unable to archive employee"
+                        : isTransactionUnavailable(error)
+                            ? "Employee archiving is temporarily unavailable; please retry"
+                            : "Unable to archive employee"
         });
     }
 };
@@ -772,7 +767,7 @@ export const deactivateEmployee = async (req, res) => {
         });
     } catch (error) {
         console.error("Deactivate employee error:", error);
-        const status = error.code === 40401 ? 404 : [40901, 40902].includes(error.code) ? 409 : 500;
+        const status = error.code === 40401 ? 404 : [40901, 40902].includes(error.code) ? 409 : isTransactionUnavailable(error) ? 503 : 500;
         return res.status(status).json({
             success: false,
             message: error.code === 40401
@@ -781,7 +776,9 @@ export const deactivateEmployee = async (req, res) => {
                     ? "Employee login account is missing; cannot safely deactivate employee"
                     : error.code === 40902
                         ? "Reassign all employees reporting to this manager before deactivation"
-                        : "Unable to deactivate employee"
+                        : isTransactionUnavailable(error)
+                            ? "Employee deactivation is temporarily unavailable; please retry"
+                            : "Unable to deactivate employee"
         });
     }
 };
@@ -868,7 +865,7 @@ export const activateEmployee = async (req, res) => {
         });
     } catch (error) {
         console.error("Activate employee error:", error);
-        const status = error.code === 40401 ? 404 : [40901, 40902, 40903, 40904, 40905].includes(error.code) ? 409 : 500;
+        const status = error.code === 40401 ? 404 : [40901, 40902, 40903, 40904, 40905].includes(error.code) ? 409 : isTransactionUnavailable(error) ? 503 : 500;
         return res.status(status).json({
             success: false,
             message: error.code === 40401
@@ -883,6 +880,8 @@ export const activateEmployee = async (req, res) => {
                                 ? "Employee department or designation is inactive or inconsistent. Correct the assignment before reactivation."
                                 : error.code === 40905
                                     ? "Employee shift is inactive or unavailable. Assign an active shift before reactivation."
+                                    : isTransactionUnavailable(error)
+                                    ? "Employee activation is temporarily unavailable; please retry"
                                     : "Unable to activate employee"
         });
     }
