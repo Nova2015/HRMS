@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Shift from "../models/Shift.js";
 import Employee from "../models/Employee.js";
+import { lockShiftReference } from "../services/employeeReferenceGuards.js";
+import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
 
 const timeToMinutes = (value) => {
     const [hours, minutes] = value.split(":").map(Number);
@@ -75,7 +77,7 @@ export const createShift = async (req, res) => {
         const data = await Shift.create(updates);
         return res.status(201).json({ success: true, message: "Shift created successfully", data });
     } catch (error) {
-        return res.status(error.code === 11000 ? 409 : 400).json({
+        return res.status(error.code === 11000 || error.code === "SHIFT_IN_USE" ? 409 : isTransactionUnavailable(error) ? 503 : 400).json({
             success: false,
             message: error.code === 11000 ? "Shift code already exists" : "Unable to create shift"
         });
@@ -99,25 +101,37 @@ export const updateShift = async (req, res) => {
         if (timeToMinutes(endTime) === timeToMinutes(startTime)) {
             return res.status(400).json({ success: false, message: "Start time and end time cannot be the same" });
         }
+        let data;
         if (updates.isActive === false && current.isActive) {
-            const assignedCount = await Employee.countDocuments({
-                shift: current._id,
-                isArchived: { $ne: true }
-            });
-            if (assignedCount > 0) {
-                return res.status(409).json({
-                    success: false,
-                    message: "Shift is assigned to employees. Reassign employees to another active shift before deactivating it."
+            const session = await mongoose.startSession();
+            try {
+                await session.withTransaction(async () => {
+                    await lockShiftReference(current._id, session);
+                    const assignedCount = await Employee.countDocuments({
+                        shift: current._id,
+                        isArchived: { $ne: true }
+                    }).session(session);
+                    if (assignedCount > 0) {
+                        const inUse = new Error("Shift is assigned to employees");
+                        inUse.code = "SHIFT_IN_USE";
+                        throw inUse;
+                    }
+                    data = await Shift.findByIdAndUpdate(
+                        req.params.id, { $set: updates }, { new: true, runValidators: true, session }
+                    );
                 });
+            } finally {
+                await session.endSession();
             }
+        } else {
+            data = await Shift.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true });
         }
-        const data = await Shift.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true });
         if (!data) return res.status(404).json({ success: false, message: "Shift not found" });
         return res.status(200).json({ success: true, message: "Shift updated successfully", data });
     } catch (error) {
         return res.status(error.code === 11000 ? 409 : 400).json({
             success: false,
-            message: error.code === 11000 ? "Shift code already exists" : "Unable to update shift"
+            message: error.code === 11000 ? "Shift code already exists" : error.code === "SHIFT_IN_USE" ? "Shift is assigned to employees. Reassign employees first." : isTransactionUnavailable(error) ? "Shift update is temporarily unavailable; please retry" : "Unable to update shift"
         });
     }
 };
