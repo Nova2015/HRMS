@@ -99,6 +99,18 @@ export const updateShift = async (req, res) => {
         if (timeToMinutes(endTime) === timeToMinutes(startTime)) {
             return res.status(400).json({ success: false, message: "Start time and end time cannot be the same" });
         }
+        if (updates.isActive === false && current.isActive) {
+            const assignedCount = await Employee.countDocuments({
+                shift: current._id,
+                isArchived: { $ne: true }
+            });
+            if (assignedCount > 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Shift is assigned to employees. Reassign employees to another active shift before deactivating it."
+                });
+            }
+        }
         const data = await Shift.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true });
         if (!data) return res.status(404).json({ success: false, message: "Shift not found" });
         return res.status(200).json({ success: true, message: "Shift updated successfully", data });
