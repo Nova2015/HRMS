@@ -35,7 +35,7 @@ export const auditAction = (module, action) => (req, res, next) => {
             actor: actor.userId,
             employee: actor.employeeId || null,
             role: actor.role,
-            action,
+            action: statusCode >= 400 ? `${action}.failed` : action,
             module,
             method: req.method,
             route,
