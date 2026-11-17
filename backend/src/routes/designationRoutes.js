@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 
 import {
     createDesignation,
@@ -8,14 +8,15 @@ import {
 
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
+import { auditAction } from "../middleware/auditLogMiddleware.js";
 
 const router = express.Router();
 
 router.use(protect);
 router.use(authorizeRoles("admin", "hr"));
 
-router.post("/", createDesignation);
+router.post("/", auditAction("organization", "designation.created"), createDesignation);
 router.get("/", getDesignations);
-router.put("/:id", updateDesignation);
+router.put("/:id", auditAction("organization", "designation.updated"), updateDesignation);
 
 export default router;
