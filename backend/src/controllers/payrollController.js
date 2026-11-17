@@ -239,7 +239,7 @@ export const processPayroll = async (req, res) => {
                     return { name: line.name, amount };
                 });
                 salaryBreakdown.push({
-                    salaryStructure: structure._id, effectiveFrom: segment.from, effectiveTo: segment.to,
+                    salaryStructure: structure._id, effectiveFrom: segment.from, effectiveTo: new Date(segment.to.getTime() - 86400000),
                     workingDays: money(segmentWorkingDays[index]), paidDays: money(segmentPaidDays[index]),
                     basic: segmentBasic, earnings: segmentEarnings, deductions: segmentDeductions
                 });
