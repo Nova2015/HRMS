@@ -13,6 +13,13 @@ export const auditAction = (module, action) => (req, res, next) => {
             req.params?.id || req.params?.employeeId || req.params?.candidateId || req.params?.jobId || ""
         ).slice(0, 80);
 
+        const submittedDecision = req.body?.decision;
+        const outcome = submittedDecision === "approved" || submittedDecision === "approve"
+            ? "approved"
+            : submittedDecision === "rejected" || submittedDecision === "reject"
+                ? "rejected"
+                : "";
+
         AuditLog.create({
             actor: actor.userId,
             employee: actor.employeeId || null,
@@ -22,6 +29,7 @@ export const auditAction = (module, action) => (req, res, next) => {
             method: req.method,
             route,
             resourceId,
+            outcome,
             statusCode: res.statusCode,
             ipAddress: String(req.ip || "").slice(0, 80),
             userAgent: String(req.get("user-agent") || "").slice(0, 300)
