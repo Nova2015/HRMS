@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { reserveJobOpeningForHire, reserveOpenJobForCandidate, isValidJoiningDate, isValidResumeUrl, hasValidCandidateFieldLengths } from "../src/controllers/recruitmentController.js";
+import { reserveJobOpeningForHire, reserveOpenJobForCandidate, isValidJoiningDate, isValidResumeUrl, hasValidCandidateFieldLengths, hasValidJobOpeningFieldLengths } from "../src/controllers/recruitmentController.js";
 import Candidate from "../src/models/Candidate.js";
 import JobOpening from "../src/models/JobOpening.js";
 
@@ -158,4 +158,19 @@ test("candidate registration rejects a job closed before its atomic reservation"
     } finally {
         JobOpening.findOneAndUpdate = originalUpdate;
     }
+});
+
+
+test("job opening field lengths accept values at schema limits", () => {
+    assert.equal(hasValidJobOpeningFieldLengths({
+        title: "T".repeat(120),
+        description: "D".repeat(5000),
+        location: "L".repeat(200)
+    }), true);
+});
+
+test("job opening field lengths reject values exceeding schema limits", () => {
+    assert.equal(hasValidJobOpeningFieldLengths({ title: "T".repeat(121), description: "D", location: "L" }), false);
+    assert.equal(hasValidJobOpeningFieldLengths({ title: "T", description: "D".repeat(5001), location: "L" }), false);
+    assert.equal(hasValidJobOpeningFieldLengths({ title: "T", description: "D", location: "L".repeat(201) }), false);
 });
