@@ -4,6 +4,28 @@ import jwt from "jsonwebtoken";
 
 import User from "../models/User.js";
 import Employee from "../models/Employee.js";
+import AuditLog from "../models/AuditLog.js";
+
+const recordLoginAudit = async (req, user, action, statusCode) => {
+    try {
+        await AuditLog.create({
+            actor: user?._id || null,
+            employee: user?.employee || null,
+            role: user?.role || "system",
+            action,
+            module: "auth",
+            method: "POST",
+            route: "/api/auth/login",
+            resourceId: "",
+            outcome: "",
+            statusCode,
+            ipAddress: String(req.ip || req.socket?.remoteAddress || "").slice(0, 80),
+            userAgent: String(req.get?.("user-agent") || "").slice(0, 300)
+        });
+    } catch (error) {
+        console.error("Login audit write failed:", error.message);
+    }
+};
 
 // LOGIN
 export const login = async (req, res) => {
@@ -35,6 +57,7 @@ export const login = async (req, res) => {
         }).select("+passwordHash");
 
         if (!user) {
+            await recordLoginAudit(req, null, "login.failed", 401);
             return res.status(401).json({
                 success: false,
                 message: "Invalid email or password"
@@ -42,6 +65,7 @@ export const login = async (req, res) => {
         }
 
         if (!user.isActive) {
+            await recordLoginAudit(req, user, "login.failed", 403);
             return res.status(403).json({
                 success: false,
                 message: "Your account is disabled"
@@ -51,6 +75,7 @@ export const login = async (req, res) => {
         const employee = await Employee.findById(user.employee);
 
         if (!employee || employee.employmentStatus !== "active") {
+            await recordLoginAudit(req, user, "login.failed", 403);
             return res.status(403).json({
                 success: false,
                 message: "Employee account is not active"
@@ -63,6 +88,7 @@ export const login = async (req, res) => {
         );
 
         if (!isPasswordValid) {
+            await recordLoginAudit(req, user, "login.failed", 401);
             return res.status(401).json({
                 success: false,
                 message: "Invalid email or password"
@@ -84,6 +110,7 @@ export const login = async (req, res) => {
 
         user.lastLogin = new Date();
         await user.save();
+        await recordLoginAudit(req, user, "login.succeeded", 200);
 
         return res.status(200).json({
             success: true,
