@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Attendance from "../models/Attendance.js";
 import Employee from "../models/Employee.js";
 import Shift from "../models/Shift.js";
+import { getAttendanceDateKey, isLateCheckIn } from "../utils/attendanceTime.js";
 
 const TIME_ZONE = "Asia/Kolkata";
 
@@ -98,7 +99,6 @@ export const checkIn = async (req, res) => {
     try {
         const employeeId = req.user.employeeId;
         const now = new Date();
-        const dateKey = getDateKey(now);
 
         const employee = await Employee.findById(employeeId);
 
@@ -109,6 +109,8 @@ export const checkIn = async (req, res) => {
             });
         }
 
+        const shift = await getShiftForEmployee(employee);
+        const dateKey = getAttendanceDateKey(now, shift);
         const existing = await Attendance.findOne({
             employee: employeeId,
             dateKey
@@ -121,24 +123,12 @@ export const checkIn = async (req, res) => {
             });
         }
 
-        const shift = await getShiftForEmployee(employee);
-        const localMinutes = getLocalMinutes(now);
-        const startMinutes = shift ? timeToMinutes(shift.startTime) : DEFAULT_LATE_AFTER_MINUTES - 15;
-        const endMinutes = shift ? timeToMinutes(shift.endTime) : DEFAULT_OFFICE_END_MINUTES;
-        const overnight = Boolean(shift && endMinutes <= startMinutes);
-        const adjustedCheckInMinutes = overnight && localMinutes < endMinutes
-            ? localMinutes + 1440
-            : localMinutes;
-        const lateThreshold = shift
-            ? startMinutes + shift.gracePeriodMinutes
-            : DEFAULT_LATE_AFTER_MINUTES;
-
         const attendance = await Attendance.create({
             employee: employeeId,
             dateKey,
             checkIn: now,
             status: "present",
-            isLate: adjustedCheckInMinutes > lateThreshold,
+            isLate: isLateCheckIn(now, shift, DEFAULT_LATE_AFTER_MINUTES),
             source: "self"
         });
 
