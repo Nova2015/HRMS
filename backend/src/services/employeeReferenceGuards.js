@@ -1,6 +1,7 @@
 import Department from "../models/Department.js";
 import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
+import Employee from "../models/Employee.js";
 
 // Every assignment and deactivation writes the same referenced document in its
 // transaction. MongoDB then detects competing snapshot transactions as write conflicts.
@@ -37,7 +38,7 @@ export const lockShiftReference = (id, session) => lockActive(Shift, id, session
 
 export const lockReportingManager = async (managerId, session) => {
     if (!managerId) return null;
-    const manager = await (await import("../models/Employee.js")).default.findOneAndUpdate(
+    const manager = await Employee.findOneAndUpdate(
         { _id: managerId, employmentStatus: "active", isArchived: { $ne: true } },
         { $inc: { hierarchyVersion: 1 } },
         { new: true, session }
