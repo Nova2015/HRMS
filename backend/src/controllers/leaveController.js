@@ -97,6 +97,7 @@ export const createLeaveRequest = async (req, res) => {
         const session = await mongoose.startSession();
         let leave;
         let totalDays = 0;
+        let remainingLeaveDays = null;
         try {
             await session.withTransaction(async () => {
                 // Serialize submissions for this employee. Concurrent transactions
@@ -148,12 +149,7 @@ export const createLeaveRequest = async (req, res) => {
                         { $group: { _id: null, total: { $sum: "$totalDays" } } }
                     ]).session(session);
                     const reservedDays = existingUsage[0]?.total || 0;
-                    const remainingDays = allocatedDays - reservedDays;
-                    if (remainingDays <= 0 || remainingDays < 1) {
-                        const exhausted = new Error("No " + leaveType + " leave balance remaining for " + allocationYear);
-                        exhausted.code = 40002;
-                        throw exhausted;
-                    }
+                    remainingLeaveDays = allocatedDays - reservedDays;
                 }
 
                 const holidays = await Holiday.find({
@@ -173,6 +169,12 @@ export const createLeaveRequest = async (req, res) => {
                     const noWorkingDays = new Error("The selected date range contains no working days for your assigned shift");
                     noWorkingDays.code = 40001;
                     throw noWorkingDays;
+                }
+
+                if (remainingLeaveDays !== null && remainingLeaveDays < totalDays) {
+                    const insufficient = new Error("Insufficient " + leaveType + " leave balance. Available: " + Math.max(0, remainingLeaveDays) + " day(s); requested: " + totalDays + " day(s).");
+                    insufficient.code = 40002;
+                    throw insufficient;
                 }
 
                 leave = new LeaveRequest({
