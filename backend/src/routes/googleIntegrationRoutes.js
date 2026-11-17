@@ -15,6 +15,7 @@ import { auditAction } from "../middleware/auditLogMiddleware.js";
 import { googleFetch } from "../utils/googleFetch.js";
 import { requireGoogleRefreshToken } from "../utils/googleRefreshToken.js";
 import { runSingleFlight } from "../utils/singleFlight.js";
+import { persistGoogleRefreshIfUnchanged } from "../utils/googleRefreshPersistence.js";
 
 const router = express.Router();
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -71,9 +72,13 @@ const getGmailAccessToken = async (integration) => {
     // Node.js process. Re-read after entering the flight so queued callers use
     // the token saved by the first refresh rather than refreshing again.
     return runSingleFlight(String(integration.userId), async () => {
-        const latestIntegration = await GoogleGmailIntegration.findById(integration._id)
+        const currentIntegration = await GoogleGmailIntegration.findById(integration._id)
             .select("+accessTokenEncrypted +refreshTokenEncrypted");
-        const currentIntegration = latestIntegration || integration;
+        if (!currentIntegration) {
+            const error = new Error("Google connection changed; reconnect the account");
+            error.status = 409;
+            throw error;
+        }
         const stillExpiresSoon = !currentIntegration.tokenExpiresAt ||
             currentIntegration.tokenExpiresAt.getTime() <= Date.now() + 60_000;
         if (!stillExpiresSoon) {
@@ -102,11 +107,32 @@ const getGmailAccessToken = async (integration) => {
             throw error;
         }
 
-        currentIntegration.accessTokenEncrypted = encryptToken(tokens.access_token);
-        currentIntegration.tokenExpiresAt = new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000);
-        await currentIntegration.save();
-        integration.accessTokenEncrypted = currentIntegration.accessTokenEncrypted;
-        integration.tokenExpiresAt = currentIntegration.tokenExpiresAt;
+        const refreshedAccessTokenEncrypted = encryptToken(tokens.access_token);
+        const refreshedTokenExpiresAt = new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000);
+        const persisted = await persistGoogleRefreshIfUnchanged({
+            model: GoogleGmailIntegration,
+            snapshot: currentIntegration,
+            accessTokenEncrypted: refreshedAccessTokenEncrypted,
+            tokenExpiresAt: refreshedTokenExpiresAt
+        });
+
+        if (!persisted) {
+            // A reconnect or disconnect won the race while Google was refreshing.
+            // Never overwrite the newer connection with this stale response.
+            const latest = await GoogleGmailIntegration.findById(integration._id)
+                .select("+accessTokenEncrypted +refreshTokenEncrypted");
+            if (latest && latest.tokenExpiresAt && latest.tokenExpiresAt.getTime() > Date.now() + 60_000) {
+                integration.accessTokenEncrypted = latest.accessTokenEncrypted;
+                integration.tokenExpiresAt = latest.tokenExpiresAt;
+                return decryptToken(latest.accessTokenEncrypted);
+            }
+            const error = new Error("Google connection changed during token refresh; retry the request");
+            error.status = 409;
+            throw error;
+        }
+
+        integration.accessTokenEncrypted = persisted.accessTokenEncrypted;
+        integration.tokenExpiresAt = persisted.tokenExpiresAt;
         return tokens.access_token;
     });
 };
