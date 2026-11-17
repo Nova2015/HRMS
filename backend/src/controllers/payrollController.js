@@ -137,9 +137,6 @@ export const processPayroll = async (req, res) => {
         if (ids.some((id) => !mongoose.isValidObjectId(id)) || new Set(ids).size !== ids.length) {
             return res.status(400).json({ success: false, message: "Invalid or duplicate employee in payroll request" });
         }
-        if (await Payroll.exists({ period, employee: { $in: ids } })) {
-            return res.status(409).json({ success: false, message: "Payroll already exists for one or more employees in this period. Existing payroll is not overwritten." });
-        }
         const structures = await SalaryStructure.find({ employee: { $in: ids }, isActive: true });
         const structureMap = new Map(structures.map((item) => [item.employee.toString(), item]));
         const employeeDocs = await Employee.find({ _id: { $in: ids }, employmentStatus: "active" }).select("_id");
@@ -164,12 +161,36 @@ export const processPayroll = async (req, res) => {
             if (totalDeductions > grossEarnings) return res.status(400).json({ success: false, message: `Deductions exceed gross earnings for employee ${employeeId}` });
             records.push({ employee: employeeId, salaryStructure: structure._id, period, workingDays: days, paidDays, basic, earnings, deductions, grossEarnings, totalDeductions, netPay: money(grossEarnings - totalDeductions), processedBy: req.user.userId });
         }
-        const created = await Payroll.insertMany(records, { ordered: true });
+        // A payroll batch must be all-or-nothing, including concurrent duplicate requests.
+        // The unique employee/period index remains the final concurrency guard.
+        const session = await mongoose.startSession();
+        let created = [];
+        try {
+            await session.withTransaction(async () => {
+                if (await Payroll.exists({ period, employee: { $in: ids } }).session(session)) {
+                    const duplicateError = new Error("Payroll already exists for one or more employees in this period");
+                    duplicateError.code = 11000;
+                    throw duplicateError;
+                }
+                created = await Payroll.insertMany(records, { ordered: true, session });
+            });
+        } finally {
+            await session.endSession();
+        }
         const data = await Payroll.find({ _id: { $in: created.map((item) => item._id) } }).populate("employee", "employeeCode firstName lastName");
         res.status(201).json({ success: true, message: "Payroll processed", count: data.length, data });
     } catch (error) {
         console.error("Process payroll:", error);
-        res.status(error.code === 11000 ? 409 : 400).json({ success: false, message: error.code === 11000 ? "Payroll already exists for this employee and period" : "Unable to process payroll" });
+        const transactionUnavailable = error.hasErrorLabel?.("TransientTransactionError") ||
+            error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+            /transaction numbers are only allowed|replica set|mongos/i.test(error.message || "");
+        const statusCode = error.code === 11000 ? 409 : transactionUnavailable ? 503 : 400;
+        res.status(statusCode).json({
+            success: false,
+            message: statusCode === 409 ? "Payroll already exists for one or more employees in this period"
+                : statusCode === 503 ? "Payroll processing is temporarily unavailable; please retry"
+                : "Unable to process payroll"
+        });
     }
 };
 
