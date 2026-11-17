@@ -28,6 +28,16 @@ export const isValidResumeUrl = (value) => {
     }
 };
 
+export const hasValidCandidateFieldLengths = ({ firstName, lastName, email, phone, currentCompany = "", resumeUrl = "", notes = "" }) => (
+    String(firstName ?? "").trim().length <= 80 &&
+    String(lastName ?? "").trim().length <= 80 &&
+    String(email ?? "").trim().length <= 254 &&
+    String(phone ?? "").trim().length <= 25 &&
+    String(currentCompany ?? "").trim().length <= 120 &&
+    String(resumeUrl ?? "").trim().length <= 500 &&
+    String(notes ?? "").trim().length <= 2000
+);
+
 const populatedCandidate = (query) => query
     .populate("jobOpening", "title status")
     .populate("department", "name code")
@@ -111,6 +121,7 @@ export const createCandidate = async (req, res) => {
             !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) ||
             !String(phone || "").trim() || !mongoose.isValidObjectId(jobOpening) ||
             !isValidResumeUrl(resumeUrl) ||
+            !hasValidCandidateFieldLengths({ firstName, lastName, email: cleanEmail, phone, currentCompany, resumeUrl, notes }) ||
             !Number.isFinite(Number(experienceYears)) || Number(experienceYears) < 0 || Number(experienceYears) > 60) {
             return res.status(400).json({ success: false, message: "Provide valid candidate name, email, phone, job opening and experience" });
         }
