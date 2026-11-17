@@ -141,15 +141,36 @@ export const deleteShift = async (req, res) => {
         if (!mongoose.isValidObjectId(req.params.id)) {
             return res.status(400).json({ success: false, message: "Invalid shift ID" });
         }
-        const assignedCount = await Employee.countDocuments({ shift: req.params.id });
-        if (assignedCount) {
-            return res.status(409).json({ success: false, message: "Shift is assigned to employees. Deactivate it instead." });
+        const session = await mongoose.startSession();
+        let data;
+        try {
+            await session.withTransaction(async () => {
+                const locked = await Shift.findOneAndUpdate(
+                    { _id: req.params.id }, { $inc: { assignmentVersion: 1 } }, { new: true, session }
+                );
+                if (!locked) return;
+                const assignedCount = await Employee.countDocuments({ shift: req.params.id }).session(session);
+                if (assignedCount) {
+                    const inUse = new Error("Shift is assigned to employees");
+                    inUse.code = "SHIFT_IN_USE";
+                    throw inUse;
+                }
+                data = await Shift.findByIdAndDelete(req.params.id, { session });
+            });
+        } finally {
+            await session.endSession();
         }
-        const data = await Shift.findByIdAndDelete(req.params.id);
         if (!data) return res.status(404).json({ success: false, message: "Shift not found" });
         return res.status(200).json({ success: true, message: "Shift deleted successfully" });
     } catch (error) {
         console.error("Delete shift error:", error);
-        return res.status(500).json({ success: false, message: "Unable to delete shift" });
+        return res.status(error.code === "SHIFT_IN_USE" ? 409 : isTransactionUnavailable(error) ? 503 : 500).json({
+            success: false,
+            message: error.code === "SHIFT_IN_USE"
+                ? "Shift is assigned to employees. Deactivate it instead."
+                : isTransactionUnavailable(error)
+                    ? "Shift deletion is temporarily unavailable; please retry"
+                    : "Unable to delete shift"
+        });
     }
 };
