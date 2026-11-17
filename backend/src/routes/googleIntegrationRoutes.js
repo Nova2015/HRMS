@@ -22,6 +22,27 @@ const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const GOOGLE_CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const GOOGLE_CALENDAR_API_URL = "https://www.googleapis.com/calendar/v3/calendars";
 
+const GOOGLE_API_TIMEOUT_MS = 10_000;
+
+const googleFetch = async (url, options = {}) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GOOGLE_API_TIMEOUT_MS);
+    try {
+        return await googleFetch(url, { ...options, signal: controller.signal });
+    } catch (error) {
+        if (controller.signal.aborted || error.name === "AbortError" || error.name === "TimeoutError") {
+            const timeoutError = new Error("Google service request timed out; try again");
+            timeoutError.status = 504;
+            throw timeoutError;
+        }
+        const networkError = new Error("Could not reach Google services; try again");
+        networkError.status = 502;
+        throw networkError;
+    } finally {
+        clearTimeout(timeout);
+    }
+};
+
 const getOAuthConfig = () => {
     const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_GMAIL_REDIRECT_URI, JWT_SECRET } = process.env;
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_GMAIL_REDIRECT_URI) {
@@ -66,7 +87,7 @@ const getGmailAccessToken = async (integration) => {
 
     const refreshToken = decryptToken(integration.refreshTokenEncrypted);
     const config = getOAuthConfig();
-    const response = await fetch(GOOGLE_TOKEN_URL, {
+    const response = await googleFetch(GOOGLE_TOKEN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -91,7 +112,7 @@ const getGmailAccessToken = async (integration) => {
 };
 
 const gmailApiFetch = async (url, accessToken) => {
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const response = await googleFetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
     const payload = await response.json();
     if (!response.ok) {
         console.error("Gmail API request failed:", payload.error?.status || response.status);
@@ -228,7 +249,7 @@ router.get("/gmail/callback", async (req, res) => {
             });
         }
 
-        const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
+        const tokenResponse = await googleFetch(GOOGLE_TOKEN_URL, {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
@@ -245,7 +266,7 @@ router.get("/gmail/callback", async (req, res) => {
             return res.status(502).json({ success: false, message: "Google token exchange failed" });
         }
 
-        const profileResponse = await fetch(GMAIL_PROFILE_URL, {
+        const profileResponse = await googleFetch(GMAIL_PROFILE_URL, {
             headers: { Authorization: `Bearer ${tokens.access_token}` }
         });
         const profile = await profileResponse.json();
@@ -525,7 +546,7 @@ router.get("/gmail/calendar-candidates", protect, authorizeRoles("admin", "hr"),
 
 
 const calendarApiRequest = async (url, accessToken, options = {}) => {
-    const response = await fetch(url, {
+    const response = await googleFetch(url, {
         ...options,
         headers: {
             Authorization: `Bearer ${accessToken}`,
