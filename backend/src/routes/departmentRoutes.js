@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 
 import {
     createDepartment,
@@ -9,6 +9,7 @@ import {
 
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
+import { auditAction } from "../middleware/auditLogMiddleware.js";
 
 const router = express.Router();
 
@@ -18,9 +19,9 @@ router.use(protect);
 // Only Admin and HR can manage departments
 router.use(authorizeRoles("admin", "hr"));
 
-router.post("/", createDepartment);
+router.post("/", auditAction("organization", "department.created"), createDepartment);
 router.get("/", getDepartments);
-router.put("/:id", updateDepartment);
-router.delete("/:id", deleteDepartment);
+router.put("/:id", auditAction("organization", "department.updated"), updateDepartment);
+router.delete("/:id", auditAction("organization", "department.deleted"), deleteDepartment);
 
 export default router;
