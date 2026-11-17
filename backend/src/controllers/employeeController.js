@@ -895,7 +895,7 @@ export const activateEmployee = async (req, res) => {
         });
     } catch (error) {
         console.error("Activate employee error:", error);
-        const status = error.code === 40401 ? 404 : [40901, 40902, 40903, 40904, 40905].includes(error.code) ? 409 : isTransactionUnavailable(error) ? 503 : 500;
+        const status = error.code === 40401 ? 404 : [40901, 40902, 40903, 40904, 40905].includes(error.code) || ["REFERENCE_INACTIVE", "REFERENCE_MISMATCH"].includes(error.code) ? 409 : isTransactionUnavailable(error) ? 503 : 500;
         return res.status(status).json({
             success: false,
             message: error.code === 40401
@@ -910,7 +910,9 @@ export const activateEmployee = async (req, res) => {
                                 ? "Employee department or designation is inactive or inconsistent. Correct the assignment before reactivation."
                                 : error.code === 40905
                                     ? "Employee shift is inactive or unavailable. Assign an active shift before reactivation."
-                                    : isTransactionUnavailable(error)
+                                    : ["REFERENCE_INACTIVE", "REFERENCE_MISMATCH"].includes(error.code)
+                                        ? "Employee department, designation or shift changed during activation. Refresh and retry."
+                                        : isTransactionUnavailable(error)
                                     ? "Employee activation is temporarily unavailable; please retry"
                                     : "Unable to activate employee"
         });
