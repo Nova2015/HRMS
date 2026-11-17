@@ -31,3 +31,27 @@ test("default schedule uses the default late threshold", () => {
     assert.equal(isLateCheckIn(new Date("2026-11-17T03:45:00.000Z"), null, 555), false);
     assert.equal(isLateCheckIn(new Date("2026-11-17T03:46:00.000Z"), null, 555), true);
 });
+
+
+test("attendance shift snapshot preserves the original schedule after reassignment", async () => {
+    const { getShiftSnapshot, getShiftFromSnapshot } = await import("../src/utils/attendanceTime.js");
+    const originalShift = { startTime: "09:00", endTime: "18:00", gracePeriodMinutes: 15 };
+    const snapshot = getShiftSnapshot(originalShift);
+    const changedShift = { startTime: "10:00", endTime: "19:00", gracePeriodMinutes: 30 };
+    assert.deepEqual(getShiftFromSnapshot(snapshot, changedShift), originalShift);
+});
+
+test("legacy attendance without a shift snapshot falls back to the employee current shift", async () => {
+    const { getShiftFromSnapshot } = await import("../src/utils/attendanceTime.js");
+    const currentShift = { startTime: "10:00", endTime: "19:00", gracePeriodMinutes: 30 };
+    assert.equal(getShiftFromSnapshot({}, currentShift), currentShift);
+});
+
+test("attendance without an assigned shift stores no shift snapshot", async () => {
+    const { getShiftSnapshot } = await import("../src/utils/attendanceTime.js");
+    assert.deepEqual(getShiftSnapshot(null), {
+        shiftStartTime: null,
+        shiftEndTime: null,
+        shiftGracePeriodMinutes: null
+    });
+});
