@@ -10,7 +10,13 @@ export const auditAction = (module, action) => (req, res, next) => {
         const routePath = req.route?.path || "";
         const route = `${req.baseUrl || ""}${routePath}`.slice(0, 240);
         const resourceId = String(
-            req.params?.id || req.params?.employeeId || req.params?.candidateId || req.params?.jobId || ""
+            req.params?.id ||
+            req.params?.employeeId ||
+            req.params?.candidateId ||
+            req.params?.jobId ||
+            req.body?.employeeId ||
+            actor.employeeId ||
+            ""
         ).slice(0, 80);
 
         const submittedDecision = req.body?.decision;
