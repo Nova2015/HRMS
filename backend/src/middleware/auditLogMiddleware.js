@@ -5,7 +5,10 @@ export const auditAction = (module, action) => (req, res, next) => {
     if (!actor?.userId || !actor?.role) return next();
 
     res.once("finish", () => {
-        if (res.statusCode < 200 || res.statusCode >= 300) return;
+        // Record successful mutations and failed attempts, but ignore redirects.
+        // Request bodies are deliberately excluded from audit records.
+        const statusCode = res.statusCode;
+        if (!((statusCode >= 200 && statusCode < 300) || statusCode >= 400)) return;
 
         const routePath = req.route?.path || "";
         const route = `${req.baseUrl || ""}${routePath}`.slice(0, 240);
@@ -20,11 +23,13 @@ export const auditAction = (module, action) => (req, res, next) => {
         ).slice(0, 80);
 
         const submittedDecision = req.body?.decision;
-        const outcome = submittedDecision === "approved" || submittedDecision === "approve"
-            ? "approved"
-            : submittedDecision === "rejected" || submittedDecision === "reject"
-                ? "rejected"
-                : "";
+        const outcome = statusCode >= 200 && statusCode < 300
+            ? submittedDecision === "approved" || submittedDecision === "approve"
+                ? "approved"
+                : submittedDecision === "rejected" || submittedDecision === "reject"
+                    ? "rejected"
+                    : ""
+            : "";
 
         AuditLog.create({
             actor: actor.userId,
@@ -36,7 +41,7 @@ export const auditAction = (module, action) => (req, res, next) => {
             route,
             resourceId,
             outcome,
-            statusCode: res.statusCode,
+            statusCode,
             ipAddress: String(req.ip || "").slice(0, 80),
             userAgent: String(req.get("user-agent") || "").slice(0, 300)
         }).catch((error) => {
