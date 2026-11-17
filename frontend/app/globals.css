@@ -590,3 +590,29 @@ main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="b
   border-color: rgba(226, 232, 240, 0.7) !important;
   box-shadow: none !important;
 }
+
+/* The dashboard command-center cards use their own component class rather than
+   the shared main layout, so compact them here as well. */
+.hrms-app-shell .hrms-command-card {
+  min-height: 0 !important;
+  padding: 0.875rem !important;
+  border-radius: 16px !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.045) !important;
+  backdrop-filter: none !important;
+}
+.hrms-app-shell .hrms-command-card:hover {
+  transform: none !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+}
+.hrms-app-shell .hrms-command-profile {
+  grid-row: auto !important;
+}
+.hrms-app-shell .hrms-command-profile button.group {
+  width: 76px !important;
+  height: 76px !important;
+  border-radius: 18px !important;
+}
+.hrms-app-shell .hrms-command-profile h2 {
+  margin-top: 0.75rem !important;
+  font-size: 1.375rem !important;
+}
