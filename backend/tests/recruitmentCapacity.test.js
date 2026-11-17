@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { reserveJobOpeningForHire, isValidJoiningDate } from "../src/controllers/recruitmentController.js";
+import { reserveJobOpeningForHire, isValidJoiningDate, isValidResumeUrl } from "../src/controllers/recruitmentController.js";
 import Candidate from "../src/models/Candidate.js";
 import JobOpening from "../src/models/JobOpening.js";
 
@@ -86,4 +86,19 @@ test("joining date rejects timestamps and non-date input", () => {
     assert.equal(isValidJoiningDate("2026-11-17T00:00:00.000Z"), false);
     assert.equal(isValidJoiningDate("17-11-2026"), false);
     assert.equal(isValidJoiningDate(""), false);
+});
+
+
+test("resume URL accepts empty values and HTTP or HTTPS links", () => {
+    assert.equal(isValidResumeUrl(""), true);
+    assert.equal(isValidResumeUrl("   "), true);
+    assert.equal(isValidResumeUrl("https://example.com/resume.pdf"), true);
+    assert.equal(isValidResumeUrl("http://example.com/resume.pdf"), true);
+});
+
+test("resume URL rejects executable, data and unsupported schemes", () => {
+    assert.equal(isValidResumeUrl("javascript:alert(1)"), false);
+    assert.equal(isValidResumeUrl("data:text/html,<script>alert(1)</script>"), false);
+    assert.equal(isValidResumeUrl("ftp://example.com/resume.pdf"), false);
+    assert.equal(isValidResumeUrl("not-a-url"), false);
 });
