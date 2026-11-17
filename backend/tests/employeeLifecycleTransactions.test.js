@@ -134,6 +134,73 @@ test("deactivateEmployee blocks deactivation while non-archived direct reports r
     });
 });
 
+test("updateEmployee blocks manager role demotion while non-archived direct reports remain assigned", async () => {
+    const original = {
+        startSession: mongoose.startSession,
+        employeeFindById: Employee.findById,
+        employeeExists: Employee.exists,
+        userFindOne: User.findOne,
+        departmentFindById: (await import("../src/models/Department.js")).default.findById,
+        designationFindById: (await import("../src/models/Designation.js")).default.findById
+    };
+    const session = {
+        ended: false,
+        async withTransaction(callback) { return callback(); },
+        async endSession() { this.ended = true; }
+    };
+    const departmentId = "64b000000000000000000035";
+    const designationId = "64b000000000000000000036";
+    const employee = {
+        _id: EMPLOYEE_ID,
+        isArchived: false,
+        employmentStatus: "active",
+        department: { toString: () => departmentId },
+        designation: { toString: () => designationId },
+        async save() { throw new Error("Manager demotion must be blocked before saving"); }
+    };
+    let userUpdateAttempted = false;
+    try {
+        mongoose.startSession = async () => session;
+        Employee.findById = async () => employee;
+        Employee.exists = (filter) => {
+            assert.deepEqual(filter, {
+                reportingManager: EMPLOYEE_ID,
+                isArchived: { $ne: true }
+            });
+            return { session: async (providedSession) => {
+                assert.equal(providedSession, session);
+                return { _id: "64b000000000000000000034" };
+            }};
+        };
+        User.findOne = async () => ({ role: "manager", isActive: true, tokenVersion: 0 });
+        User.findOneAndUpdate = async () => { userUpdateAttempted = true; };
+        const Department = (await import("../src/models/Department.js")).default;
+        const Designation = (await import("../src/models/Designation.js")).default;
+        Department.findById = async () => ({ isActive: true });
+        Designation.findById = async () => ({ isActive: true, department: departmentId });
+        const res = createResponse();
+        await updateEmployee({
+            params: { id: EMPLOYEE_ID },
+            body: { role: "employee" },
+            user: { role: "admin" }
+        }, res);
+        assert.equal(res.statusCode, 409);
+        assert.match(res.body.message, /Reassign all employees reporting to this manager/);
+        assert.equal(userUpdateAttempted, false);
+        assert.equal(session.ended, true);
+    } finally {
+        mongoose.startSession = original.startSession;
+        Employee.findById = original.employeeFindById;
+        Employee.exists = original.employeeExists;
+        User.findOne = original.userFindOne;
+        User.findOneAndUpdate = undefined;
+        const Department = (await import("../src/models/Department.js")).default;
+        const Designation = (await import("../src/models/Designation.js")).default;
+        Department.findById = original.departmentFindById;
+        Designation.findById = original.designationFindById;
+    }
+});
+
 test("activateEmployee updates Employee and User in the same transaction", async () => {
     let employeeSaveSession;
     let capturedUserUpdate;
