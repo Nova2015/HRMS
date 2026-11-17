@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Designation from "../models/Designation.js";
 import Department from "../models/Department.js";
 import Employee from "../models/Employee.js";
-import { lockDesignationReference } from "../services/employeeReferenceGuards.js";
+import { lockDepartmentReference, lockDesignationReference } from "../services/employeeReferenceGuards.js";
 import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
 
 // CREATE DESIGNATION
