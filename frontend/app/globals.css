@@ -506,3 +506,69 @@ main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="b
     transform: none;
   }
 }
+
+/* Compact, information-dense HRMS surfaces. Keep data readable without oversized
+   3D cards, heavy shadows, or large empty padding. */
+.hrms-card,
+.hrms-premium-card,
+.hrms-dashboard-3d-card,
+.hrms-module-card {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.045) !important;
+  backdrop-filter: none;
+  transform: none;
+  transition: border-color 160ms ease, background-color 160ms ease !important;
+}
+.hrms-card:hover,
+.hrms-premium-card:hover,
+.hrms-dashboard-3d-card:hover,
+.hrms-module-card:hover {
+  transform: none !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+}
+.hrms-module-card::before,
+.hrms-dashboard-3d-card::after {
+  display: none !important;
+}
+.hrms-app-shell main:not(.hrms-home) div[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]),
+.hrms-app-shell main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]),
+.hrms-app-shell main:not(.hrms-home) section[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]) {
+  transform: none !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.045) !important;
+  transition: border-color 160ms ease, background-color 160ms ease !important;
+}
+.hrms-app-shell main:not(.hrms-home) div[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]):hover,
+.hrms-app-shell main:not(.hrms-home) article[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]):hover,
+.hrms-app-shell main:not(.hrms-home) section[class*="rounded-"][class*="bg-white"]:is([class*="border"], [class*="shadow"]):hover {
+  transform: none !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Compact the attendance month grid so more event labels fit in each day. */
+@media (min-width: 640px) {
+  .hrms-app-shell main div.grid-cols-7 > div.relative.flex {
+    min-height: 88px !important;
+    padding: 6px !important;
+    border-radius: 10px !important;
+  }
+}
+@media (min-width: 1024px) {
+  .hrms-app-shell main div.grid-cols-7 > div.relative.flex {
+    min-height: 104px !important;
+    padding: 7px !important;
+  }
+}
+@media (min-width: 1280px) {
+  .hrms-app-shell main div.grid-cols-7 > div.relative.flex {
+    min-height: 112px !important;
+  }
+}
+.hrms-app-shell main div.grid-cols-7 > div.relative.flex button[title="Edit function"],
+.hrms-app-shell main div.grid-cols-7 > div.relative.flex div[title] {
+  padding: 2px 4px !important;
+  border-radius: 4px !important;
+  font-size: 9px !important;
+  line-height: 1.25 !important;
+}
+.hrms-app-shell main div.grid-cols-7 > div.relative.flex .mt-1.hidden {
+  margin-top: 3px !important;
+}
