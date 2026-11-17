@@ -71,6 +71,7 @@ export const getCompanyEvents = async (req, res) => {
         if (req.query.status !== "all") filter.status = "scheduled";
 
         const data = await CompanyEvent.find(filter)
+            .select("-googleCalendarMappings")
             .populate("createdBy", "email role")
             .sort({ startAt: 1, _id: 1 })
             .limit(500)
