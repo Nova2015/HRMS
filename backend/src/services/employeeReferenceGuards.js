@@ -15,6 +15,7 @@ const lockActive = async (Model, id, session, label) => {
     if (!locked) {
         const error = new Error(`Selected ${label} is missing or inactive`);
         error.code = "REFERENCE_INACTIVE";
+        error.statusCode = 409;
         throw error;
     }
     return locked;
@@ -26,6 +27,7 @@ export const lockEmployeeReferences = async ({ departmentId, designationId, shif
     if (designation.department.toString() !== department._id.toString()) {
         const error = new Error("Designation does not belong to selected department");
         error.code = "REFERENCE_MISMATCH";
+        error.statusCode = 409;
         throw error;
     }
     const shift = shiftId ? await lockActive(Shift, shiftId, session, "shift") : null;
@@ -46,6 +48,7 @@ export const lockReportingManager = async (managerId, session) => {
     if (!manager) {
         const error = new Error("Selected reporting manager is inactive or unavailable");
         error.code = "MANAGER_INACTIVE";
+        error.statusCode = 409;
         throw error;
     }
     return manager;
