@@ -4,9 +4,11 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import mongoose from "mongoose";
 
 import connectDB from "./config/database.js";
 import { seedRecruitmentMasters } from "./config/seedRecruitmentMasters.js";
+import { createGracefulShutdown } from "./utils/gracefulShutdown.js";
 
 // Routes
 import departmentRoutes from "./routes/departmentRoutes.js";
@@ -123,13 +125,21 @@ const startServer = async () => {
         await connectDB();
         await seedRecruitmentMasters();
         const PORT = process.env.PORT || 5000;
-        app.listen(PORT, () => {
+        const server = app.listen(PORT, () => {
             console.log("-----------------------------------");
             console.log("HRMS BACKEND STARTED SUCCESSFULLY");
             console.log(`Server: http://localhost:${PORT}`);
             console.log(`Health: http://localhost:${PORT}/api/health`);
             console.log("-----------------------------------");
         });
+
+        const shutdown = createGracefulShutdown({
+            server,
+            disconnect: () => mongoose.disconnect()
+        });
+
+        process.on("SIGTERM", () => shutdown("SIGTERM"));
+        process.on("SIGINT", () => shutdown("SIGINT"));
     } catch (error) {
         console.error("Server startup failed:", error.message);
         process.exit(1);
