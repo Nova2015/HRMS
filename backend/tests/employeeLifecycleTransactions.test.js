@@ -217,6 +217,8 @@ test("activateEmployee blocks reactivation when department or designation is ina
         employeeFindById: Employee.findById,
         departmentFindById: Department.findById,
         designationFindById: Designation.findById,
+        departmentFindOneAndUpdate: Department.findOneAndUpdate,
+        designationFindOneAndUpdate: Designation.findOneAndUpdate,
         userUpdate: User.findOneAndUpdate
     };
     const session = {
@@ -267,6 +269,8 @@ test("activateEmployee blocks reactivation when department or designation is ina
         Employee.findById = original.employeeFindById;
         Department.findById = original.departmentFindById;
         Designation.findById = original.designationFindById;
+        Department.findOneAndUpdate = original.departmentFindOneAndUpdate;
+        Designation.findOneAndUpdate = original.designationFindOneAndUpdate;
         User.findOneAndUpdate = original.userUpdate;
     }
 });
@@ -596,6 +600,16 @@ test("activateEmployee runs department and designation reads sequentially in its
                 return { isActive: true, department: departmentId };
             }
         });
+        Department.findOneAndUpdate = async (filter, update, options) => {
+            assert.deepEqual(filter, { _id: departmentId, isActive: true });
+            assert.equal(options.session, session);
+            return { _id: departmentId, isActive: true };
+        };
+        Designation.findOneAndUpdate = async (filter, update, options) => {
+            assert.deepEqual(filter, { _id: designationId, isActive: true });
+            assert.equal(options.session, session);
+            return { _id: designationId, isActive: true, department: departmentId };
+        };
         User.findOneAndUpdate = async () => ({ _id: "64b000000000000000000043" });
 
         const res = createResponse();
