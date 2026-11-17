@@ -24,20 +24,17 @@ export const createDesignation = async (req, res) => {
             });
         }
 
-        const departmentExists = await Department.findById(department);
-
-        if (!departmentExists || !departmentExists.isActive) {
-            return res.status(404).json({
-                success: false,
-                message: "An active department is required"
+        const session = await mongoose.startSession();
+        let designation;
+        try {
+            await session.withTransaction(async () => {
+                await lockDepartmentReference(department, session);
+                designation = new Designation({ name, department, description });
+                await designation.save({ session });
             });
+        } finally {
+            await session.endSession();
         }
-
-        const designation = await Designation.create({
-            name,
-            department,
-            description
-        });
 
         res.status(201).json({
             success: true,
@@ -46,11 +43,13 @@ export const createDesignation = async (req, res) => {
         });
 
     } catch (error) {
-        res.status(400).json({
+        res.status(error.code === 11000 ? 409 : isTransactionUnavailable(error) ? 503 : 400).json({
             success: false,
             message: error.code === 11000
                 ? "This designation already exists in this department"
-                : "Unable to create designation"
+                : isTransactionUnavailable(error)
+                    ? "Designation creation is temporarily unavailable; please retry"
+                    : "Unable to create designation"
         });
     }
 };
