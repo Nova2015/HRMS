@@ -394,6 +394,14 @@ export const generatePayslipDocument = async (payroll, issuedBy = null) => {
     const month = new Date(payroll.period + "-01T00:00:00.000Z").toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
     const earnings = (payroll.earnings || []).map((line) => [line.name, money(line.amount)]);
     const deductions = (payroll.deductions || []).map((line) => [line.name, money(line.amount)]);
+    const salaryRevisionRows = (payroll.salaryBreakdown || []).length > 1
+        ? payroll.salaryBreakdown.map((segment) => [
+            new Date(segment.effectiveFrom).toLocaleDateString("en-IN", { timeZone: "UTC" }) +
+                " to " + new Date(segment.effectiveTo).toLocaleDateString("en-IN", { timeZone: "UTC" }),
+            "Paid " + segment.paidDays + "/" + segment.workingDays + " days",
+            money(segment.basic)
+        ])
+        : [];
     const employeeRecord = await Employee.findById(employee._id).select("+hrDetailsEncrypted dateOfBirth");
     const hrDetails = employeeRecord?.hrDetailsEncrypted
         ? decryptHrDetails(employeeRecord.hrDetailsEncrypted)
@@ -411,10 +419,11 @@ export const generatePayslipDocument = async (payroll, issuedBy = null) => {
         employee,
         documentType: "payslip",
         title: "Monthly Payslip - " + month + " - PROTOVERGE LLP",
-        sourceKey: "payroll:" + payroll._id + ":template-v5",
+        sourceKey: "payroll:" + payroll._id + ":template-v6",
         issuedBy,
         sections: [
             { heading: "Pay Period", rows: [["Month", month], ["Working Days", payroll.workingDays], ["Paid Days", payroll.paidDays]] },
+            ...(salaryRevisionRows.length ? [{ heading: "Salary Revision Proration", rows: [["Effective Period", "Attendance", "Basic Salary"], ...salaryRevisionRows] }] : []),
             { heading: "Earnings", rows: [["Basic Salary", money(payroll.basic)], ...earnings, ["Gross Earnings", money(payroll.grossEarnings)]] },
             { heading: "Deductions", rows: [...deductions, ["Total Deductions", money(payroll.totalDeductions)]] },
             { heading: "Net Pay", rows: [["Net Payable", money(payroll.netPay)], ["Payment Status", payroll.status], ["Paid Date", payroll.paidAt ? new Date(payroll.paidAt).toLocaleDateString("en-IN") : "-"]] },
