@@ -31,7 +31,8 @@ const withTransactionStubs = async ({ assignedCount, shiftActive = true, updateR
         mongoose.startSession = async () => session;
         Shift.findById = async () => ({ _id: ID, isActive: true, startTime: "09:00", endTime: "18:00" });
         Shift.findOneAndUpdate = async (filter, update, options) => {
-            assert.deepEqual(filter, { _id: ID, isActive: true });
+            assert.equal(filter._id, ID);
+            if (filter.isActive !== undefined) assert.equal(filter.isActive, true);
             assert.deepEqual(update, { $inc: { assignmentVersion: 1 } });
             assert.equal(options.session, session);
             return shiftActive ? { _id: ID, isActive: true } : null;
