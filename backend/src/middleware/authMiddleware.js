@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import Employee from "../models/Employee.js";
+import Session from "../models/Session.js";
 
 export const protect = async (req, res, next) => {
     try {
@@ -56,6 +57,21 @@ export const protect = async (req, res, next) => {
             });
         }
 
+        let activeSession = null;
+        if (decoded.jti) {
+            activeSession = await Session.findOne({
+                user: user._id,
+                jti: decoded.jti,
+                tokenVersion: user.tokenVersion ?? 0,
+                revokedAt: null,
+                expiresAt: { $gt: new Date() }
+            }).select("_id jti");
+            if (!activeSession) {
+                return res.status(401).json({ success: false, message: "Session has been signed out. Please login again." });
+            }
+            await Session.updateOne({ _id: activeSession._id }, { $set: { lastSeenAt: new Date() } });
+        }
+
         if (!user.employee || !mongoose.isValidObjectId(user.employee)) {
             return res.status(403).json({
                 success: false,
@@ -74,7 +90,10 @@ export const protect = async (req, res, next) => {
         req.user = {
             userId: user._id.toString(),
             role: user.role,
-            employeeId: employee._id.toString()
+            employeeId: employee._id.toString(),
+            sessionId: activeSession?._id?.toString() || null,
+            sessionJti: decoded.jti || null,
+            tokenVersion: user.tokenVersion ?? 0
         };
 
         return next();
