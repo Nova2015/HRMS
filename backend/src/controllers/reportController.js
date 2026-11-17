@@ -3,12 +3,7 @@ import Employee from "../models/Employee.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import Payroll from "../models/Payroll.js";
 import PerformanceReview from "../models/PerformanceReview.js";
-
-const excludeTestEmployeeStages = () => [
-    { $lookup: { from: "employees", localField: "employee", foreignField: "_id", as: "reportEmployee" } },
-    { $unwind: "$reportEmployee" },
-    { $match: { "reportEmployee.isTestRecord": { $ne: true } } }
-];
+import { excludeTestEmployeeStages } from "../utils/reportAggregation.js";
 
 const isDateKey = (value) => typeof value === "string" &&
     /^\d{4}-\d{2}-\d{2}$/.test(value) &&
