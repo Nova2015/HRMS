@@ -100,6 +100,45 @@ test("designation cannot be deactivated while active employees are assigned", as
     }
 });
 
+test("designation cannot move to another department while employee records reference it", async () => {
+    const original = {
+        employeeCount: Employee.countDocuments,
+        designationFindById: Designation.findById,
+        designationUpdate: Designation.findByIdAndUpdate,
+        departmentFindById: Department.findById
+    };
+    let updateAttempted = false;
+    const oldDepartmentId = "64b000000000000000000042";
+    const newDepartmentId = "64b000000000000000000043";
+    try {
+        Department.findById = async () => ({ isActive: true });
+        Designation.findById = () => ({
+            select: async () => ({ department: { toString: () => oldDepartmentId } })
+        });
+        Employee.countDocuments = async (filter) => {
+            assert.deepEqual(filter, { designation: ID });
+            return 1;
+        };
+        Designation.findByIdAndUpdate = () => {
+            updateAttempted = true;
+            return { populate: async () => ({ _id: ID }) };
+        };
+        const res = response();
+        await updateDesignation({
+            params: { id: ID },
+            body: { department: newDepartmentId }
+        }, res);
+        assert.equal(res.statusCode, 409);
+        assert.match(res.body.message, /cannot be moved to another department/);
+        assert.equal(updateAttempted, false);
+    } finally {
+        Employee.countDocuments = original.employeeCount;
+        Designation.findById = original.designationFindById;
+        Designation.findByIdAndUpdate = original.designationUpdate;
+        Department.findById = original.departmentFindById;
+    }
+});
+
 test("designation can be deactivated when no active employees are assigned", async () => {
     const original = {
         employeeCount: Employee.countDocuments,
