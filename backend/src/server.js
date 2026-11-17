@@ -9,6 +9,7 @@ import mongoose from "mongoose";
 import connectDB from "./config/database.js";
 import { seedRecruitmentMasters } from "./config/seedRecruitmentMasters.js";
 import { createGracefulShutdown } from "./utils/gracefulShutdown.js";
+import { getDatabaseReadiness } from "./utils/databaseReadiness.js";
 
 // Routes
 import departmentRoutes from "./routes/departmentRoutes.js";
@@ -79,6 +80,18 @@ app.get("/api/health", (req, res) => {
         message: "HRMS Backend is running",
         database: "MongoDB",
         environment: process.env.NODE_ENV
+    });
+});
+
+// Readiness check for orchestrators and deployment monitoring.
+// Keep /api/health as a liveness check so transient DB outages do not
+// cause platforms to restart an otherwise healthy Node.js process.
+app.get("/api/ready", (req, res) => {
+    const readiness = getDatabaseReadiness(mongoose.connection.readyState);
+    res.status(readiness.ready ? 200 : 503).json({
+        success: readiness.ready,
+        status: readiness.ready ? "ready" : "not_ready",
+        database: readiness.database
     });
 });
 
