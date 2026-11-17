@@ -15,8 +15,7 @@ export const getApprovalInbox = async (req, res) => {
         const leaveFilter = { ...statusFilter };
         if (role === "manager") {
             const teamIds = await Employee.find({
-                reportingManager: req.user.employeeId,
-                employmentStatus: "active"
+                reportingManager: req.user.employeeId
             }).distinct("_id");
             leaveFilter.employee = { $in: teamIds };
         }
