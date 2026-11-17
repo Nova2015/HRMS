@@ -601,8 +601,10 @@ export const saveManualAttendance = async (req, res) => {
         const adjustedManualCheckOut = localCheckOutMinutes !== null && overnight && localCheckOutMinutes < shiftStartMinutes
             ? localCheckOutMinutes + 1440
             : localCheckOutMinutes;
+        // The attendance date anchors the shift start; only after-midnight
+        // check-in minutes are moved to the next-day side of the timeline.
         const lateThreshold = shift
-            ? (overnight ? shiftStartMinutes + 1440 : shiftStartMinutes) + shift.gracePeriodMinutes
+            ? shiftStartMinutes + shift.gracePeriodMinutes
             : LATE_AFTER_MINUTES;
         const expectedEnd = overnight ? shiftEndMinutes + 1440 : shiftEndMinutes;
 
