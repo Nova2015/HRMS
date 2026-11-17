@@ -11,13 +11,13 @@ test("Google OAuth state schema enforces unique nonces and automatic expiry", ()
 
 test("Google OAuth state is atomically consumed only once", async () => {
     const originalFindOneAndDelete = GoogleOAuthState.findOneAndDelete;
-    const records = new Map([["nonce-once", { _id: "state-id" }]]);
+    const records = new Map([["nonce-once", { _id: "state-id", expiresAt: new Date("2030-01-01T00:00:00.000Z") }]]);
     const filters = [];
 
     GoogleOAuthState.findOneAndDelete = (filter) => {
         filters.push(filter);
         const record = records.get(filter.nonce);
-        if (!record || filter.expiresAt.$gt >= new Date("2030-01-01T00:00:00.000Z")) {
+        if (!record || filter.expiresAt.$gt >= record.expiresAt) {
             return { select: async () => null };
         }
         records.delete(filter.nonce);
@@ -55,6 +55,27 @@ test("Google OAuth state consumption rejects missing nonce or session without da
     try {
         assert.equal(await consumeGoogleOAuthState({ userId: "user", sessionJti: "session" }), false);
         assert.equal(await consumeGoogleOAuthState({ nonce: "nonce", userId: "user" }), false);
+    } finally {
+        GoogleOAuthState.findOneAndDelete = originalFindOneAndDelete;
+    }
+});
+
+
+test("expired Google OAuth state cannot be consumed", async () => {
+    const originalFindOneAndDelete = GoogleOAuthState.findOneAndDelete;
+    GoogleOAuthState.findOneAndDelete = (filter) => ({
+        select: async () => filter.expiresAt.$gt < new Date("2029-01-01T00:00:00.000Z")
+            ? { _id: "expired-state" }
+            : null
+    });
+    try {
+        assert.equal(await consumeGoogleOAuthState({
+            nonce: "expired-nonce",
+            userId: "507f1f77bcf86cd799439011",
+            sessionJti: "session-jti",
+            tokenVersion: 0,
+            now: new Date("2029-01-01T00:00:00.000Z")
+        }), false);
     } finally {
         GoogleOAuthState.findOneAndDelete = originalFindOneAndDelete;
     }
