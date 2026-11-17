@@ -238,10 +238,17 @@ export const checkOut = async (req, res) => {
 // TODAY'S ATTENDANCE
 export const getTodayAttendance = async (req, res) => {
     try {
+        const now = new Date();
         const attendance = await Attendance.findOne({
             employee: req.user.employeeId,
-            dateKey: getDateKey()
-        }).populate(
+            $or: [
+                { dateKey: getDateKey(now) },
+                {
+                    checkOut: null,
+                    checkIn: { $ne: null, $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) }
+                }
+            ]
+        }).sort({ checkIn: -1, createdAt: -1 }).populate(
             "employee",
             "employeeCode firstName lastName email"
         );
