@@ -19,7 +19,6 @@ const adminLinks = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Employees", href: "/employees", icon: Users },
   { label: "Attendance", href: "/attendance", icon: ClipboardList },
-  { label: "Approval Inbox", href: "/approvals", icon: ShieldCheck },
   { label: "Leave Management", href: "/leaves", icon: CalendarDays },
   { label: "Payroll", href: "/payroll", icon: Wallet },
   { label: "Expenses", href: "/expenses", icon: ReceiptText },
@@ -48,6 +47,12 @@ const employeeLinks = [
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
+const managerLinks = [
+  ...employeeLinks.slice(0, 2),
+  { label: "Approval Inbox", href: "/approvals", icon: ShieldCheck },
+  ...employeeLinks.slice(2),
+];
+
 export default function HRMSAppShell({ children, onLogout, showLogout = true }: Props) {
   const pathname = usePathname() || "/";
   const [role, setRole] = useState("employee");
@@ -68,7 +73,7 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
   useEffect(() => setMobileOpen(false), [pathname]);
 
   const isAdmin = role === "admin" || role === "hr";
-  const links = isAdmin ? adminLinks : employeeLinks;
+  const links = isAdmin ? adminLinks : role === "manager" ? managerLinks : employeeLinks;
   const active = useMemo(() => links.find((item) => item.href !== "/" && (pathname === item.href || pathname.startsWith(item.href + "/")))?.href || (pathname === "/" ? "/" : ""), [links, pathname]);
   const pageTitle = links.find((item) => item.href === active)?.label || (pathname === "/" ? "Dashboard" : "HRMS Workspace");
   const sidebar = (
