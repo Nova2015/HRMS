@@ -42,7 +42,7 @@ export const isLateCheckIn = (date, shift, defaultLateAfterMinutes) => {
     const end = timeToMinutes(shift.endTime);
     const overnight = end <= start;
     const afterMidnightShiftWindow = overnight && localMinutes < end;
-    const adjustedMinutes = afterMidnightShiftWindow ? localMinutes + 1440 : localMinutes;
-    const lateThreshold = start + shift.gracePeriodMinutes + (afterMidnightShiftWindow ? 1440 : 0);
-    return adjustedMinutes > lateThreshold;
+    if (afterMidnightShiftWindow) return false;
+
+    return localMinutes > start + shift.gracePeriodMinutes;
 };
