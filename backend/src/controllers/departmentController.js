@@ -1,4 +1,4 @@
-﻿import mongoose from "mongoose";
+import mongoose from "mongoose";
 import Department from "../models/Department.js";
 import Employee from "../models/Employee.js";
 import Designation from "../models/Designation.js";
@@ -100,6 +100,24 @@ export const updateDepartment = async (req, res) => {
             updates.description = String(updates.description).trim();
         }
 
+        if (updates.isActive === false) {
+            const [activeEmployeeCount, activeDesignationCount] = await Promise.all([
+                Employee.countDocuments({
+                    department: id,
+                    employmentStatus: "active",
+                    isArchived: { $ne: true }
+                }),
+                Designation.countDocuments({ department: id, isActive: true })
+            ]);
+
+            if (activeEmployeeCount > 0 || activeDesignationCount > 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Department has active employees or designations. Reassign employees and deactivate designations before deactivating the department."
+                });
+            }
+        }
+
         const department = await Department.findByIdAndUpdate(
             id,
             { $set: updates },
@@ -119,7 +137,7 @@ export const updateDepartment = async (req, res) => {
             data: department
         });
     } catch (error) {
-        res.status(400).json({
+        res.status(error.code === 11000 ? 409 : 400).json({
             success: false,
             message: error.code === 11000
                 ? "Department name or code already exists"
