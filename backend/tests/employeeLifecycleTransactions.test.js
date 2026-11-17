@@ -26,7 +26,7 @@ const createResponse = () => ({
     }
 });
 
-const withStubs = async ({ employeeMethod, employeeQuery, employeeArchived = false, userUpdate, save }, run) => {
+const withStubs = async ({ employeeMethod, employeeQuery, employeeArchived = false, employeeStatus = "active", userUpdate, save }, run) => {
     const original = {
         startSession: mongoose.startSession,
         findById: Employee.findById,
@@ -44,7 +44,7 @@ const withStubs = async ({ employeeMethod, employeeQuery, employeeArchived = fal
     };
     const employee = {
         _id: EMPLOYEE_ID,
-        employmentStatus: "active",
+        employmentStatus: employeeStatus,
         isArchived: employeeArchived,
         async save(options) {
             save?.(options);
@@ -148,6 +148,39 @@ test("updateEmployee refuses archived employees before changing profile or login
     }
 });
 
+test("updateEmployee refuses to reactivate resigned or terminated employees through profile editing", async (t) => {
+    for (const employmentStatus of ["resigned", "terminated"]) {
+        await t.test(employmentStatus, async () => {
+            const originalFindById = Employee.findById;
+            const originalUserFindOne = User.findOne;
+            let userLookupAttempted = false;
+            try {
+                Employee.findById = () => Promise.resolve({
+                    _id: EMPLOYEE_ID,
+                    isArchived: false,
+                    employmentStatus
+                });
+                User.findOne = () => {
+                    userLookupAttempted = true;
+                    throw new Error("Ended employment must be rejected before account lookup");
+                };
+                const res = createResponse();
+                await updateEmployee({
+                    params: { id: EMPLOYEE_ID },
+                    body: { employmentStatus: "active" },
+                    user: { role: "admin" }
+                }, res);
+                assert.equal(res.statusCode, 409);
+                assert.match(res.body.message, /Resigned or terminated employees cannot be reactivated/);
+                assert.equal(userLookupAttempted, false);
+            } finally {
+                Employee.findById = originalFindById;
+                User.findOne = originalUserFindOne;
+            }
+        });
+    }
+});
+
 test("activateEmployee refuses archived employees without re-enabling their login", async () => {
     let userUpdateAttempted = false;
     let employeeSaveAttempted = false;
@@ -165,6 +198,29 @@ test("activateEmployee refuses archived employees without re-enabling their logi
         assert.equal(employeeSaveAttempted, false);
         assert.equal(session.ended, true);
     });
+});
+
+test("activateEmployee refuses resigned and terminated employees without re-enabling login", async (t) => {
+    for (const employmentStatus of ["resigned", "terminated"]) {
+        await t.test(employmentStatus, async () => {
+            let userUpdateAttempted = false;
+            let employeeSaveAttempted = false;
+            await withStubs({
+                employeeMethod: "findById",
+                employeeStatus: employmentStatus,
+                userUpdate: () => { userUpdateAttempted = true; },
+                save: () => { employeeSaveAttempted = true; }
+            }, async ({ session }) => {
+                const res = createResponse();
+                await activateEmployee({ params: { id: EMPLOYEE_ID } }, res);
+                assert.equal(res.statusCode, 409);
+                assert.match(res.body.message, /Resigned or terminated employees cannot be reactivated/);
+                assert.equal(userUpdateAttempted, false);
+                assert.equal(employeeSaveAttempted, false);
+                assert.equal(session.ended, true);
+            });
+        });
+    }
 });
 
 test("archiveEmployee updates archive metadata and disables login in the same transaction", async () => {
