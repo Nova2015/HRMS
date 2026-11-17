@@ -128,11 +128,16 @@ export const updateCandidateStatus = async (req, res) => {
         if (!mongoose.isValidObjectId(id) || !candidateStatuses.has(status)) {
             return res.status(400).json({ success: false, message: "Provide a valid candidate and pipeline status" });
         }
-        const candidate = await Candidate.findById(id);
-        if (!candidate) return res.status(404).json({ success: false, message: "Candidate not found" });
-        if (candidate.status === "hired") return res.status(409).json({ success: false, message: "A hired candidate cannot be moved back in the pipeline" });
-        candidate.status = status;
-        await candidate.save();
+        const candidate = await Candidate.findOneAndUpdate(
+            { _id: id, status: { $ne: "hired" }, employee: null },
+            { $set: { status } },
+            { new: true, runValidators: true }
+        );
+        if (!candidate) {
+            const existing = await Candidate.findById(id).select("_id");
+            if (!existing) return res.status(404).json({ success: false, message: "Candidate not found" });
+            return res.status(409).json({ success: false, message: "Candidate has already been hired or converted; pipeline status cannot be changed" });
+        }
         const data = await populatedCandidate(Candidate.findById(candidate._id));
         return res.json({ success: true, message: "Candidate status updated", data });
     } catch (error) {
