@@ -31,7 +31,7 @@ const handleReceiptUpload = (req, res, next) => {
 
 router.use(protect);
 router.get("/", getExpenseWorkspace);
-router.post("/claims", handleReceiptUpload, auditAction("expenses", "expense.claim_created"), createExpenseClaim);
+router.post("/claims", auditAction("expenses", "expense.claim_created"), handleReceiptUpload, createExpenseClaim);
 router.get("/claims/:id/receipt", downloadExpenseReceipt);
 router.patch("/claims/:id/review", authorizeRoles("admin", "hr"), auditAction("expenses", "expense.claim_reviewed"), reviewExpenseClaim);
 router.patch("/claims/:id/reimburse", authorizeRoles("admin", "hr"), auditAction("expenses", "expense.reimbursed"), reimburseExpenseClaim);
