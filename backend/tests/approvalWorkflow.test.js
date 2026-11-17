@@ -223,7 +223,7 @@ test("An expense claim that is no longer pending cannot be reviewed twice", asyn
     }, async () => {
         const req = {
             params: { id: IDS.request },
-            body: { decision: "rejected" },
+            body: { decision: "rejected", reviewComment: "Duplicate or invalid claim" },
             user: { role: "hr", userId: IDS.user }
         };
         const res = createResponse();
