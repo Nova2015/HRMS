@@ -13,6 +13,8 @@ import LeaveRequest from "../src/models/LeaveRequest.js";
 import ExpenseClaim from "../src/models/ExpenseClaim.js";
 import EmployeeUpdateApproval from "../src/models/EmployeeUpdateApproval.js";
 import AuditLog from "../src/models/AuditLog.js";
+import Department from "../src/models/Department.js";
+import Designation from "../src/models/Designation.js";
 
 const SECRET = "approval-decision-api-test-secret-at-least-32-characters";
 const IDS = {
@@ -23,7 +25,9 @@ const IDS = {
     managerEmployee: "64b000000000000000000015",
     teamEmployee: "64b000000000000000000016",
     otherEmployee: "64b000000000000000000017",
-    record: "64b000000000000000000018"
+    record: "64b000000000000000000018",
+    department: "64b000000000000000000019",
+    designation: "64b000000000000000000020"
 };
 const rolesByUser = new Map([
     [IDS.adminUser, "admin"],
@@ -66,6 +70,8 @@ before(async () => {
     for (const [model, methods] of [
         [User, ["findById"]],
         [Employee, ["findById", "find"]],
+        [Department, ["findById"]],
+        [Designation, ["findById"]],
         [LeaveRequest, ["findOneAndUpdate", "exists", "findById"]],
         [ExpenseClaim, ["findOneAndUpdate", "exists", "findById"]],
         [EmployeeUpdateApproval, ["findOne", "findOneAndUpdate"]],
@@ -84,8 +90,14 @@ before(async () => {
         })
     });
     Employee.findById = () => ({
-        select: async () => ({ _id: IDS.managerEmployee, employmentStatus: "active" })
+        select: async () => ({ _id: IDS.managerEmployee, employmentStatus: "active" }),
+        _id: IDS.teamEmployee,
+        department: IDS.department,
+        designation: IDS.designation,
+        save: async () => ({})
     });
+    Department.findById = async () => ({ _id: IDS.department, isActive: true });
+    Designation.findById = async () => ({ _id: IDS.designation, isActive: true, department: IDS.department });
     Employee.find = (filter) => {
         calls.teamFilters.push(filter);
         return { distinct: async () => [IDS.teamEmployee] };
@@ -108,7 +120,7 @@ before(async () => {
 
     EmployeeUpdateApproval.findOne = async (filter) => {
         assert.deepEqual(filter, { _id: IDS.record, status: "pending" });
-        return { _id: IDS.record, status: "pending" };
+        return { _id: IDS.record, status: "pending", employee: IDS.teamEmployee, proposedChanges: { firstName: "Updated" } };
     };
     EmployeeUpdateApproval.findOneAndUpdate = async (filter, update) => {
         calls.updateFilters.push({ filter, update });
@@ -156,6 +168,8 @@ test("Leave decision API allows a Manager to review an assigned team member", as
 });
 
 test("Leave decision API does not let a Manager review a request outside their assigned team", async () => {
+    const defaultFindOneAndUpdate = LeaveRequest.findOneAndUpdate;
+    const defaultExists = LeaveRequest.exists;
     let capturedFilter;
     LeaveRequest.findOneAndUpdate = async (filter) => {
         capturedFilter = filter;
@@ -165,6 +179,8 @@ test("Leave decision API does not let a Manager review a request outside their a
     const response = await send("manager", "PATCH", `/api/leaves/${IDS.record}/review`, {
         decision: "approved"
     });
+    LeaveRequest.findOneAndUpdate = defaultFindOneAndUpdate;
+    LeaveRequest.exists = defaultExists;
     assert.equal(response.status, 404);
     assert.deepEqual(capturedFilter.employee, { $in: [IDS.teamEmployee] });
 });
