@@ -12,6 +12,7 @@ import CompanyEvent from "../models/CompanyEvent.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import { auditAction } from "../middleware/auditLogMiddleware.js";
+import { googleFetch } from "../utils/googleFetch.js";
 
 const router = express.Router();
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -21,27 +22,6 @@ const GMAIL_PROFILE_URL = `${GMAIL_API_URL}/profile`;
 const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const GOOGLE_CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const GOOGLE_CALENDAR_API_URL = "https://www.googleapis.com/calendar/v3/calendars";
-
-const GOOGLE_API_TIMEOUT_MS = 10_000;
-
-const googleFetch = async (url, options = {}) => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), GOOGLE_API_TIMEOUT_MS);
-    try {
-        return await fetch(url, { ...options, signal: controller.signal });
-    } catch (error) {
-        if (controller.signal.aborted || error.name === "AbortError" || error.name === "TimeoutError") {
-            const timeoutError = new Error("Google service request timed out; try again");
-            timeoutError.status = 504;
-            throw timeoutError;
-        }
-        const networkError = new Error("Could not reach Google services; try again");
-        networkError.status = 502;
-        throw networkError;
-    } finally {
-        clearTimeout(timeout);
-    }
-};
 
 const getOAuthConfig = () => {
     const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_GMAIL_REDIRECT_URI, JWT_SECRET } = process.env;
