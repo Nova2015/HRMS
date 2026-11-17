@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import GoogleGmailIntegration from "../models/GoogleGmailIntegration.js";
+import GoogleOAuthState from "../models/GoogleOAuthState.js";
 import Employee from "../models/Employee.js";
 import User from "../models/User.js";
 import Session from "../models/Session.js";
@@ -115,11 +116,20 @@ const collectPlainText = (part, chunks = []) => {
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-router.get("/gmail/connect", protect, authorizeRoles("admin", "hr"), (req, res) => {
+router.get("/gmail/connect", protect, authorizeRoles("admin", "hr"), async (req, res) => {
     try {
         const config = getOAuthConfig();
+        const nonce = crypto.randomUUID();
+        const stateExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        await GoogleOAuthState.create({
+            nonce,
+            userId: req.user.userId,
+            sessionJti: req.user.sessionJti,
+            tokenVersion: req.user.tokenVersion ?? 0,
+            expiresAt: stateExpiresAt
+        });
         const state = jwt.sign(
-            { userId: req.user.userId, purpose: "google-gmail-oauth", nonce: crypto.randomUUID(), sessionJti: req.user.sessionJti, tokenVersion: req.user.tokenVersion },
+            { userId: req.user.userId, purpose: "google-gmail-oauth", nonce, sessionJti: req.user.sessionJti, tokenVersion: req.user.tokenVersion },
             config.jwtSecret,
             { algorithm: "HS256", expiresIn: "10m", issuer: "hrms", audience: "google-gmail-oauth" }
         );
@@ -143,6 +153,33 @@ router.get("/gmail/callback", async (req, res) => {
     try {
         const config = getOAuthConfig();
         const { code, state, error: googleError } = req.query;
+        if (typeof state !== "string") {
+            return res.status(400).json({ success: false, message: "Missing Google OAuth state" });
+        }
+
+        const decoded = jwt.verify(state, config.jwtSecret, {
+            algorithms: ["HS256"],
+            issuer: "hrms",
+            audience: "google-gmail-oauth"
+        });
+        if (decoded.purpose !== "google-gmail-oauth" || !decoded.userId ||
+            typeof decoded.nonce !== "string" || !decoded.nonce ||
+            typeof decoded.sessionJti !== "string" || !decoded.sessionJti) {
+            return res.status(400).json({ success: false, message: "Invalid Google OAuth state" });
+        }
+
+        // Atomically consume the nonce so this signed callback can be used only once.
+        const consumedState = await GoogleOAuthState.findOneAndDelete({
+            nonce: decoded.nonce,
+            userId: decoded.userId,
+            sessionJti: decoded.sessionJti,
+            tokenVersion: decoded.tokenVersion ?? 0,
+            expiresAt: { $gt: new Date() }
+        }).select("_id");
+        if (!consumedState) {
+            return res.status(400).json({ success: false, message: "Google OAuth state is invalid, expired, or already used" });
+        }
+
         if (googleError) {
             const safeGoogleError = typeof googleError === "string" && /^[a-zA-Z0-9_.-]{1,80}$/.test(googleError)
                 ? googleError
@@ -153,17 +190,8 @@ router.get("/gmail/callback", async (req, res) => {
                 message: `Google authorization was not completed (${safeGoogleError})`
             });
         }
-        if (typeof code !== "string" || typeof state !== "string") {
-            return res.status(400).json({ success: false, message: "Missing Google OAuth callback parameters" });
-        }
-
-        const decoded = jwt.verify(state, config.jwtSecret, {
-            algorithms: ["HS256"],
-            issuer: "hrms",
-            audience: "google-gmail-oauth"
-        });
-        if (decoded.purpose !== "google-gmail-oauth" || !decoded.userId) {
-            return res.status(400).json({ success: false, message: "Invalid Google OAuth state" });
+        if (typeof code !== "string" || !code) {
+            return res.status(400).json({ success: false, message: "Missing Google OAuth authorization code" });
         }
 
         // Revalidate the initiating account because its role or active status may
