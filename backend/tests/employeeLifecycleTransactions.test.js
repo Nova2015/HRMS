@@ -140,6 +140,7 @@ test("updateEmployee blocks manager role demotion while non-archived direct repo
         employeeFindById: Employee.findById,
         employeeExists: Employee.exists,
         userFindOne: User.findOne,
+        userFindOneAndUpdate: User.findOneAndUpdate,
         departmentFindById: (await import("../src/models/Department.js")).default.findById,
         designationFindById: (await import("../src/models/Designation.js")).default.findById
     };
@@ -193,7 +194,7 @@ test("updateEmployee blocks manager role demotion while non-archived direct repo
         Employee.findById = original.employeeFindById;
         Employee.exists = original.employeeExists;
         User.findOne = original.userFindOne;
-        User.findOneAndUpdate = undefined;
+        User.findOneAndUpdate = original.userFindOneAndUpdate;
         const Department = (await import("../src/models/Department.js")).default;
         const Designation = (await import("../src/models/Designation.js")).default;
         Department.findById = original.departmentFindById;
