@@ -135,7 +135,7 @@ function ApprovalInboxContent() {
     }
   };
 
-  const pendingCount = items.filter((item) => item.status === "pending").length;
+  const pendingCount = filtered.filter((item) => item.status === "pending").length;
   const canSeeCompanyRequests = role === "admin" || role === "hr";
 
   return (
@@ -151,7 +151,7 @@ function ApprovalInboxContent() {
         </header>
 
         <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-xs text-slate-500">Requests shown</p><p className="mt-1 text-2xl font-bold text-slate-900">{loading ? "…" : items.length}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-xs text-slate-500">Requests shown</p><p className="mt-1 text-2xl font-bold text-slate-900">{loading ? "…" : filtered.length}</p></div>
           <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-xs text-slate-500">Pending in view</p><p className="mt-1 text-2xl font-bold text-amber-600">{loading ? "…" : pendingCount}</p></div>
           <div className="col-span-2 rounded-xl border border-slate-200 bg-white p-3 sm:col-span-1"><p className="text-xs text-slate-500">Approval scope</p><p className="mt-1 text-sm font-semibold text-slate-800">{role === "manager" ? "Assigned team leave" : "Company approvals"}</p></div>
         </section>
