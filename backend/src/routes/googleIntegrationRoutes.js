@@ -28,7 +28,7 @@ const googleFetch = async (url, options = {}) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), GOOGLE_API_TIMEOUT_MS);
     try {
-        return await googleFetch(url, { ...options, signal: controller.signal });
+        return await fetch(url, { ...options, signal: controller.signal });
     } catch (error) {
         if (controller.signal.aborted || error.name === "AbortError" || error.name === "TimeoutError") {
             const timeoutError = new Error("Google service request timed out; try again");
