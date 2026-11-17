@@ -17,9 +17,11 @@ type ReportData = {
 };
 
 const today = new Date();
-const dateValue = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-const firstOfMonth = dateValue(new Date(today.getFullYear(), today.getMonth(), 1));
-const todayValue = dateValue(today);
+const indiaToday = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+}).format(today);
+const firstOfMonth = `${indiaToday.slice(0, 7)}-01`;
+const todayValue = indiaToday;
 const number = (value: number) => new Intl.NumberFormat("en-IN").format(value || 0);
 const currency = (value: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value || 0);
 
