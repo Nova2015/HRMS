@@ -19,6 +19,7 @@ const adminLinks = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Employees", href: "/employees", icon: Users },
   { label: "Attendance", href: "/attendance", icon: ClipboardList },
+  { label: "Approval Inbox", href: "/approvals", icon: ShieldCheck },
   { label: "Leave Management", href: "/leaves", icon: CalendarDays },
   { label: "Payroll", href: "/payroll", icon: Wallet },
   { label: "Expenses", href: "/expenses", icon: ReceiptText },
@@ -37,7 +38,6 @@ const adminLinks = [
 const employeeLinks = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Attendance", href: "/attendance", icon: ClipboardList },
-  { label: "Approval Inbox", href: "/approvals", icon: ShieldCheck },
   { label: "Leave Management", href: "/leaves", icon: CalendarDays },
   { label: "Payroll", href: "/payroll", icon: Wallet },
   { label: "Expenses", href: "/expenses", icon: ReceiptText },
