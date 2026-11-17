@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import mongoose from "mongoose";
 import Shift from "../src/models/Shift.js";
 import Employee from "../src/models/Employee.js";
 import { updateShift, deleteShift } from "../src/controllers/shiftController.js";
@@ -12,71 +13,82 @@ const response = () => ({
     json(payload) { this.body = payload; return this; }
 });
 
-test("shift cannot be deactivated while any non-archived employee remains assigned", async () => {
-    const original = {
+const withTransactionStubs = async ({ assignedCount, shiftActive = true, updateResult = { _id: ID, isActive: false }, deleteResult = { _id: ID } }, run) => {
+    const originals = {
+        startSession: mongoose.startSession,
         findById: Shift.findById,
-        count: Employee.countDocuments,
-        update: Shift.findByIdAndUpdate
+        findOneAndUpdate: Shift.findOneAndUpdate,
+        findByIdAndUpdate: Shift.findByIdAndUpdate,
+        findByIdAndDelete: Shift.findByIdAndDelete,
+        countDocuments: Employee.countDocuments
     };
-    let updateAttempted = false;
+    const session = {
+        ended: false,
+        async withTransaction(callback) { return callback(); },
+        async endSession() { this.ended = true; }
+    };
     try {
+        mongoose.startSession = async () => session;
         Shift.findById = async () => ({ _id: ID, isActive: true, startTime: "09:00", endTime: "18:00" });
-        Employee.countDocuments = async (filter) => {
-            assert.deepEqual(filter, { shift: ID, isArchived: { $ne: true } });
-            return 1;
+        Shift.findOneAndUpdate = async (filter, update, options) => {
+            assert.deepEqual(filter, { _id: ID, isActive: true });
+            assert.deepEqual(update, { $inc: { assignmentVersion: 1 } });
+            assert.equal(options.session, session);
+            return shiftActive ? { _id: ID, isActive: true } : null;
         };
-        Shift.findByIdAndUpdate = async () => { updateAttempted = true; };
+        Employee.countDocuments = (filter) => ({
+            session: async (providedSession) => {
+                assert.equal(providedSession, session);
+                return assignedCount;
+            }
+        });
+        Shift.findByIdAndUpdate = async (id, update, options) => {
+            assert.equal(id, ID);
+            assert.equal(options.session, session);
+            return updateResult;
+        };
+        Shift.findByIdAndDelete = async (id, options) => {
+            assert.equal(id, ID);
+            assert.equal(options.session, session);
+            return deleteResult;
+        };
+        await run({ session });
+    } finally {
+        mongoose.startSession = originals.startSession;
+        Shift.findById = originals.findById;
+        Shift.findOneAndUpdate = originals.findOneAndUpdate;
+        Shift.findByIdAndUpdate = originals.findByIdAndUpdate;
+        Shift.findByIdAndDelete = originals.findByIdAndDelete;
+        Employee.countDocuments = originals.countDocuments;
+    }
+};
+
+test("shift cannot be deactivated while any non-archived employee remains assigned", async () => {
+    await withTransactionStubs({ assignedCount: 1 }, async ({ session }) => {
         const res = response();
         await updateShift({ params: { id: ID }, body: { isActive: false } }, res);
         assert.equal(res.statusCode, 409);
         assert.match(res.body.message, /Reassign employees/);
-        assert.equal(updateAttempted, false);
-    } finally {
-        Shift.findById = original.findById;
-        Employee.countDocuments = original.count;
-        Shift.findByIdAndUpdate = original.update;
-    }
+        assert.equal(session.ended, true);
+    });
 });
 
 test("shift can be deactivated after all non-archived employees are reassigned", async () => {
-    const original = {
-        findById: Shift.findById,
-        count: Employee.countDocuments,
-        update: Shift.findByIdAndUpdate
-    };
-    try {
-        Shift.findById = async () => ({ _id: ID, isActive: true, startTime: "09:00", endTime: "18:00" });
-        Employee.countDocuments = async () => 0;
-        Shift.findByIdAndUpdate = () => ({ then: (resolve) => resolve({ _id: ID, isActive: false }) });
+    await withTransactionStubs({ assignedCount: 0 }, async ({ session }) => {
         const res = response();
         await updateShift({ params: { id: ID }, body: { isActive: false } }, res);
         assert.equal(res.statusCode, 200);
         assert.equal(res.body.data.isActive, false);
-    } finally {
-        Shift.findById = original.findById;
-        Employee.countDocuments = original.count;
-        Shift.findByIdAndUpdate = original.update;
-    }
+        assert.equal(session.ended, true);
+    });
 });
 
 test("shift deletion remains blocked while archived employee records still reference it", async () => {
-    const original = {
-        count: Employee.countDocuments,
-        remove: Shift.findByIdAndDelete
-    };
-    let deleteAttempted = false;
-    try {
-        Employee.countDocuments = async (filter) => {
-            assert.deepEqual(filter, { shift: ID });
-            return 1;
-        };
-        Shift.findByIdAndDelete = async () => { deleteAttempted = true; };
+    await withTransactionStubs({ assignedCount: 1 }, async ({ session }) => {
         const res = response();
         await deleteShift({ params: { id: ID } }, res);
         assert.equal(res.statusCode, 409);
-        assert.equal(deleteAttempted, false);
-    } finally {
-        Employee.countDocuments = original.count;
-        Shift.findByIdAndDelete = original.remove;
-    }
+        assert.match(res.body.message, /assigned to employees/);
+        assert.equal(session.ended, true);
+    });
 });
