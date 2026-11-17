@@ -50,6 +50,7 @@ function LeaveManagement() {
   const [allocationYear, setAllocationYear] = useState(String(new Date().getFullYear()));
   const [allocationEmployees, setAllocationEmployees] = useState<LeaveEmployee[]>([]);
   const [allocations, setAllocations] = useState<LeaveBalance[]>([]);
+  const [allocationSearch, setAllocationSearch] = useState("");
   const [allocationForm, setAllocationForm] = useState({ employeeId: "", casual: "0", sick: "0", earned: "0" });
 
   const isCompanyReviewer = role === "admin" || role === "hr";
@@ -157,6 +158,11 @@ function LeaveManagement() {
   const summary = useMemo(() => ({ total: items.length, pending: items.filter((item) => item.status === "pending").length, approved: items.filter((item) => item.status === "approved").length, rejected: items.filter((item) => item.status === "rejected").length }), [items]);
   const heading = isCompanyReviewer ? "Company Leave Overview" : isManager ? "Team Leave Overview" : "My Leave Overview";
   const description = isCompanyReviewer ? "Company-wide leave requests, approvals and calendar." : isManager ? "Only employees assigned to you and their leave requests are shown." : "Apply for leave from the calendar and track your request status.";
+  const visibleAllocations = useMemo(() => {
+    const term = allocationSearch.trim().toLowerCase();
+    if (!term) return allocations;
+    return allocations.filter((allocation) => `${allocation.employee?.firstName || ""} ${allocation.employee?.lastName || ""} ${allocation.employee?.employeeCode || ""}`.toLowerCase().includes(term));
+  }, [allocations, allocationSearch]);
   const fieldClass = "mt-1.5 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
   const fieldLabelClass = "block min-w-0 text-xs font-semibold text-slate-600";
 
@@ -194,12 +200,12 @@ function LeaveManagement() {
           )}
           {allocations.length === 0 ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{canManage ? "No leave allocations found for this year. Select an employee and assign leave days above." : "HR has not assigned leave for this year. Please contact HR."}</p> : (
             <div className="overflow-hidden rounded-xl border border-slate-200">
-              <div className="flex items-center justify-between bg-slate-50 px-4 py-3"><h3 className="text-sm font-bold text-slate-800">Employee leave balances</h3><span className="text-xs text-slate-500">{allocations.length} {allocations.length === 1 ? "employee" : "employees"}</span></div>
+              <div className="flex flex-col gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"><h3 className="text-xs font-bold text-slate-800">Employee leave balances <span className="ml-1 font-normal text-slate-500">({visibleAllocations.length})</span></h3><input type="search" value={allocationSearch} onChange={(e) => setAllocationSearch(e.target.value)} placeholder="Search employee / code..." aria-label="Search leave balances by employee name or code" className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 sm:w-64" /></div>
               <div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm">
                 <thead className="border-y border-slate-200 bg-white text-[11px] font-bold uppercase tracking-wide text-slate-500"><tr>{canManage && <th className="px-4 py-3">Employee</th>}<th className="px-4 py-3">Leave type</th><th className="px-4 py-3 text-right">Allocated</th><th className="px-4 py-3 text-right">Pending / Used</th><th className="px-4 py-3 text-right">Available</th></tr></thead>
-                <tbody className="divide-y divide-slate-100">{allocations.flatMap((allocation) => (["casual", "sick", "earned"] as const).map((type) => <tr key={allocation._id + type} className="transition-colors hover:bg-slate-50">
-                  {canManage && <td className="px-4 py-3"><p className="whitespace-nowrap font-semibold text-slate-800">{allocation.employee?.firstName} {allocation.employee?.lastName}</p><p className="mt-0.5 text-xs text-slate-500">{allocation.employee?.employeeCode}</p></td>}
-                  <td className="px-4 py-3"><span className="inline-flex rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold capitalize text-slate-700">{type} leave</span></td><td className="px-4 py-3 text-right tabular-nums text-slate-700">{allocation.balances[type].allocated}</td><td className="px-4 py-3 text-right tabular-nums text-slate-700">{allocation.balances[type].reserved}</td><td className="px-4 py-3 text-right font-bold tabular-nums text-emerald-700">{allocation.balances[type].available}</td>
+                <tbody className="divide-y divide-slate-100">{visibleAllocations.flatMap((allocation) => (["casual", "sick", "earned"] as const).map((type) => <tr key={allocation._id + type} className="text-xs transition-colors hover:bg-slate-50">
+                  {canManage && <td className="px-2 py-1.5"><p className="whitespace-nowrap font-semibold text-slate-800">{allocation.employee?.firstName} {allocation.employee?.lastName}</p><p className="text-[10px] text-slate-500">{allocation.employee?.employeeCode}</p></td>}
+                  <td className="px-2 py-1.5"><span className="inline-flex rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-slate-700">{type} leave</span></td><td className="px-2 py-1.5 text-right tabular-nums text-slate-700">{allocation.balances[type].allocated}</td><td className="px-4 py-3 text-right tabular-nums text-slate-700">{allocation.balances[type].reserved}</td><td className="px-2 py-1.5 text-right font-bold tabular-nums text-emerald-700">{allocation.balances[type].available}</td>
                 </tr>))}</tbody>
               </table></div>
             </div>
