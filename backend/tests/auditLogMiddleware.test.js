@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import AuditLog from "../src/models/AuditLog.js";
 import { auditAction } from "../src/middleware/auditLogMiddleware.js";
 
-const runAudit = async (decision, statusCode = 200) => {
+const runAudit = async (decision, statusCode = 200, options = {}) => {
     const originalCreate = AuditLog.create;
     let recorded = null;
     let finishHandler = null;
@@ -16,8 +16,8 @@ const runAudit = async (decision, statusCode = 200) => {
     try {
         const req = {
             user: { userId: "64b000000000000000000001", role: "admin", employeeId: "64b000000000000000000002" },
-            body: decision === undefined ? {} : { decision },
-            params: { id: "64b000000000000000000003" },
+            body: { ...(decision === undefined ? {} : { decision }), ...(options.body || {}) },
+            params: options.params || { id: "64b000000000000000000003" },
             route: { path: "/:id/review" },
             baseUrl: "/api/leaves",
             method: "PATCH",
@@ -65,4 +65,15 @@ test("Audit log leaves outcome empty for actions without a decision and ignores 
 
     assert.equal(ordinaryAction.outcome, "");
     assert.equal(failedAction, null);
+});
+
+test("Audit log identifies self-service and body-targeted employee resources", async () => {
+    const selfService = await runAudit(undefined, 200, { params: {} });
+    const bodyTargeted = await runAudit(undefined, 200, {
+        params: {},
+        body: { employeeId: "64b000000000000000000004" }
+    });
+
+    assert.equal(selfService.resourceId, "64b000000000000000000002");
+    assert.equal(bodyTargeted.resourceId, "64b000000000000000000004");
 });
