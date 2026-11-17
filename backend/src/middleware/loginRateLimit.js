@@ -14,7 +14,7 @@ const auditRateLimitedLogin = (req) => {
         employee: null,
         role: "system",
         action: "login.rate_limited",
-        module: "authentication",
+        module: "auth",
         method: req.method || "POST",
         route: String(req.originalUrl || req.url || "/api/auth/login").slice(0, 240),
         resourceId: "",
