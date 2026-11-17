@@ -169,35 +169,21 @@ export const checkIn = async (req, res) => {
 export const checkOut = async (req, res) => {
     try {
         const employeeId = req.user.employeeId;
-        const dateKey = getDateKey();
-
+        const now = new Date();
+        // Overnight shifts can be checked out on the calendar day after check-in.
+        // Restrict lookup to the most recent 24 hours so stale open records are not closed accidentally.
         const attendance = await Attendance.findOne({
             employee: employeeId,
-            dateKey
-        });
+            checkIn: { $ne: null, $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+            checkOut: null
+        }).sort({ checkIn: -1 });
 
         if (!attendance) {
             return res.status(404).json({
                 success: false,
-                message: "Please check-in before checking out"
+                message: "No active check-in was found in the last 24 hours"
             });
         }
-
-        if (!attendance.checkIn) {
-            return res.status(400).json({
-                success: false,
-                message: "Check-in time is missing"
-            });
-        }
-
-        if (attendance.checkOut) {
-            return res.status(409).json({
-                success: false,
-                message: "You have already checked out today"
-            });
-        }
-
-        const now = new Date();
 
         if (now <= attendance.checkIn) {
             return res.status(400).json({
