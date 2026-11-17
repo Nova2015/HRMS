@@ -95,3 +95,72 @@ test("HR can download an employee document", async () => {
         fs.access = originals.access;
     }
 });
+
+
+test("download confines stored filenames to the private document directory", async () => {
+    stubDocument();
+    EmployeeDocument.findById = () => ({
+        select: async () => ({
+            employee: { toString: () => OWNER_ID },
+            originalName: "../../private-record.pdf",
+            storedName: "../../outside/secret.pdf",
+            mimeType: "application/pdf"
+        })
+    });
+    fs.access = async () => {};
+
+    try {
+        const res = makeResponse();
+        await downloadEmployeeDocument({
+            params: { id: DOCUMENT_ID },
+            user: { role: "admin", employeeId: OTHER_ID }
+        }, res);
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.downloaded.fileName, "private-record.pdf");
+        assert.equal(res.downloaded.filePath, path.resolve(res.downloaded.filePath));
+        assert.equal(res.downloaded.filePath.split(/[\\/]/).at(-1), "secret.pdf");
+        assert.equal(res.downloaded.filePath.includes("outside"), false);
+    } finally {
+        EmployeeDocument.findById = originals.findById;
+        fs.access = originals.access;
+    }
+});
+
+test("download returns not found when the stored file is missing", async () => {
+    stubDocument();
+    fs.access = async () => { throw Object.assign(new Error("missing"), { code: "ENOENT" }); };
+
+    try {
+        const res = makeResponse();
+        await downloadEmployeeDocument({
+            params: { id: DOCUMENT_ID },
+            user: { role: "admin", employeeId: OTHER_ID }
+        }, res);
+        assert.equal(res.statusCode, 404);
+        assert.match(res.body.message, /file was not found/);
+        assert.equal(res.downloaded, undefined);
+    } finally {
+        EmployeeDocument.findById = originals.findById;
+        fs.access = originals.access;
+    }
+});
+
+test("download rejects malformed document IDs before querying storage", async () => {
+    let queried = false;
+    EmployeeDocument.findById = () => { queried = true; };
+    fs.access = async () => {};
+
+    try {
+        const res = makeResponse();
+        await downloadEmployeeDocument({
+            params: { id: "not-an-object-id" },
+            user: { role: "admin", employeeId: OTHER_ID }
+        }, res);
+        assert.equal(res.statusCode, 400);
+        assert.equal(queried, false);
+        assert.equal(res.downloaded, undefined);
+    } finally {
+        EmployeeDocument.findById = originals.findById;
+        fs.access = originals.access;
+    }
+});
