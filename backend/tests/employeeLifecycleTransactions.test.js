@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import Employee from "../src/models/Employee.js";
 import User from "../src/models/User.js";
+import Shift from "../src/models/Shift.js";
 import {
     archiveEmployee,
     deactivateEmployee,
@@ -260,6 +261,59 @@ test("activateEmployee blocks reactivation when department or designation is ina
         Employee.findById = original.employeeFindById;
         Department.findById = original.departmentFindById;
         Designation.findById = original.designationFindById;
+        User.findOneAndUpdate = original.userUpdate;
+    }
+});
+
+test("activateEmployee blocks reactivation when the assigned shift is inactive", async () => {
+    const original = {
+        startSession: mongoose.startSession,
+        employeeFindById: Employee.findById,
+        shiftFindById: Shift.findById,
+        userUpdate: User.findOneAndUpdate
+    };
+    const session = {
+        ended: false,
+        async withTransaction(callback) { return callback(); },
+        async endSession() { this.ended = true; }
+    };
+    const shiftId = "64b000000000000000000039";
+    const employee = {
+        _id: EMPLOYEE_ID,
+        shift: shiftId,
+        employmentStatus: "inactive",
+        isArchived: false,
+        async save() { throw new Error("Employee must not be saved"); }
+    };
+    let userUpdateAttempted = false;
+    try {
+        mongoose.startSession = async () => session;
+        Employee.findById = () => ({
+            session: async (providedSession) => {
+                assert.equal(providedSession, session);
+                return employee;
+            }
+        });
+        Shift.findById = () => ({
+            session: async (providedSession) => {
+                assert.equal(providedSession, session);
+                return { _id: shiftId, isActive: false };
+            }
+        });
+        User.findOneAndUpdate = async () => {
+            userUpdateAttempted = true;
+            return { _id: "64b000000000000000000033" };
+        };
+        const res = createResponse();
+        await activateEmployee({ params: { id: EMPLOYEE_ID } }, res);
+        assert.equal(res.statusCode, 409);
+        assert.match(res.body.message, /Employee shift is inactive or unavailable/);
+        assert.equal(userUpdateAttempted, false);
+        assert.equal(session.ended, true);
+    } finally {
+        mongoose.startSession = original.startSession;
+        Employee.findById = original.employeeFindById;
+        Shift.findById = original.shiftFindById;
         User.findOneAndUpdate = original.userUpdate;
     }
 });
