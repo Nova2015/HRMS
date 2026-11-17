@@ -14,6 +14,7 @@ import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import { auditAction } from "../middleware/auditLogMiddleware.js";
 import { googleFetch } from "../utils/googleFetch.js";
 import { requireGoogleRefreshToken } from "../utils/googleRefreshToken.js";
+import { runSingleFlight } from "../utils/singleFlight.js";
 
 const router = express.Router();
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -66,30 +67,48 @@ const getGmailAccessToken = async (integration) => {
     const expiresSoon = !integration.tokenExpiresAt || integration.tokenExpiresAt.getTime() <= Date.now() + 60_000;
     if (!expiresSoon) return decryptToken(integration.accessTokenEncrypted);
 
-    const refreshToken = decryptToken(requireGoogleRefreshToken(integration.refreshTokenEncrypted));
-    const config = getOAuthConfig();
-    const response = await googleFetch(GOOGLE_TOKEN_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-            client_id: config.clientId,
-            client_secret: config.clientSecret,
-            refresh_token: refreshToken,
-            grant_type: "refresh_token"
-        })
-    });
-    const tokens = await response.json().catch(() => ({}));
-    if (!response.ok || !tokens.access_token) {
-        console.error("Google Gmail access-token refresh failed:", tokens.error || response.status);
-        const error = new Error("Google Gmail authorization expired; reconnect the account");
-        error.status = 401;
-        throw error;
-    }
+    // Coalesce concurrent refreshes for the same connected user within this
+    // Node.js process. Re-read after entering the flight so queued callers use
+    // the token saved by the first refresh rather than refreshing again.
+    return runSingleFlight(String(integration.userId), async () => {
+        const latestIntegration = await GoogleGmailIntegration.findById(integration._id)
+            .select("+accessTokenEncrypted +refreshTokenEncrypted");
+        const currentIntegration = latestIntegration || integration;
+        const stillExpiresSoon = !currentIntegration.tokenExpiresAt ||
+            currentIntegration.tokenExpiresAt.getTime() <= Date.now() + 60_000;
+        if (!stillExpiresSoon) {
+            integration.accessTokenEncrypted = currentIntegration.accessTokenEncrypted;
+            integration.tokenExpiresAt = currentIntegration.tokenExpiresAt;
+            return decryptToken(currentIntegration.accessTokenEncrypted);
+        }
 
-    integration.accessTokenEncrypted = encryptToken(tokens.access_token);
-    integration.tokenExpiresAt = new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000);
-    await integration.save();
-    return tokens.access_token;
+        const refreshToken = decryptToken(requireGoogleRefreshToken(currentIntegration.refreshTokenEncrypted));
+        const config = getOAuthConfig();
+        const response = await googleFetch(GOOGLE_TOKEN_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                client_id: config.clientId,
+                client_secret: config.clientSecret,
+                refresh_token: refreshToken,
+                grant_type: "refresh_token"
+            })
+        });
+        const tokens = await response.json().catch(() => ({}));
+        if (!response.ok || !tokens.access_token) {
+            console.error("Google Gmail access-token refresh failed:", tokens.error || response.status);
+            const error = new Error("Google Gmail authorization expired; reconnect the account");
+            error.status = 401;
+            throw error;
+        }
+
+        currentIntegration.accessTokenEncrypted = encryptToken(tokens.access_token);
+        currentIntegration.tokenExpiresAt = new Date(Date.now() + Number(tokens.expires_in || 3600) * 1000);
+        await currentIntegration.save();
+        integration.accessTokenEncrypted = currentIntegration.accessTokenEncrypted;
+        integration.tokenExpiresAt = currentIntegration.tokenExpiresAt;
+        return tokens.access_token;
+    });
 };
 
 const gmailApiFetch = async (url, accessToken) => {
