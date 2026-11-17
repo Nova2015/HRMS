@@ -40,6 +40,7 @@ function ApprovalInboxContent() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [confirmTarget, setConfirmTarget] = useState<{ item: Approval; decision: "approve" | "reject" } | null>(null);
 
   const request = useCallback(async (path: string, options: RequestInit = {}) => {
     const token = sessionStorage.getItem("hrms_token");
@@ -102,7 +103,18 @@ function ApprovalInboxContent() {
     });
   }, [items, search, type]);
 
-  const decide = async (item: Approval, decision: "approve" | "reject") => {
+  const openDecisionConfirm = (item: Approval, decision: "approve" | "reject") => {
+    if (decision === "reject" && !(notes[item.id] || "").trim()) {
+      setError("Please enter a reason before rejecting this request.");
+      return;
+    }
+    setError("");
+    setConfirmTarget({ item, decision });
+  };
+
+  const decide = async () => {
+    if (!confirmTarget) return;
+    const { item, decision } = confirmTarget;
     const note = (notes[item.id] || "").trim();
     if (decision === "reject" && !note) {
       setError("Please enter a reason before rejecting this request.");
@@ -127,6 +139,7 @@ function ApprovalInboxContent() {
       const result = await request(path, { method: "PATCH", body: JSON.stringify(body) });
       setNotice(result.message || "Decision saved.");
       setNotes((current) => ({ ...current, [item.id]: "" }));
+      setConfirmTarget(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save decision");
@@ -178,7 +191,13 @@ function ApprovalInboxContent() {
                 const pending = item.status === "pending";
                 const icon = item.type === "leave" ? CalendarDays : item.type === "expense" ? Wallet : UserRound;
                 const Icon = icon;
-                const detailRows = Object.entries(item.details).filter(([key]) => !["reviewComment", "decisionNote"].includes(key));
+                const detailRows = Object.entries(item.details).filter(([key]) =>
+                  !["reviewComment", "decisionNote", "proposedChanges", "oldValues", "source", "sourceReference", "sourceSubject", "requestedBy", "decidedBy", "decidedAt"].includes(key)
+                );
+                const proposedChanges = item.type === "employee-update" && item.details.proposedChanges && typeof item.details.proposedChanges === "object"
+                  ? item.details.proposedChanges as Record<string, unknown> : {};
+                const oldValues = item.type === "employee-update" && item.details.oldValues && typeof item.details.oldValues === "object"
+                  ? item.details.oldValues as Record<string, unknown> : {};
                 return <article key={item.type + item.id} className="py-4 first:pt-1 last:pb-1">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
@@ -191,18 +210,46 @@ function ApprovalInboxContent() {
                     </div>
                     {item.type === "expense" && <p className="text-base font-bold text-slate-900">₹{Number(item.details.amount || 0).toLocaleString("en-IN")}</p>}
                   </div>
-                  <dl className="mt-3 grid grid-cols-1 gap-x-5 gap-y-2 rounded-lg bg-slate-50 p-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
+                  {item.type === "employee-update" ? <>
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                      <span>Source: <strong className="font-semibold capitalize text-slate-700">{displayValue(item.details.source)}</strong></span>
+                      {item.details.sourceReference ? <span className="break-all">Reference: {displayValue(item.details.sourceReference)}</span> : null}
+                      {item.details.requestedBy ? <span>Submitted by: {displayValue(item.details.requestedBy)}</span> : null}
+                    </div>
+                    {item.details.sourceSubject ? <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">{displayValue(item.details.sourceSubject)}</p> : null}
+                    <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
+                      <table className="w-full min-w-[480px] text-left text-xs">
+                        <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2">Field</th><th className="px-3 py-2">Current value</th><th className="px-3 py-2">Proposed value</th></tr></thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {Object.entries(proposedChanges).map(([field, value]) => <tr key={field}><td className="px-3 py-2 font-semibold text-slate-700">{field.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase())}</td><td className="px-3 py-2 text-slate-500">{field in oldValues ? displayValue(oldValues[field]) : "Not captured"}</td><td className="px-3 py-2 font-semibold text-indigo-700">{displayValue(value)}</td></tr>)}
+                          {Object.keys(proposedChanges).length === 0 && <tr><td colSpan={3} className="px-3 py-3 text-center text-slate-400">No proposed field changes found.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                    {!pending ? <p className="mt-2 text-xs text-slate-500">Decision: <strong className="capitalize text-slate-700">{item.status}</strong>{item.details.decidedBy ? " by " + displayValue(item.details.decidedBy) : ""}{item.details.decidedAt ? " · " + new Date(String(item.details.decidedAt)).toLocaleString("en-IN") : ""}{item.details.decisionNote ? <span className="block mt-1">Note: {displayValue(item.details.decisionNote)}</span> : null}</p> : null}
+                  </> : <dl className="mt-3 grid grid-cols-1 gap-x-5 gap-y-2 rounded-lg bg-slate-50 p-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
                     {detailRows.map(([key, value]) => <div key={key} className="min-w-0"><dt className="text-slate-400">{key.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase())}</dt><dd className="mt-0.5 break-words font-medium text-slate-700">{displayValue(value)}</dd></div>)}
-                  </dl>
+                  </dl>}
                   {pending && <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <input value={notes[item.id] || ""} onChange={(event) => setNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Decision note (required for rejection)" className="min-w-[220px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs outline-none focus:border-indigo-400" />
-                    <button type="button" disabled={busyId === item.id} onClick={() => void decide(item, "approve")} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"><Check size={14} /> Approve</button>
-                    <button type="button" disabled={busyId === item.id} onClick={() => void decide(item, "reject")} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"><X size={14} /> Reject</button>
+                    <input value={notes[item.id] || ""} maxLength={1000} onChange={(event) => setNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Decision note (required for rejection)" className="min-w-[220px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs outline-none focus:border-indigo-400" />
+                    <button type="button" disabled={busyId === item.id} onClick={() => openDecisionConfirm(item, "approve")} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"><Check size={14} /> Approve</button>
+                    <button type="button" disabled={busyId === item.id} onClick={() => openDecisionConfirm(item, "reject")} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"><X size={14} /> Reject</button>
                   </div>}
                 </article>;
               })}
             </div>}
         </section>
+        {confirmTarget && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setConfirmTarget(null); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="approval-confirm-title" className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h2 id="approval-confirm-title" className="text-base font-bold text-slate-900">{confirmTarget.decision === "approve" ? "Confirm approval" : "Confirm rejection"}</h2>
+            <p className="mt-2 text-sm text-slate-600">{confirmTarget.decision === "approve" ? "This will approve the request. Employee update proposals will be applied to the employee record." : "This will reject the request. The employee record will remain unchanged."}</p>
+            {confirmTarget.decision === "reject" ? <p className="mt-2 rounded-lg bg-rose-50 p-2 text-xs text-rose-700">Reason: {notes[confirmTarget.item.id]}</p> : null}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" disabled={!!busyId} onClick={() => setConfirmTarget(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600">Cancel</button>
+              <button type="button" disabled={!!busyId} onClick={() => void decide()} className={"rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 " + (confirmTarget.decision === "approve" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700")}>{busyId ? "Processing…" : confirmTarget.decision === "approve" ? "Yes, approve" : "Yes, reject"}</button>
+            </div>
+          </section>
+        </div>}
         <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400"><Clock3 size={12} /> Expense reimbursement remains in the Expenses module after approval.</p>
       </div>
     </main>
