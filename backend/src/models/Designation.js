@@ -16,6 +16,7 @@ const designationSchema = new mongoose.Schema(
             type: String,
             default: ""
         },
+        assignmentVersion: { type: Number, default: 0, select: false },
         isActive: {
             type: Boolean,
             default: true
