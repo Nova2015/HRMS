@@ -260,12 +260,18 @@ export const hireCandidate = async (req, res) => {
 
                 await reserveJobOpeningForHire(candidate, session);
 
-                const [duplicateCode, duplicateEmail, department, designation] = await Promise.all([
-                    Employee.exists({ employeeCode: normalizedCode }).session(session),
-                    User.exists({ email: candidate.email }).session(session),
-                    Department.findOne({ _id: candidate.department, isActive: true }).session(session),
-                    Designation.findOne({ _id: candidate.designation, department: candidate.department, isActive: true }).session(session)
-                ]);
+                // MongoDB does not support parallel operations on one transaction session.
+                const duplicateCode = await Employee.exists({ employeeCode: normalizedCode }).session(session);
+                const duplicateEmail = await User.exists({ email: candidate.email }).session(session);
+                const department = await Department.findOne({
+                    _id: candidate.department,
+                    isActive: true
+                }).session(session);
+                const designation = await Designation.findOne({
+                    _id: candidate.designation,
+                    department: candidate.department,
+                    isActive: true
+                }).session(session);
                 if (duplicateCode || duplicateEmail) {
                     const conflict = new Error(duplicateCode ? "Employee code already exists" : "Candidate email is already linked to a login account");
                     conflict.code = 409;
