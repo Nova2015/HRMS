@@ -95,6 +95,9 @@ export const createEmployeeUpdateProposal = async (req, res) => {
 
         const employee = await Employee.findById(employeeId);
         if (!employee) return res.status(404).json({ success: false, message: "Employee not found" });
+        if (employee.isArchived) {
+            return res.status(409).json({ success: false, message: "Archived employees cannot receive update proposals" });
+        }
 
         const proposal = await EmployeeUpdateApproval.create({
             employee: employee._id,
@@ -170,6 +173,9 @@ export const decideEmployeeUpdateProposal = async (req, res) => {
         if (validationError) return res.status(400).json({ success: false, message: validationError });
         const employee = await Employee.findById(proposal.employee);
         if (!employee) return res.status(404).json({ success: false, message: "Employee no longer exists" });
+        if (employee.isArchived) {
+            return res.status(409).json({ success: false, message: "Archived employees cannot be changed through approval" });
+        }
         const referenceError = await validateReferences(employee, changes);
         if (referenceError) return res.status(400).json({ success: false, message: referenceError });
 
@@ -187,6 +193,11 @@ export const decideEmployeeUpdateProposal = async (req, res) => {
                     const missingError = new Error("Employee no longer exists");
                     missingError.statusCode = 404;
                     throw missingError;
+                }
+                if (currentEmployee.isArchived) {
+                    const archivedError = new Error("Archived employees cannot be changed through approval");
+                    archivedError.statusCode = 409;
+                    throw archivedError;
                 }
 
                 const transactionOldValues = {};
