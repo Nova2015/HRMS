@@ -11,6 +11,17 @@ import AuthGuard from "./components/AuthGuard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
+const indiaDateKey = (date: Date) => new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+}).format(date);
+
+const shiftIndiaDateKey = (dateKey: string, offset: number) => {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+};
+
+
 type DashboardEmployee = {
   employeeCode: string;
   profilePhoto?: string;
@@ -104,22 +115,38 @@ export default function Home() {
         const token = sessionStorage.getItem("hrms_token");
         if (!token) return;
         const now = new Date();
-        const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-        const fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        const from = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, "0")}-${String(fromDate.getDate()).padStart(2, "0")}`;
-        const response = await fetch(`${API_URL}/attendance?from=${from}&to=${to}`, {
+        const to = indiaDateKey(now);
+        const from = `${to.slice(0, 7)}-01`;
+        const firstResponse = await fetch(`${API_URL}/attendance?from=${from}&to=${to}&page=1&limit=500`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         });
-        const result = await response.json();
-        if (response.status === 401) {
+        const firstResult = await firstResponse.json();
+        if (firstResponse.status === 401) {
           sessionStorage.removeItem("hrms_token");
           sessionStorage.removeItem("hrms_user");
           window.location.href = "/login";
           return;
         }
-        if (!response.ok || !result.success) throw new Error(result.message || "Unable to load attendance dashboard");
-        setAttendanceRecords(Array.isArray(result.data) ? result.data : []);
+        if (!firstResponse.ok || !firstResult.success) throw new Error(firstResult.message || "Unable to load attendance dashboard");
+        const allRecords = Array.isArray(firstResult.data) ? [...firstResult.data] : [];
+        const pages = Math.max(1, Number(firstResult.pagination?.pages) || 1);
+        for (let page = 2; page <= pages; page += 1) {
+          const response = await fetch(`${API_URL}/attendance?from=${from}&to=${to}&page=${page}&limit=500`, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          });
+          const result = await response.json();
+          if (response.status === 401) {
+            sessionStorage.removeItem("hrms_token");
+            sessionStorage.removeItem("hrms_user");
+            window.location.href = "/login";
+            return;
+          }
+          if (!response.ok || !result.success) throw new Error(result.message || "Unable to load attendance dashboard");
+          if (Array.isArray(result.data)) allRecords.push(...result.data);
+        }
+        setAttendanceRecords(allRecords);
       } catch (error) {
         setAttendanceError(error instanceof Error ? error.message : "Unable to load attendance dashboard");
       } finally {
@@ -342,7 +369,7 @@ export default function Home() {
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="hrms-premium-card rounded-2xl p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Attendance entries</p><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{attendanceLoading ? "…" : attendanceRecords.length}</p><p className="mt-1 text-xs text-slate-500">Recorded this month</p></div>
                 <div className="hrms-premium-card rounded-2xl p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Employees recorded</p><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{attendanceLoading ? "…" : new Set(attendanceRecords.map((item) => item.employee?.employeeCode).filter(Boolean)).size}</p><p className="mt-1 text-xs text-slate-500">Unique employees this month</p></div>
-                <div className="hrms-premium-card rounded-2xl p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Present today</p><p className="mt-2 text-2xl font-bold tabular-nums text-emerald-700">{attendanceLoading ? "…" : attendanceRecords.filter((item) => item.dateKey === new Date().toLocaleDateString("en-CA") && item.status === "present").length}</p><p className="mt-1 text-xs text-slate-500">Today's recorded presence</p></div>
+                <div className="hrms-premium-card rounded-2xl p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Present today</p><p className="mt-2 text-2xl font-bold tabular-nums text-emerald-700">{attendanceLoading ? "…" : attendanceRecords.filter((item) => item.dateKey === indiaDateKey(new Date()) && item.status === "present").length}</p><p className="mt-1 text-xs text-slate-500">Today's recorded presence</p></div>
                 <div className="hrms-premium-card rounded-2xl p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Late arrivals</p><p className="mt-2 text-2xl font-bold tabular-nums text-orange-700">{attendanceLoading ? "…" : attendanceRecords.filter((item) => item.isLate).length}</p><p className="mt-1 text-xs text-slate-500">Recorded this month</p></div>
               </div>
             </section>
@@ -378,19 +405,17 @@ export default function Home() {
                   <div className="mb-5 flex items-center gap-2"><BarChart3 size={19} className="text-blue-700" /><h3 className="font-bold text-slate-900">Attendance trend · Last 7 days</h3></div>
                   <div className="flex h-44 items-end justify-around gap-3 border-b border-slate-100 pb-2">
                     {Array.from({ length: 7 }, (_, index) => {
-                      const day = new Date();
-                      day.setDate(day.getDate() - (6 - index));
-                      const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+                      const key = shiftIndiaDateKey(indiaDateKey(new Date()), index - 6);
                       const count = attendanceRecords.filter((record) => record.dateKey === key && record.status !== "absent").length;
                       const max = Math.max(1, ...Array.from({ length: 7 }, (_, offset) => {
-                        const d = new Date(); d.setDate(d.getDate() - (6 - offset));
-                        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-                        return attendanceRecords.filter((record) => record.dateKey === k && record.status !== "absent").length;
+                        const dayKey = shiftIndiaDateKey(indiaDateKey(new Date()), offset - 6);
+                        return attendanceRecords.filter((record) => record.dateKey === dayKey && record.status !== "absent").length;
                       }));
+                      const day = new Date(`${key}T00:00:00.000Z`);
                       return <div key={key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
                         <span className="text-xs font-semibold text-slate-600">{count}</span>
                         <div className="w-full max-w-10 rounded-t-lg bg-blue-600 transition-all" style={{ height: `${Math.max(5, (count / max) * 112)}px` }} />
-                        <span className="text-[11px] text-slate-500">{day.toLocaleDateString("en-IN", { weekday: "short" })}</span>
+                        <span className="text-[11px] text-slate-500">{day.toLocaleDateString("en-IN", { weekday: "short", timeZone: "UTC" })}</span>
                       </div>;
                     })}
                   </div>
