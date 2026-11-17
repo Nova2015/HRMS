@@ -136,8 +136,6 @@ export const updateCandidateStatus = async (req, res) => {
 };
 
 export const hireCandidate = async (req, res) => {
-    let employee = null;
-    let user = null;
     try {
         const { id } = req.params;
         const { employeeCode, joiningDate, initialPassword } = req.body || {};
@@ -146,67 +144,106 @@ export const hireCandidate = async (req, res) => {
             String(initialPassword).length < 12 || Buffer.byteLength(String(initialPassword), "utf8") > 72) {
             return res.status(400).json({ success: false, message: "Enter employee code, joining date and an initial password of at least 12 characters (maximum 72 UTF-8 bytes)" });
         }
-        const candidate = await Candidate.findById(id);
-        if (!candidate) return res.status(404).json({ success: false, message: "Candidate not found" });
-        if (candidate.status !== "selected" || candidate.employee) {
-            return res.status(409).json({ success: false, message: "Only a selected candidate who has not been hired can be converted to an employee" });
-        }
-        const normalizedCode = String(employeeCode).trim().toUpperCase();
-        const [duplicateCode, duplicateEmail, department, designation] = await Promise.all([
-            Employee.exists({ employeeCode: normalizedCode }),
-            User.exists({ email: candidate.email }),
-            Department.findOne({ _id: candidate.department, isActive: true }),
-            Designation.findOne({ _id: candidate.designation, department: candidate.department, isActive: true })
-        ]);
-        if (duplicateCode || duplicateEmail) {
-            return res.status(409).json({ success: false, message: duplicateCode ? "Employee code already exists" : "Candidate email is already linked to a login account" });
-        }
-        if (!department || !designation) return res.status(409).json({ success: false, message: "Candidate department or designation is no longer active; update the job before hiring" });
 
-        employee = await Employee.create({
-            employeeCode: normalizedCode,
-            firstName: candidate.firstName,
-            lastName: candidate.lastName,
-            email: candidate.email,
-            phone: candidate.phone,
-            department: candidate.department,
-            designation: candidate.designation,
-            joiningDate,
-            employmentStatus: "active"
-        });
+        const normalizedCode = String(employeeCode).trim().toUpperCase();
         const passwordHash = await bcrypt.hash(String(initialPassword), 12);
-        user = await User.create({
-            employee: employee._id,
-            email: candidate.email,
-            passwordHash,
-            role: "employee",
-            isActive: true
-        });
-        candidate.status = "hired";
-        candidate.employee = employee._id;
-        candidate.hiredAt = new Date();
-        await candidate.save();
+        const session = await mongoose.startSession();
+        let result;
+        try {
+            await session.withTransaction(async () => {
+                const candidate = await Candidate.findOne({
+                    _id: id,
+                    status: "selected",
+                    employee: null
+                }).session(session);
+                if (!candidate) {
+                    const conflict = new Error("Only a selected candidate who has not been hired can be converted to an employee");
+                    conflict.code = 409;
+                    throw conflict;
+                }
+
+                const [duplicateCode, duplicateEmail, department, designation] = await Promise.all([
+                    Employee.exists({ employeeCode: normalizedCode }).session(session),
+                    User.exists({ email: candidate.email }).session(session),
+                    Department.findOne({ _id: candidate.department, isActive: true }).session(session),
+                    Designation.findOne({ _id: candidate.designation, department: candidate.department, isActive: true }).session(session)
+                ]);
+                if (duplicateCode || duplicateEmail) {
+                    const conflict = new Error(duplicateCode ? "Employee code already exists" : "Candidate email is already linked to a login account");
+                    conflict.code = 409;
+                    throw conflict;
+                }
+                if (!department || !designation) {
+                    const conflict = new Error("Candidate department or designation is no longer active; update the job before hiring");
+                    conflict.code = 409;
+                    throw conflict;
+                }
+
+                const employee = new Employee({
+                    employeeCode: normalizedCode,
+                    firstName: candidate.firstName,
+                    lastName: candidate.lastName,
+                    email: candidate.email,
+                    phone: candidate.phone,
+                    department: candidate.department,
+                    designation: candidate.designation,
+                    joiningDate,
+                    employmentStatus: "active"
+                });
+                await employee.save({ session });
+
+                const user = new User({
+                    employee: employee._id,
+                    email: candidate.email,
+                    passwordHash,
+                    role: "employee",
+                    isActive: true
+                });
+                await user.save({ session });
+
+                const hiredCandidate = await Candidate.findOneAndUpdate(
+                    { _id: candidate._id, status: "selected", employee: null },
+                    { $set: { status: "hired", employee: employee._id, hiredAt: new Date() } },
+                    { new: true, runValidators: true, session }
+                );
+                if (!hiredCandidate) {
+                    const conflict = new Error("Candidate hiring status changed; refresh and try again");
+                    conflict.code = 409;
+                    throw conflict;
+                }
+                result = {
+                    candidateId: hiredCandidate._id,
+                    employee: {
+                        _id: employee._id, employeeCode: employee.employeeCode,
+                        firstName: employee.firstName, lastName: employee.lastName,
+                        email: employee.email, department: department.name,
+                        designation: designation.name, joiningDate: employee.joiningDate
+                    }
+                };
+            });
+        } finally {
+            await session.endSession();
+        }
 
         return res.status(201).json({
             success: true,
             message: "Candidate converted to an employee successfully",
-            data: {
-                candidateId: candidate._id,
-                employee: {
-                    _id: employee._id, employeeCode: employee.employeeCode,
-                    firstName: employee.firstName, lastName: employee.lastName,
-                    email: employee.email, department: department.name,
-                    designation: designation.name, joiningDate: employee.joiningDate
-                }
-            }
+            data: result
         });
     } catch (error) {
-        if (user) await User.findByIdAndDelete(user._id).catch(() => {});
-        if (employee) await Employee.findByIdAndDelete(employee._id).catch(() => {});
         console.error("Hire candidate:", error.message);
-        return res.status(error.code === 11000 ? 409 : 500).json({
+        const transactionUnavailable = error.hasErrorLabel?.("TransientTransactionError") ||
+            error.hasErrorLabel?.("UnknownTransactionCommitResult") ||
+            /transaction numbers are only allowed|replica set|mongos/i.test(error.message || "");
+        const statusCode = error.code === 11000 ? 409
+            : [400, 409].includes(error.code) ? error.code
+            : transactionUnavailable ? 503 : 500;
+        return res.status(statusCode).json({
             success: false,
-            message: error.code === 11000 ? "Employee code or email already exists" : "Unable to convert candidate to employee"
+            message: statusCode === 409 ? error.message || "Employee code or email already exists"
+                : statusCode === 400 ? error.message
+                : statusCode === 503 ? "Hiring is temporarily unavailable; please retry"
+                : "Unable to convert candidate to employee"
         });
     }
 };
