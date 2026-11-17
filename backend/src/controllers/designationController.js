@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import Designation from "../models/Designation.js";
 import Department from "../models/Department.js";
 import Employee from "../models/Employee.js";
+import { lockDesignationReference } from "../services/employeeReferenceGuards.js";
+import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
 
 // CREATE DESIGNATION
 export const createDesignation = async (req, res) => {
@@ -111,18 +113,26 @@ export const updateDesignation = async (req, res) => {
             }
         }
 
+        let deactivateSession = null;
         if (updates.isActive === false) {
-            const activeEmployeeCount = await Employee.countDocuments({
-                designation: id,
-                employmentStatus: "active",
-                isArchived: { $ne: true }
-            });
-
-            if (activeEmployeeCount > 0) {
-                return res.status(409).json({
-                    success: false,
-                    message: "Designation is assigned to active employees. Reassign those employees before deactivating the designation."
+            deactivateSession = await mongoose.startSession();
+            try {
+                await deactivateSession.withTransaction(async () => {
+                    await lockDesignationReference(id, deactivateSession);
+                    const activeEmployeeCount = await Employee.countDocuments({
+                        designation: id,
+                        employmentStatus: "active",
+                        isArchived: { $ne: true }
+                    }).session(deactivateSession);
+                    if (activeEmployeeCount > 0) {
+                        const inUse = new Error("Designation is assigned to active employees");
+                        inUse.code = "DESIGNATION_IN_USE";
+                        throw inUse;
+                    }
                 });
+            } catch (error) {
+                await deactivateSession.endSession();
+                throw error;
             }
         }
 
@@ -141,11 +151,16 @@ export const updateDesignation = async (req, res) => {
             }
         }
 
-        const designation = await Designation.findByIdAndUpdate(
-            id,
-            { $set: updates },
-            { new: true, runValidators: true }
-        ).populate("department", "name code");
+        let designation;
+        try {
+            designation = await Designation.findByIdAndUpdate(
+                id,
+                { $set: updates },
+                { new: true, runValidators: true, ...(deactivateSession ? { session: deactivateSession } : {}) }
+            ).populate("department", "name code");
+        } finally {
+            if (deactivateSession) await deactivateSession.endSession();
+        }
 
         if (!designation) {
             return res.status(404).json({ success: false, message: "Designation not found" });
@@ -157,11 +172,15 @@ export const updateDesignation = async (req, res) => {
             data: designation
         });
     } catch (error) {
-        return res.status(error.code === 11000 ? 409 : 400).json({
+        return res.status(error.code === 11000 || error.code === "DESIGNATION_IN_USE" ? 409 : isTransactionUnavailable(error) ? 503 : 400).json({
             success: false,
             message: error.code === 11000
                 ? "This designation already exists in this department"
-                : "Unable to update designation"
+                : error.code === "DESIGNATION_IN_USE"
+                    ? "Designation is assigned to active employees. Reassign those employees first."
+                    : isTransactionUnavailable(error)
+                        ? "Designation update is temporarily unavailable; please retry"
+                        : "Unable to update designation"
         });
     }
 };
