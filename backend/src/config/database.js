@@ -1,4 +1,7 @@
-﻿import mongoose from "mongoose";
+import mongoose from "mongoose";
+import { registerMongoConnectionEvents } from "../utils/mongoConnectionEvents.js";
+
+registerMongoConnectionEvents(mongoose.connection);
 
 const connectDB = async () => {
     try {
