@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import AuditLog from "../src/models/AuditLog.js";
 import { authorizeRoles } from "../src/middleware/roleMiddleware.js";
 
 const createResponse = () => {
@@ -33,19 +34,34 @@ test("authorizeRoles returns 401 when no authenticated user is present", () => {
     assert.equal(nextCalled, false);
 });
 
-test("authorizeRoles returns 403 when the authenticated role is not allowed", () => {
+test("authorizeRoles returns 403 and audits denied authenticated access without request data", async () => {
     const middleware = authorizeRoles("admin", "hr", "manager");
-    const req = { user: { role: "employee" } };
+    const req = {
+        user: { userId: "64b000000000000000000001", employeeId: "64b000000000000000000002", role: "employee" },
+        method: "GET", baseUrl: "/api/payroll", path: "/salary-structures",
+        body: { bankAccountNumber: "1234567890" }, ip: "127.0.0.1",
+        get: () => "HRMS security test"
+    };
     const res = createResponse();
     let nextCalled = false;
 
-    middleware(req, res, () => {
-        nextCalled = true;
-    });
-
-    assert.equal(res.statusCode, 403);
-    assert.equal(res.body.success, false);
-    assert.equal(nextCalled, false);
+    const originalCreate = AuditLog.create;
+    let recorded = null;
+    AuditLog.create = async (entry) => { recorded = entry; return entry; };
+    try {
+        middleware(req, res, () => { nextCalled = true; });
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(res.statusCode, 403);
+        assert.equal(res.body.success, false);
+        assert.equal(nextCalled, false);
+        assert.equal(recorded.action, "access.denied");
+        assert.equal(recorded.module, "security");
+        assert.equal(recorded.statusCode, 403);
+        assert.equal(recorded.route, "/api/payroll/salary-structures");
+        assert.equal(JSON.stringify(recorded).includes("1234567890"), false);
+    } finally {
+        AuditLog.create = originalCreate;
+    }
 });
 
 test("Approval Inbox role allowlist accepts admin, hr and manager", () => {
