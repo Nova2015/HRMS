@@ -836,6 +836,15 @@ export const activateEmployee = async (req, res) => {
                     }
                 }
 
+                if (employee.shift) {
+                    const shift = await Shift.findById(employee.shift).session(session);
+                    if (!shift || !shift.isActive) {
+                        const invalidShift = new Error("Employee shift is inactive or unavailable");
+                        invalidShift.code = 40905;
+                        throw invalidShift;
+                    }
+                }
+
                 const linkedUser = await User.findOneAndUpdate(
                     { employee: employee._id },
                     { $set: { isActive: true } },
@@ -860,7 +869,7 @@ export const activateEmployee = async (req, res) => {
         });
     } catch (error) {
         console.error("Activate employee error:", error);
-        const status = error.code === 40401 ? 404 : [40901, 40902, 40903, 40904].includes(error.code) ? 409 : 500;
+        const status = error.code === 40401 ? 404 : [40901, 40902, 40903, 40904, 40905].includes(error.code) ? 409 : 500;
         return res.status(status).json({
             success: false,
             message: error.code === 40401
@@ -871,9 +880,11 @@ export const activateEmployee = async (req, res) => {
                         ? "Archived employees cannot be reactivated. Restore the archive through an authorized process."
                         : error.code === 40903
                             ? "Resigned or terminated employees cannot be reactivated through this action"
-                            : error.code === 40904
+                             : error.code === 40904
                                 ? "Employee department or designation is inactive or inconsistent. Correct the assignment before reactivation."
-                                : "Unable to activate employee"
+                                : error.code === 40905
+                                    ? "Employee shift is inactive or unavailable. Assign an active shift before reactivation."
+                                    : "Unable to activate employee"
         });
     }
 };
