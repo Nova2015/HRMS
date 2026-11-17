@@ -31,7 +31,6 @@ const adminLinks = [
   { label: "Recruitment", href: "/recruitment", icon: BriefcaseBusiness },
   { label: "Reports & Analytics", href: "/reports", icon: BarChart3 },
   { label: "Audit Logs", href: "/audit-logs", icon: ShieldCheck },
-  { label: "Update Approvals", href: "/employee-update-approvals", icon: Activity },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
