@@ -231,6 +231,26 @@ export const reserveJobOpeningForHire = async (candidate, session) => {
     }
 };
 
+export const loadHiringReferencesSequentially = async ({
+    employeeCode,
+    candidate,
+    session
+}) => {
+    const duplicateCode = await Employee.exists({ employeeCode }).session(session);
+    const duplicateEmail = await User.exists({ email: candidate.email }).session(session);
+    const department = await Department.findOne({
+        _id: candidate.department,
+        isActive: true
+    }).session(session);
+    const designation = await Designation.findOne({
+        _id: candidate.designation,
+        department: candidate.department,
+        isActive: true
+    }).session(session);
+
+    return { duplicateCode, duplicateEmail, department, designation };
+};
+
 export const hireCandidate = async (req, res) => {
     try {
         const { id } = req.params;
@@ -261,17 +281,12 @@ export const hireCandidate = async (req, res) => {
                 await reserveJobOpeningForHire(candidate, session);
 
                 // MongoDB does not support parallel operations on one transaction session.
-                const duplicateCode = await Employee.exists({ employeeCode: normalizedCode }).session(session);
-                const duplicateEmail = await User.exists({ email: candidate.email }).session(session);
-                const department = await Department.findOne({
-                    _id: candidate.department,
-                    isActive: true
-                }).session(session);
-                const designation = await Designation.findOne({
-                    _id: candidate.designation,
-                    department: candidate.department,
-                    isActive: true
-                }).session(session);
+                const { duplicateCode, duplicateEmail, department, designation } =
+                    await loadHiringReferencesSequentially({
+                        employeeCode: normalizedCode,
+                        candidate,
+                        session
+                    });
                 if (duplicateCode || duplicateEmail) {
                     const conflict = new Error(duplicateCode ? "Employee code already exists" : "Candidate email is already linked to a login account");
                     conflict.code = 409;
