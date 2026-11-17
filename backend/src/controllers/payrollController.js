@@ -11,6 +11,7 @@ const isValidDateOnly = (value) => {
     const date = new Date(`${value}T00:00:00.000Z`);
     return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 };
+export const isValidPayrollProrationMode = (value) => value === undefined || value === null || value === "" || value === "auto" || value === "manual";
 const money = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const normalizeLines = (lines) => {
     if (!Array.isArray(lines)) return null;
@@ -164,6 +165,9 @@ export const processPayroll = async (req, res) => {
         if (days > monthEnd.getDate()) return res.status(400).json({ success: false, message: "Working days cannot exceed calendar days in the month" });
         if (employees.some((entry) => !entry || typeof entry !== "object" || Array.isArray(entry))) {
             return res.status(400).json({ success: false, message: "Invalid payroll employee entry" });
+        }
+        if (employees.some((entry) => !isValidPayrollProrationMode(entry.prorationMode))) {
+            return res.status(400).json({ success: false, message: "Proration mode must be auto or manual" });
         }
         const ids = employees.map((entry) => String(entry.employeeId || ""));
         if (ids.some((id) => !mongoose.isValidObjectId(id)) || new Set(ids).size !== ids.length) {
