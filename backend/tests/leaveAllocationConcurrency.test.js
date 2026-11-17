@@ -22,6 +22,7 @@ const withStubs = async ({ usage, matchedCount = 1, onSave }, run) => {
         employeeFindOne: Employee.findOne,
         employeeUpdateOne: Employee.updateOne,
         leaveAggregate: LeaveRequest.aggregate,
+        leaveFind: LeaveRequest.find,
         allocationUpdate: LeaveAllocation.findOneAndUpdate
     };
     const session = {
@@ -54,6 +55,8 @@ const withStubs = async ({ usage, matchedCount = 1, onSave }, run) => {
                 return usage;
             }
         });
+        // summarize() performs a read after the transaction to build response balances.
+        LeaveRequest.find = () => ({ select: async () => [] });
         LeaveAllocation.findOneAndUpdate = (filter, update, options) => {
             saveAttempted = true;
             assert.deepEqual(filter, { employee: EMPLOYEE_ID, year: 2026 });
@@ -67,6 +70,7 @@ const withStubs = async ({ usage, matchedCount = 1, onSave }, run) => {
         Employee.findOne = original.employeeFindOne;
         Employee.updateOne = original.employeeUpdateOne;
         LeaveRequest.aggregate = original.leaveAggregate;
+        LeaveRequest.find = original.leaveFind;
         LeaveAllocation.findOneAndUpdate = original.allocationUpdate;
     }
 };
