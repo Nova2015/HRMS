@@ -13,7 +13,12 @@ const auditLogSchema = new mongoose.Schema({
     statusCode: { type: Number, required: true },
     ipAddress: { type: String, default: "", maxlength: 80 },
     userAgent: { type: String, default: "", maxlength: 300 }
-}, { timestamps: { createdAt: true, updatedAt: false } });
+}, {
+    timestamps: { createdAt: true, updatedAt: false },
+    // Audit writes must fail fast during MongoDB outages instead of sitting
+    // in Mongoose's operation buffer and timing out much later.
+    bufferCommands: false
+});
 
 auditLogSchema.index({ createdAt: -1 });
 auditLogSchema.index({ module: 1, createdAt: -1 });
