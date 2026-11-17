@@ -152,8 +152,9 @@ test("Leave decision API allows a Manager to review an assigned team member", as
 });
 
 test("Leave decision API does not let a Manager review a request outside their assigned team", async () => {
+    let capturedFilter;
     LeaveRequest.findOneAndUpdate = async (filter) => {
-        calls.leaveFilters.push({ filter });
+        capturedFilter = filter;
         return null;
     };
     LeaveRequest.exists = async () => false;
@@ -161,6 +162,7 @@ test("Leave decision API does not let a Manager review a request outside their a
         decision: "approved"
     });
     assert.equal(response.status, 404);
+    assert.deepEqual(capturedFilter.employee, { $in: [IDS.teamEmployee] });
 });
 
 test("Employee cannot access the Leave decision endpoint", async () => {
