@@ -65,6 +65,11 @@ const getGmailAccessToken = async (integration) => {
     const expiresSoon = !integration.tokenExpiresAt || integration.tokenExpiresAt.getTime() <= Date.now() + 60_000;
     if (!expiresSoon) return decryptToken(integration.accessTokenEncrypted);
 
+    if (!integration.refreshTokenEncrypted) {
+        const error = new Error("Google authorization is unavailable; reconnect the account");
+        error.status = 401;
+        throw error;
+    }
     const refreshToken = decryptToken(integration.refreshTokenEncrypted);
     const config = getOAuthConfig();
     const response = await googleFetch(GOOGLE_TOKEN_URL, {
