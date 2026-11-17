@@ -27,6 +27,7 @@ test("day shift check-in uses its configured grace period", () => {
 });
 
 test("default schedule uses the default late threshold", () => {
-    assert.equal(isLateCheckIn(new Date("2026-11-17T04:00:00.000Z"), null, 555), false);
-    assert.equal(isLateCheckIn(new Date("2026-11-17T04:01:00.000Z"), null, 555), true);
+    // 03:45 UTC is 09:15 in Asia/Kolkata (the exact threshold); 03:46 is one minute late.
+    assert.equal(isLateCheckIn(new Date("2026-11-17T03:45:00.000Z"), null, 555), false);
+    assert.equal(isLateCheckIn(new Date("2026-11-17T03:46:00.000Z"), null, 555), true);
 });
