@@ -27,3 +27,50 @@ test("protect rejects a revoked individual session", async () => {
         Session.findOne = original.session;
     }
 });
+
+
+test("protect skips lastSeenAt writes while session activity is recent", async () => {
+    process.env.JWT_SECRET = SECRET;
+    const calls = { updates: 0 };
+    const now = new Date();
+    User.findById = () => ({ select: async () => ({ _id: USER_ID, employee: EMPLOYEE_ID, role: "employee", isActive: true, tokenVersion: 0 }) });
+    Session.findOne = () => ({ select: async () => ({ _id: "64b000000000000000000023", jti: "recent-session-id", lastSeenAt: now }) });
+    Session.updateOne = async () => { calls.updates += 1; };
+    Employee.findById = () => ({ select: async () => ({ _id: EMPLOYEE_ID, employmentStatus: "active" }) });
+    const req = { headers: { authorization: "Bearer " + jwt.sign({ userId: USER_ID, tokenVersion: 0, jti: "recent-session-id" }, SECRET) } };
+    const res = { status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } };
+    const originalEmployeeFind = Employee.findById;
+    const originalUpdate = Session.updateOne;
+    try {
+        await protect(req, res, () => {});
+        assert.equal(calls.updates, 0);
+        assert.equal(req.user.sessionJti, "recent-session-id");
+    } finally {
+        User.findById = original.user;
+        Session.findOne = original.session;
+        Session.updateOne = originalUpdate;
+        Employee.findById = originalEmployeeFind;
+    }
+});
+
+test("protect refreshes lastSeenAt when session activity is older than five minutes", async () => {
+    process.env.JWT_SECRET = SECRET;
+    const calls = { updates: 0 };
+    User.findById = () => ({ select: async () => ({ _id: USER_ID, employee: EMPLOYEE_ID, role: "employee", isActive: true, tokenVersion: 0 }) });
+    Session.findOne = () => ({ select: async () => ({ _id: "64b000000000000000000024", jti: "stale-session-id", lastSeenAt: new Date(Date.now() - 6 * 60 * 1000) }) });
+    const originalUpdate = Session.updateOne;
+    const originalEmployeeFind = Employee.findById;
+    Session.updateOne = async () => { calls.updates += 1; };
+    Employee.findById = () => ({ select: async () => ({ _id: EMPLOYEE_ID, employmentStatus: "active" }) });
+    const req = { headers: { authorization: "Bearer " + jwt.sign({ userId: USER_ID, tokenVersion: 0, jti: "stale-session-id" }, SECRET) } };
+    const res = { status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } };
+    try {
+        await protect(req, res, () => {});
+        assert.equal(calls.updates, 1);
+    } finally {
+        User.findById = original.user;
+        Session.findOne = original.session;
+        Session.updateOne = originalUpdate;
+        Employee.findById = originalEmployeeFind;
+    }
+});
