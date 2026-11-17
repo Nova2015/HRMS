@@ -88,3 +88,7 @@ test("Audit log identifies self-service and body-targeted employee resources", a
     assert.equal(selfService.resourceId, "64b000000000000000000002");
     assert.equal(bodyTargeted.resourceId, "64b000000000000000000004");
 });
+
+test("AuditLog model disables Mongoose buffering to fail fast during DB outages", () => {
+    assert.equal(AuditLog.schema.options.bufferCommands, false);
+});
