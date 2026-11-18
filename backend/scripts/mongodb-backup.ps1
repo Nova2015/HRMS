@@ -44,8 +44,16 @@ try {
         try {
             if (Test-Path -LiteralPath $tempArchive) { Remove-Item -LiteralPath $tempArchive -Force }
             Write-Log "Backup attempt $attempt of $MaxAttempts started."
-            & $mongodump.Source "--uri=$mongoUri" "--archive=$tempArchive" --gzip --quiet 2>$null
-            if ($LASTEXITCODE -ne 0) { throw "mongodump exited with code $LASTEXITCODE." }
+            $tempConfig = Join-Path $BackupRoot "mongodb-backup-$stamp.config.tmp"
+            $yamlUri = $mongoUri | ConvertTo-Json -Compress
+            Set-Content -LiteralPath $tempConfig -Value "uri: $yamlUri" -Encoding UTF8
+            try {
+                & $mongodump.Source "--config=$tempConfig" "--archive=$tempArchive" --gzip --quiet 2>$null
+                if ($LASTEXITCODE -ne 0) { throw "mongodump exited with code $LASTEXITCODE." }
+            }
+            finally {
+                if (Test-Path -LiteralPath $tempConfig) { Remove-Item -LiteralPath $tempConfig -Force -ErrorAction SilentlyContinue }
+            }
             if (-not (Test-Path -LiteralPath $tempArchive -PathType Leaf)) { throw "mongodump did not create an archive." }
             $file = Get-Item -LiteralPath $tempArchive
             if ($file.Length -lt 1) { throw "mongodump created an empty archive." }
