@@ -1,10 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import crypto from "node:crypto";
 import mongoose from "mongoose";
 import ExpenseClaim from "../models/ExpenseClaim.js";
 import ExpenseLimit from "../models/ExpenseLimit.js";
 import Employee from "../models/Employee.js";
 import { EXPENSE_RECEIPT_STORAGE_DIR } from "../middleware/expenseReceiptUpload.js";
+import { getCompanyDriveConnectionStatus, uploadCompanyDriveFile, downloadCompanyDriveFile } from "../services/googleDriveService.js";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
@@ -59,6 +61,87 @@ const validateReceipt = async (file, res) => {
         return false;
     }
     return true;
+};
+
+const syncExpenseReceiptToDrive = async (claim, file) => {
+    let driveStatus;
+    try {
+        driveStatus = await getCompanyDriveConnectionStatus();
+    } catch (error) {
+        await ExpenseClaim.updateOne(
+            { _id: claim._id },
+            {
+                $set: {
+                    storageMigrationStatus: "failed",
+                    storageMigrationError: String(error.message || "Google Drive status check failed").slice(0, 500)
+                }
+            }
+        );
+        console.error("Expense receipt Drive status check failed:", error.message);
+        return "Receipt was saved locally, but Google Drive status could not be checked. The local copy has been retained.";
+    }
+    if (!driveStatus.connected) return null;
+
+    try {
+        await ExpenseClaim.updateOne(
+            { _id: claim._id },
+            { $set: { storageMigrationStatus: "in_progress", storageMigrationError: "" } }
+        );
+        const buffer = await fs.readFile(file.path);
+        const uploaded = await uploadCompanyDriveFile({
+            buffer,
+            fileName: claim.receiptOriginalName,
+            mimeType: claim.receiptMimeType,
+            appProperties: {
+                hrmsExpenseClaimId: String(claim._id),
+                hrmsExpenseCategory: String(claim.category),
+                hrmsStorageKind: "expense_receipt"
+            }
+        });
+        const verified = await downloadCompanyDriveFile({
+            fileId: uploaded.id,
+            expectedSha256: uploaded.sha256,
+            maxBytes: MAX_FILE_SIZE
+        });
+        if (verified.size !== claim.receiptSize || verified.sha256 !== uploaded.sha256) {
+            throw new Error("Google Drive verification did not match the expense receipt");
+        }
+        await ExpenseClaim.updateOne(
+            { _id: claim._id },
+            {
+                $set: {
+                    storageProvider: "google_drive",
+                    storageMigrationStatus: "verified",
+                    googleDriveFileId: uploaded.id,
+                    googleDriveChecksumSha256: uploaded.sha256,
+                    googleDriveVerifiedAt: new Date(),
+                    storageMigrationError: ""
+                }
+            },
+            { runValidators: true }
+        );
+        claim.storageProvider = "google_drive";
+        claim.storageMigrationStatus = "verified";
+        claim.googleDriveFileId = uploaded.id;
+        claim.googleDriveChecksumSha256 = uploaded.sha256;
+        claim.googleDriveVerifiedAt = new Date();
+        claim.storageMigrationError = "";
+        return null;
+    } catch (error) {
+        await ExpenseClaim.updateOne(
+            { _id: claim._id },
+            {
+                $set: {
+                    storageProvider: "local",
+                    storageMigrationStatus: "failed",
+                    storageMigrationError: String(error.message || "Google Drive upload failed").slice(0, 500)
+                }
+            },
+            { runValidators: true }
+        );
+        console.error("Expense receipt Google Drive upload failed:", error.message);
+        return "Receipt was saved locally, but Google Drive upload or verification failed. The local copy has been retained.";
+    }
 };
 
 export const getExpenseWorkspace = async (req, res) => {
@@ -161,6 +244,7 @@ export const createExpenseClaim = async (req, res) => {
             overLimitAtSubmission: Boolean(limit && projectedMonthlySpend > limit.monthlyLimit)
         });
         claimPersisted = true;
+        const storageWarning = await syncExpenseReceiptToDrive(claim, file);
 
         // A populate/read failure must not turn a successfully stored receipt into a missing file.
         let data = claim;
@@ -169,7 +253,12 @@ export const createExpenseClaim = async (req, res) => {
         } catch (populateError) {
             console.error("Expense claim saved; unable to populate response:", populateError.message);
         }
-        return res.status(201).json({ success: true, message: "Expense claim submitted for approval", data });
+        return res.status(201).json({
+            success: true,
+            message: storageWarning || "Expense claim submitted for approval",
+            storageWarning,
+            data
+        });
     } catch (error) {
         if (!claimPersisted) await removeUploadedFile(file?.path);
         console.error("Create expense claim:", error.message);
@@ -249,12 +338,53 @@ export const downloadExpenseReceipt = async (req, res) => {
     try {
         const { id } = req.params;
         if (!mongoose.isValidObjectId(id)) return res.status(400).json({ success: false, message: "Invalid claim ID" });
-        const claim = await ExpenseClaim.findById(id).select("employee receiptOriginalName receiptStoredName receiptMimeType");
+        const claim = await ExpenseClaim.findById(id).select(
+            "employee receiptOriginalName receiptStoredName receiptMimeType storageProvider storageMigrationStatus googleDriveFileId googleDriveChecksumSha256"
+        );
         if (!claim) return res.status(404).json({ success: false, message: "Expense claim not found" });
         if (!isPrivileged(req.user.role) && claim.employee.toString() !== req.user.employeeId) {
             return res.status(403).json({ success: false, message: "You do not have permission to access this receipt" });
         }
-        const filePath = path.join(EXPENSE_RECEIPT_STORAGE_DIR, path.basename(claim.receiptStoredName));
+        const filePath = path.join(EXPENSE_RECEIPT_STORAGE_DIR, path.basename(claim.receiptStoredName || ""));
+        if (claim.storageProvider === "google_drive" && claim.googleDriveFileId) {
+            try {
+                const remote = await downloadCompanyDriveFile({
+                    fileId: claim.googleDriveFileId,
+                    expectedSha256: claim.googleDriveChecksumSha256,
+                    maxBytes: MAX_FILE_SIZE
+                });
+                res.setHeader("X-Content-Type-Options", "nosniff");
+                res.setHeader("Content-Type", claim.receiptMimeType);
+                res.setHeader("Content-Length", String(remote.size));
+                res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(safeOriginalName(claim.receiptOriginalName))}`);
+                return res.send(remote.buffer);
+            } catch (driveError) {
+                let localBuffer;
+                try {
+                    localBuffer = await fs.readFile(filePath);
+                } catch {
+                    return res.status(driveError.status || 502).json({
+                        success: false,
+                        message: "Google Drive receipt is unavailable and no local recovery copy was found"
+                    });
+                }
+                if (claim.googleDriveChecksumSha256) {
+                    const localChecksum = crypto.createHash("sha256").update(localBuffer).digest("hex");
+                    if (localChecksum !== claim.googleDriveChecksumSha256) {
+                        return res.status(502).json({
+                            success: false,
+                            message: "Google Drive is unavailable and the local receipt recovery copy failed checksum verification"
+                        });
+                    }
+                }
+                console.error("Google Drive receipt download failed; using retained local copy:", driveError.message);
+                res.setHeader("X-Content-Type-Options", "nosniff");
+                res.setHeader("Content-Type", claim.receiptMimeType);
+                res.setHeader("Content-Length", String(localBuffer.length));
+                res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(safeOriginalName(claim.receiptOriginalName))}`);
+                return res.send(localBuffer);
+            }
+        }
         try { await fs.access(filePath); }
         catch { return res.status(404).json({ success: false, message: "Stored receipt file was not found" }); }
         res.setHeader("X-Content-Type-Options", "nosniff");
