@@ -216,6 +216,37 @@ export const downloadCompanyDriveFile = async ({ fileId, expectedSha256, maxByte
     return { buffer, sha256, size: buffer.length };
 };
 
+export const findCompanyDriveFileByAppProperties = async (appProperties = {}) => {
+    const entries = Object.entries(appProperties);
+    if (!entries.length || entries.some(([key, value]) =>
+        !/^[a-zA-Z0-9_]{1,124}$/.test(key) || typeof value !== "string" ||
+        !/^[a-zA-Z0-9_-]{1,124}$/.test(value)
+    )) {
+        throw driveError("Valid Google Drive app properties are required", 400);
+    }
+    const accessToken = await getAccessToken();
+    const folderId = await ensureRootFolder(accessToken);
+    const clauses = [
+        `'${folderId}' in parents`,
+        "trashed=false",
+        ...entries.map(([key, value]) =>
+            `appProperties has { key='${key}' and value='${value}' }`
+        )
+    ];
+    const url = new URL(`${DRIVE_API}/files`);
+    url.searchParams.set("q", clauses.join(" and "));
+    url.searchParams.set("pageSize", "2");
+    url.searchParams.set("orderBy", "createdTime");
+    url.searchParams.set("fields", "files(id,name,mimeType,size,appProperties,createdTime)");
+    const response = await driveRequest(url, accessToken);
+    const payload = await response.json();
+    const files = Array.isArray(payload.files) ? payload.files : [];
+    if (files.length > 1) {
+        throw driveError("Multiple Google Drive files match the same HRMS record; manual review is required", 409);
+    }
+    return files[0] || null;
+};
+
 export const getCompanyDriveConnectionStatus = async () => {
     const connection = await GoogleDriveConnection.findOne({ connectionKey: "company_document_storage" })
         .select("googleEmail connectedAt lastUsedAt driveFolderId");
