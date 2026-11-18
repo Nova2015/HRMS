@@ -36,6 +36,14 @@ finally {
 
 $confirmation = Read-Host "Type RESTORE to restore this verified archive into the isolated target"
 if ($confirmation -cne "RESTORE") { throw "Restore cancelled by user." }
-& $mongoRestore.Source "--uri=$targetUri" "--archive=$BackupFile" --gzip --stopOnError
-if ($LASTEXITCODE -ne 0) { throw "mongorestore exited with code $LASTEXITCODE." }
+$restoreConfig = Join-Path $env:TEMP ("hrms-mongorestore-{0}.config.tmp" -f [guid]::NewGuid().ToString("N"))
+try {
+    $yamlUri = $targetUri | ConvertTo-Json -Compress
+    Set-Content -LiteralPath $restoreConfig -Value "uri: $yamlUri" -Encoding UTF8
+    & $mongoRestore.Source "--config=$restoreConfig" "--archive=$BackupFile" --gzip --stopOnError
+    if ($LASTEXITCODE -ne 0) { throw "mongorestore exited with code $LASTEXITCODE." }
+}
+finally {
+    if (Test-Path -LiteralPath $restoreConfig) { Remove-Item -LiteralPath $restoreConfig -Force -ErrorAction SilentlyContinue }
+}
 Write-Host "Restore command completed. Verify collections and application workflows on the isolated target before relying on this backup."
