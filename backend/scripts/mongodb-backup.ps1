@@ -17,7 +17,7 @@ function Get-MongoUri {
     if (-not (Test-Path -LiteralPath $CredentialPath -PathType Leaf)) {
         throw "MongoDB backup credentials are not configured. Run configure-mongodb-backup.ps1 first."
     }
-    $encrypted = Get-Content -LiteralPath $CredentialPath -Raw
+    $encrypted = (Get-Content -LiteralPath $CredentialPath -Raw).Trim()
     $secure = ConvertTo-SecureString $encrypted
     $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
     try {
