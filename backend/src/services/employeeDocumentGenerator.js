@@ -6,6 +6,7 @@ import { createHash, randomUUID } from "node:crypto";
 import PDFDocument from "pdfkit";
 import EmployeeDocument from "../models/EmployeeDocument.js";
 import Employee from "../models/Employee.js";
+import { getCompanyDriveConnectionStatus, uploadCompanyDriveFile, downloadCompanyDriveFile } from "./googleDriveService.js";
 import SalaryStructure from "../models/SalaryStructure.js";
 import { decryptHrDetails } from "./hrDetailsCrypto.js";
 import { DOCUMENT_STORAGE_DIR } from "../middleware/documentUpload.js";
@@ -349,6 +350,87 @@ const writePdf = async (filePath, title, employee, sections, documentType) => {
         pdf.end();
     });
 };
+const syncGeneratedDocumentToDrive = async (document, filePath) => {
+    let driveStatus;
+    try {
+        driveStatus = await getCompanyDriveConnectionStatus();
+    } catch (error) {
+        await EmployeeDocument.updateOne(
+            { _id: document._id },
+            {
+                $set: {
+                    storageMigrationStatus: "failed",
+                    storageMigrationError: String(error.message || "Google Drive status check failed").slice(0, 500)
+                }
+            }
+        );
+        console.error("Generated employee document Drive status check failed:", error.message);
+        return;
+    }
+    if (!driveStatus.connected) return;
+
+    try {
+        await EmployeeDocument.updateOne(
+            { _id: document._id },
+            { $set: { storageMigrationStatus: "in_progress", storageMigrationError: "" } }
+        );
+        const buffer = await fs.readFile(filePath);
+        const uploaded = await uploadCompanyDriveFile({
+            buffer,
+            fileName: document.originalName,
+            mimeType: document.mimeType,
+            appProperties: {
+                hrmsDocumentId: String(document._id),
+                hrmsDocumentType: String(document.documentType),
+                hrmsStorageKind: "generated_employee_document"
+            }
+        });
+        const verified = await downloadCompanyDriveFile({
+            fileId: uploaded.id,
+            expectedSha256: uploaded.sha256,
+            maxBytes: 10 * 1024 * 1024
+        });
+        if (verified.size !== document.size || verified.sha256 !== uploaded.sha256) {
+            throw new Error("Google Drive verification did not match the generated document");
+        }
+        await EmployeeDocument.updateOne(
+            { _id: document._id },
+            {
+                $set: {
+                    storageProvider: "google_drive",
+                    storageMigrationStatus: "verified",
+                    googleDriveFileId: uploaded.id,
+                    googleDriveChecksumSha256: uploaded.sha256,
+                    googleDriveVerifiedAt: new Date(),
+                    storageMigrationError: ""
+                }
+            },
+            { runValidators: true }
+        );
+        document.storageProvider = "google_drive";
+        document.storageMigrationStatus = "verified";
+        document.googleDriveFileId = uploaded.id;
+        document.googleDriveChecksumSha256 = uploaded.sha256;
+        document.googleDriveVerifiedAt = new Date();
+        document.storageMigrationError = "";
+    } catch (error) {
+        await EmployeeDocument.updateOne(
+            { _id: document._id },
+            {
+                $set: {
+                    storageProvider: "local",
+                    storageMigrationStatus: "failed",
+                    storageMigrationError: String(error.message || "Google Drive upload failed").slice(0, 500)
+                }
+            },
+            { runValidators: true }
+        );
+        document.storageMigrationStatus = "failed";
+        document.storageMigrationError = String(error.message || "Google Drive upload failed").slice(0, 500);
+        console.error("Generated employee document Google Drive upload failed:", error.message);
+    }
+};
+
 export const createGeneratedEmployeeDocument = async ({
     employee,
     documentType,
@@ -366,7 +448,7 @@ export const createGeneratedEmployeeDocument = async ({
     try {
         await writePdf(filePath, title, employee, sections, documentType);
         const stats = await fs.stat(filePath);
-        return await EmployeeDocument.create({
+        const document = await EmployeeDocument.create({
             employee: employee._id,
             originalName: title.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 180) + ".pdf",
             storedName,
@@ -378,6 +460,8 @@ export const createGeneratedEmployeeDocument = async ({
             issuedBy,
             sourceKey
         });
+        await syncGeneratedDocumentToDrive(document, filePath);
+        return document;
     } catch (error) {
         await fs.unlink(filePath).catch(() => {});
         if (error.code === 11000) {
