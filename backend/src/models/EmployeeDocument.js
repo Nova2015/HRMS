@@ -48,6 +48,37 @@ const employeeDocumentSchema = new mongoose.Schema(
             default: "pending",
             index: true
         },
+        storageProvider: {
+            type: String,
+            enum: ["local", "google_drive"],
+            default: "local"
+        },
+        storageMigrationStatus: {
+            type: String,
+            enum: ["not_started", "in_progress", "verified", "failed"],
+            default: "not_started"
+        },
+        googleDriveFileId: {
+            type: String,
+            trim: true,
+            default: null
+        },
+        googleDriveChecksumSha256: {
+            type: String,
+            lowercase: true,
+            match: /^[a-f0-9]{64}$/,
+            default: null
+        },
+        googleDriveVerifiedAt: {
+            type: Date,
+            default: null
+        },
+        storageMigrationError: {
+            type: String,
+            trim: true,
+            maxlength: 500,
+            default: ""
+        },
         sourceKey: {
             type: String,
             unique: true,
