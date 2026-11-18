@@ -12,6 +12,7 @@ import { authorizeRoles } from "../middleware/roleMiddleware.js";
 import { auditAction } from "../middleware/auditLogMiddleware.js";
 import { googleFetch } from "../utils/googleFetch.js";
 import { encryptGoogleToken } from "../utils/googleTokenEncryption.js";
+import { resolveGoogleDriveRefreshToken, hasGoogleDriveFileScope } from "../utils/googleDriveOAuthTokens.js";
 import { consumeGoogleDriveOAuthState } from "../services/googleDriveOAuthStateService.js";
 
 const router = express.Router();
@@ -187,7 +188,7 @@ router.get("/drive/callback", async (req, res) => {
         const grantedScopes = typeof tokens.scope === "string"
             ? tokens.scope.split(" ").filter(Boolean)
             : [];
-        if (grantedScopes.length && !grantedScopes.includes(DRIVE_FILE_SCOPE)) {
+        if (!hasGoogleDriveFileScope(tokens.scope)) {
             return res.status(403).json({
                 success: false,
                 message: "Google did not grant the required Google Drive file access permission"
@@ -198,10 +199,13 @@ router.get("/drive/callback", async (req, res) => {
             .select("+refreshTokenEncrypted");
         // A refresh token belongs to one Google account. Never carry it over
         // when an administrator switches the company storage account.
-        const sameGoogleAccount = existing?.googleEmail === profile.email.toLowerCase();
-        const refreshTokenEncrypted = tokens.refresh_token
-            ? encryptGoogleToken(tokens.refresh_token)
-            : sameGoogleAccount ? existing?.refreshTokenEncrypted : null;
+        const refreshTokenEncrypted = resolveGoogleDriveRefreshToken({
+            newRefreshToken: tokens.refresh_token,
+            existingRefreshTokenEncrypted: existing?.refreshTokenEncrypted,
+            existingGoogleEmail: existing?.googleEmail,
+            googleEmail: profile.email,
+            encryptToken: encryptGoogleToken
+        });
 
         if (!refreshTokenEncrypted) {
             return res.status(502).json({
