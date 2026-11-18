@@ -150,7 +150,7 @@ const ensureRootFolderOnce = async (accessToken) => {
 const ensureRootFolder = (accessToken) => runSingleFlight("company_drive_root_folder", () => ensureRootFolderOnce(accessToken));
 
 const safeFileName = (value) => {
-    const name = String(value || "document").replace(/[\\/\\0-\\x1f\\x7f]/g, "_").trim();
+    const name = String(value || "document").replace(/[\/\\\x00-\x1f\x7f]/g, "_").trim();
     return (name || "document").slice(0, 180);
 };
 
