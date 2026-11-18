@@ -53,6 +53,10 @@ const employeeDocumentSchema = new mongoose.Schema(
             enum: ["local", "google_drive"],
             default: "local"
         },
+        storageMigrationStartedAt: {
+            type: Date,
+            default: null
+        },
         storageMigrationStatus: {
             type: String,
             enum: ["not_started", "in_progress", "verified", "failed"],
