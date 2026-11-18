@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import crypto from "node:crypto";
 import { getCompanyDriveConnectionStatus, uploadCompanyDriveFile, downloadCompanyDriveFile } from "../services/googleDriveService.js";
 import mongoose from "mongoose";
 import EmployeeDocument from "../models/EmployeeDocument.js";
@@ -391,15 +392,30 @@ export const downloadEmployeeDocument = async (req, res) => {
                 res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(safeOriginalName(document.originalName))}`);
                 return res.send(remote.buffer);
             } catch (driveError) {
+                let localBuffer;
                 try {
-                    await fs.access(filePath);
+                    localBuffer = await fs.readFile(filePath);
                 } catch {
                     return res.status(driveError.status || 502).json({
                         success: false,
                         message: "Google Drive document is unavailable and no local recovery copy was found"
                     });
                 }
+                if (document.googleDriveChecksumSha256) {
+                    const localChecksum = crypto.createHash("sha256").update(localBuffer).digest("hex");
+                    if (localChecksum !== document.googleDriveChecksumSha256) {
+                        return res.status(502).json({
+                            success: false,
+                            message: "Google Drive is unavailable and the local recovery copy failed checksum verification"
+                        });
+                    }
+                }
                 console.error("Google Drive document download failed; using retained local copy:", driveError.message);
+                res.setHeader("X-Content-Type-Options", "nosniff");
+                res.setHeader("Content-Type", document.mimeType);
+                res.setHeader("Content-Length", String(localBuffer.length));
+                res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(safeOriginalName(document.originalName))}`);
+                return res.send(localBuffer);
             }
         }
         try {
