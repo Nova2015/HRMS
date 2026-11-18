@@ -114,7 +114,7 @@ const listRootFolder = async (accessToken) => {
     return payload.files?.[0] || null;
 };
 
-const ensureRootFolder = async (accessToken) => {
+const ensureRootFolderOnce = async (accessToken) => {
     const connection = await GoogleDriveConnection.findOne({ connectionKey: "company_document_storage" })
         .select("+accessTokenEncrypted +refreshTokenEncrypted driveFolderId");
     if (!connection) throw driveError("Company Google Drive is not connected", 409);
@@ -146,6 +146,8 @@ const ensureRootFolder = async (accessToken) => {
     );
     return folder.id;
 };
+
+const ensureRootFolder = (accessToken) => runSingleFlight("company_drive_root_folder", () => ensureRootFolderOnce(accessToken));
 
 const safeFileName = (value) => {
     const name = String(value || "document").replace(/[\\/\\0-\\x1f\\x7f]/g, "_").trim();
