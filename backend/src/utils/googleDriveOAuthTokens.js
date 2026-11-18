@@ -24,4 +24,4 @@ export const resolveGoogleDriveRefreshToken = ({
 
 export const hasGoogleDriveFileScope = (scopeValue) =>
     typeof scopeValue === "string" &&
-    scopeValue.split(/\\s+/).includes("https://www.googleapis.com/auth/drive.file");
+    scopeValue.split(/\s+/).includes("https://www.googleapis.com/auth/drive.file");
