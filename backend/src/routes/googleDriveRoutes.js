@@ -226,7 +226,10 @@ router.get("/drive/callback", async (req, res) => {
                         : null,
                     scopes: grantedScopes.length ? grantedScopes : [DRIVE_FILE_SCOPE],
                     connectedBy: decoded.userId,
-                    connectedAt: new Date()
+                    connectedAt: new Date(),
+                    // A different company Drive account has a different folder namespace.
+                    // Re-discover/create the private HRMS folder after every authorization.
+                    driveFolderId: null
                 }
             },
             { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
