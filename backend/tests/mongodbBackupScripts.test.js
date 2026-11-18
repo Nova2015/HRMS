@@ -31,7 +31,7 @@ test("MongoDB restore validates the manifest and checksum before invoking mongor
     assert.match(source, /actualHash -ne \$manifest\.sha256/);
     assert.match(source, /Type RESTORE/);
     assert.match(source, /--stopOnError/);
-    assert.doesNotMatch(source, /\\s--drop(?:\\s|$)/);
+    assert.doesNotMatch(source, /\s--drop(?:\s|$)/);
     assert.doesNotMatch(source, /--uri=\$targetUri/);
 });
 
