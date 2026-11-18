@@ -46,7 +46,8 @@ try {
             Write-Log "Backup attempt $attempt of $MaxAttempts started."
             $tempConfig = Join-Path $BackupRoot "mongodb-backup-$stamp.config.tmp"
             $yamlUri = $mongoUri | ConvertTo-Json -Compress
-            Set-Content -LiteralPath $tempConfig -Value "uri: $yamlUri" -Encoding UTF8
+            $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
+            [System.IO.File]::WriteAllText($tempConfig, "uri: $yamlUri", $utf8NoBom)
             try {
                 & $mongodump.Source "--config=$tempConfig" "--archive=$tempArchive" --gzip --quiet 2>$null
                 if ($LASTEXITCODE -ne 0) { throw "mongodump exited with code $LASTEXITCODE." }
