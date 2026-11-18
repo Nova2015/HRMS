@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getCompanyDriveConnectionStatus, uploadCompanyDriveFile, downloadCompanyDriveFile } from "../services/googleDriveService.js";
 import mongoose from "mongoose";
 import EmployeeDocument from "../models/EmployeeDocument.js";
 import Employee from "../models/Employee.js";
@@ -46,9 +47,89 @@ const safeOriginalName = (name) =>
 const populateDocument = (query) =>
     query.populate("employee", "employeeCode firstName lastName email");
 
+const createStoredEmployeeDocument = async ({ file, employee, documentType, direction, status, issuedBy = null }) => {
+    const document = await EmployeeDocument.create({
+        employee,
+        originalName: safeOriginalName(file.originalname),
+        storedName: path.basename(file.filename),
+        mimeType: file.mimetype,
+        size: file.size,
+        documentType,
+        direction,
+        status,
+        issuedBy,
+        storageProvider: "local",
+        storageMigrationStatus: "not_started"
+    });
+
+    let storageWarning = null;
+    const driveStatus = await getCompanyDriveConnectionStatus();
+    if (driveStatus.connected) {
+        try {
+            await EmployeeDocument.updateOne(
+                { _id: document._id },
+                { $set: { storageMigrationStatus: "in_progress", storageMigrationError: "" } }
+            );
+            const buffer = await fs.readFile(file.path);
+            const uploaded = await uploadCompanyDriveFile({
+                buffer,
+                fileName: safeOriginalName(file.originalname),
+                mimeType: file.mimetype,
+                appProperties: {
+                    hrmsDocumentId: String(document._id),
+                    hrmsDocumentType: String(documentType),
+                    hrmsStorageKind: "employee_document"
+                }
+            });
+            const verified = await downloadCompanyDriveFile({
+                fileId: uploaded.id,
+                expectedSha256: uploaded.sha256,
+                maxBytes: MAX_FILE_SIZE
+            });
+            if (verified.size !== file.size || verified.sha256 !== uploaded.sha256) {
+                throw new Error("Google Drive verification did not match the uploaded document");
+            }
+            await EmployeeDocument.updateOne(
+                { _id: document._id },
+                {
+                    $set: {
+                        storageProvider: "google_drive",
+                        storageMigrationStatus: "verified",
+                        googleDriveFileId: uploaded.id,
+                        googleDriveChecksumSha256: uploaded.sha256,
+                        googleDriveVerifiedAt: new Date(),
+                        storageMigrationError: ""
+                    }
+                },
+                { runValidators: true }
+            );
+        } catch (error) {
+            storageWarning = "Document was saved locally, but Google Drive upload or verification failed. The local copy has been retained.";
+            await EmployeeDocument.updateOne(
+                { _id: document._id },
+                {
+                    $set: {
+                        storageProvider: "local",
+                        storageMigrationStatus: "failed",
+                        storageMigrationError: String(error.message || "Google Drive upload failed").slice(0, 500)
+                    }
+                },
+                { runValidators: true }
+            );
+            console.error("Employee document Google Drive upload failed:", error.message);
+        }
+    }
+
+    return { document, storageWarning };
+};
+
 const includeFileAvailability = async (documents) => Promise.all(
     documents.map(async (document) => {
         const record = document.toObject();
+        if (record.storageProvider === "google_drive" && record.googleDriveFileId) {
+            record.fileAvailable = record.storageMigrationStatus === "verified";
+            return record;
+        }
         const filePath = path.join(DOCUMENT_STORAGE_DIR, path.basename(record.storedName || ""));
         try {
             await fs.access(filePath);
@@ -88,18 +169,20 @@ export const uploadMyDocument = async (req, res) => {
             await removeUploadedFile(file.path);
             return res.status(400).json({ success: false, message: "Employees can submit only supporting documents or resignation letters" });
         }
-        const document = await EmployeeDocument.create({
+        const { document, storageWarning } = await createStoredEmployeeDocument({
+            file,
             employee: employee._id,
-            originalName: safeOriginalName(file.originalname),
-            storedName: path.basename(file.filename),
-            mimeType: file.mimetype,
-            size: file.size,
             documentType,
             direction: "employee_to_hr",
             status: "pending"
         });
         const data = await populateDocument(EmployeeDocument.findById(document._id));
-        return res.status(201).json({ success: true, message: "Document sent to HR successfully", data });
+        return res.status(201).json({
+            success: true,
+            message: storageWarning || "Document sent to HR successfully",
+            storageWarning,
+            data
+        });
     } catch (error) {
         await removeUploadedFile(file?.path);
         console.error("Upload employee document error:", error.message);
@@ -137,19 +220,21 @@ export const issueDocumentToEmployee = async (req, res) => {
                 return res.status(409).json({ success: false, message: "Approve the employee resignation before issuing a relieving letter" });
             }
         }
-        const document = await EmployeeDocument.create({
+        const { document, storageWarning } = await createStoredEmployeeDocument({
+            file,
             employee: employee._id,
-            originalName: safeOriginalName(file.originalname),
-            storedName: path.basename(file.filename),
-            mimeType: file.mimetype,
-            size: file.size,
             documentType,
             direction: "hr_to_employee",
             status: "issued",
             issuedBy: req.user.userId
         });
         const data = await populateDocument(EmployeeDocument.findById(document._id));
-        return res.status(201).json({ success: true, message: "Document sent to employee successfully", data });
+        return res.status(201).json({
+            success: true,
+            message: storageWarning || "Document sent to employee successfully",
+            storageWarning,
+            data
+        });
     } catch (error) {
         await removeUploadedFile(file?.path);
         console.error("Issue employee document error:", error.message);
@@ -264,12 +349,38 @@ export const downloadEmployeeDocument = async (req, res) => {
     try {
         const { id } = req.params;
         if (!mongoose.isValidObjectId(id)) return res.status(400).json({ success: false, message: "Invalid document ID" });
-        const document = await EmployeeDocument.findById(id).select("employee originalName storedName mimeType");
+        const document = await EmployeeDocument.findById(id).select(
+            "employee originalName storedName mimeType storageProvider storageMigrationStatus googleDriveFileId googleDriveChecksumSha256"
+        );
         if (!document) return res.status(404).json({ success: false, message: "Document not found" });
         const isPrivileged = ["admin", "hr"].includes(req.user.role);
         const isOwner = document.employee.toString() === req.user.employeeId;
         if (!isPrivileged && !isOwner) return res.status(403).json({ success: false, message: "You do not have permission to access this document" });
-        const filePath = path.join(DOCUMENT_STORAGE_DIR, path.basename(document.storedName));
+        const filePath = path.join(DOCUMENT_STORAGE_DIR, path.basename(document.storedName || ""));
+        if (document.storageProvider === "google_drive" && document.googleDriveFileId) {
+            try {
+                const remote = await downloadCompanyDriveFile({
+                    fileId: document.googleDriveFileId,
+                    expectedSha256: document.googleDriveChecksumSha256,
+                    maxBytes: MAX_FILE_SIZE
+                });
+                res.setHeader("X-Content-Type-Options", "nosniff");
+                res.setHeader("Content-Type", document.mimeType);
+                res.setHeader("Content-Length", String(remote.size));
+                res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(safeOriginalName(document.originalName))}`);
+                return res.send(remote.buffer);
+            } catch (driveError) {
+                try {
+                    await fs.access(filePath);
+                } catch {
+                    return res.status(driveError.status || 502).json({
+                        success: false,
+                        message: "Google Drive document is unavailable and no local recovery copy was found"
+                    });
+                }
+                console.error("Google Drive document download failed; using retained local copy:", driveError.message);
+            }
+        }
         try {
             await fs.access(filePath);
         } catch {
