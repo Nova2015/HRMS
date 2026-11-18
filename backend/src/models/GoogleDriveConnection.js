@@ -30,6 +30,11 @@ const googleDriveConnectionSchema = new mongoose.Schema(
             type: Date,
             default: null
         },
+        driveFolderId: {
+            type: String,
+            trim: true,
+            default: null
+        },
         scopes: {
             type: [String],
             default: []
