@@ -171,9 +171,9 @@ export const uploadCompanyDriveFile = async ({ buffer, fileName, mimeType, appPr
         ))
     };
     const body = Buffer.concat([
-        Buffer.from(`--${boundary}\\r\\nContent-Type: application/json; charset=UTF-8\\r\\n\\r\\n${JSON.stringify(metadata)}\\r\\n--${boundary}\\r\\nContent-Type: ${mimeType}\\r\\n\\r\\n`),
+        Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`),
         buffer,
-        Buffer.from(`\\r\\n--${boundary}--`)
+        Buffer.from(`\r\n--${boundary}--`)
     ]);
     const url = new URL(`${DRIVE_UPLOAD_API}/files`);
     url.searchParams.set("uploadType", "multipart");
