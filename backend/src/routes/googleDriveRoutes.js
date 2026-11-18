@@ -14,6 +14,7 @@ import { googleFetch } from "../utils/googleFetch.js";
 import { encryptGoogleToken } from "../utils/googleTokenEncryption.js";
 import { resolveGoogleDriveRefreshToken, hasGoogleDriveFileScope } from "../utils/googleDriveOAuthTokens.js";
 import { consumeGoogleDriveOAuthState } from "../services/googleDriveOAuthStateService.js";
+import { getGoogleDriveMigrationSummary, runGoogleDriveMigrationBatch } from "../services/googleDriveMigrationService.js";
 
 const router = express.Router();
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -284,5 +285,45 @@ router.delete("/drive/disconnect", protect, authorizeRoles("admin"), auditAction
         return res.status(500).json({ success: false, message: "Could not disconnect company Google Drive" });
     }
 });
+
+// Migration is Admin-only, explicitly confirmed, and processed in small resumable batches.
+router.get("/drive/migration/preview", protect, authorizeRoles("admin"), async (req, res) => {
+    try {
+        const summary = await getGoogleDriveMigrationSummary();
+        return res.status(200).json({ success: true, data: summary });
+    } catch (error) {
+        console.error("Google Drive migration preview failed:", error.message);
+        return res.status(500).json({ success: false, message: "Could not load Google Drive migration status" });
+    }
+});
+
+router.post(
+    "/drive/migration/run",
+    protect,
+    authorizeRoles("admin"),
+    auditAction("integrations", "google.drive_migration_batch_started"),
+    async (req, res) => {
+        try {
+            if (req.body?.confirm !== true) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Set confirm=true to start a Google Drive migration batch"
+                });
+            }
+            const requestedLimit = Number(req.body?.limit ?? 10);
+            if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 20) {
+                return res.status(400).json({ success: false, message: "Migration batch limit must be between 1 and 20" });
+            }
+            const result = await runGoogleDriveMigrationBatch({ limit: requestedLimit });
+            return res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error("Google Drive migration batch failed:", error.message);
+            return res.status(error.status || 500).json({
+                success: false,
+                message: error.status ? error.message : "Google Drive migration batch failed"
+            });
+        }
+    }
+);
 
 export default router;
