@@ -14,6 +14,8 @@ test("MongoDB backup uses the DPAPI-protected credential and MongoDB archive for
     assert.match(source, /--archive=\$tempArchive/);
     assert.match(source, /--gzip/);
     assert.doesNotMatch(source, /--uri=\$mongoUri/);
+    assert.match(source, /UTF8Encoding -ArgumentList \$false/);
+    assert.match(source, /WriteAllText\(\$tempConfig/);
 });
 
 test("MongoDB backup verifies SHA-256 and only publishes a completed temporary archive", () => {
@@ -33,6 +35,8 @@ test("MongoDB restore validates the manifest and checksum before invoking mongor
     assert.match(source, /--stopOnError/);
     assert.doesNotMatch(source, /\s--drop(?:\s|$)/);
     assert.doesNotMatch(source, /--uri=\$targetUri/);
+    assert.match(source, /UTF8Encoding -ArgumentList \$false/);
+    assert.match(source, /WriteAllText\(\$restoreConfig/);
 });
 
 test("MongoDB backup scheduled task runs at logon and daily without deleting old backups", () => {
