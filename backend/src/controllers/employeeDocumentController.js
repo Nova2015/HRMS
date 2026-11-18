@@ -63,7 +63,22 @@ const createStoredEmployeeDocument = async ({ file, employee, documentType, dire
     });
 
     let storageWarning = null;
-    const driveStatus = await getCompanyDriveConnectionStatus();
+    let driveStatus = { connected: false };
+    try {
+        driveStatus = await getCompanyDriveConnectionStatus();
+    } catch (error) {
+        storageWarning = "Document was saved locally, but Google Drive status could not be checked. The local copy has been retained.";
+        await EmployeeDocument.updateOne(
+            { _id: document._id },
+            {
+                $set: {
+                    storageMigrationStatus: "failed",
+                    storageMigrationError: String(error.message || "Google Drive status check failed").slice(0, 500)
+                }
+            }
+        );
+        console.error("Employee document Google Drive status check failed:", error.message);
+    }
     if (driveStatus.connected) {
         try {
             await EmployeeDocument.updateOne(
@@ -184,7 +199,10 @@ export const uploadMyDocument = async (req, res) => {
             data
         });
     } catch (error) {
-        await removeUploadedFile(file?.path);
+        const referenced = file?.filename
+            ? await EmployeeDocument.exists({ storedName: path.basename(file.filename) }).catch(() => true)
+            : false;
+        if (!referenced) await removeUploadedFile(file?.path);
         console.error("Upload employee document error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to submit document" });
     }
@@ -236,7 +254,10 @@ export const issueDocumentToEmployee = async (req, res) => {
             data
         });
     } catch (error) {
-        await removeUploadedFile(file?.path);
+        const referenced = file?.filename
+            ? await EmployeeDocument.exists({ storedName: path.basename(file.filename) }).catch(() => true)
+            : false;
+        if (!referenced) await removeUploadedFile(file?.path);
         console.error("Issue employee document error:", error.message);
         return res.status(500).json({ success: false, message: "Unable to send document to employee" });
     }
