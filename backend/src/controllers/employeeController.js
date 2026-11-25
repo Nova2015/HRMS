@@ -191,12 +191,7 @@ export const createEmployee = async (req, res) => {
         const session = await mongoose.startSession();
         try {
             await session.withTransaction(async () => {
-                await lockEmployeeReferences({ departmentId: department, designationId: designation, shiftId: shift, session });
-                if (team && !(await Team.exists({ _id: team, department, isActive: true }).session(session))) {
-                    const invalidTeam = new Error("Selected team is inactive or does not belong to the selected department");
-                    invalidTeam.code = "TEAM_INVALID";
-                    throw invalidTeam;
-                }
+                await lockEmployeeReferences({ departmentId: department, designationId: designation, shiftId: shift, teamId: team, session });
                 if (reportingManager) {
                     await lockReportingManager(reportingManager, session);
                     const managerUser = await User.findOne({ employee: reportingManager, role: "manager", isActive: true }).session(session);
@@ -608,13 +603,9 @@ export const updateEmployee = async (req, res) => {
                     departmentId: updates.department || employee.department,
                     designationId: updates.designation || employee.designation,
                     shiftId: updates.shift !== undefined ? updates.shift : employee.shift,
+                    teamId,
                     session
                 });
-                if (teamId && !(await Team.exists({ _id: teamId, department: departmentId, isActive: true }).session(session))) {
-                    const invalidTeam = new Error("Selected team is inactive or does not belong to the selected department");
-                    invalidTeam.code = "TEAM_INVALID";
-                    throw invalidTeam;
-                }
                 if (updates.reportingManager) {
                     await lockReportingManager(updates.reportingManager, session);
                     const managerUser = await User.findOne({ employee: updates.reportingManager, role: "manager", isActive: true }).session(session);
