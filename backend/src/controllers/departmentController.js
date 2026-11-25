@@ -188,7 +188,8 @@ export const deleteDepartment = async (req, res) => {
                 if (!locked) return;
                 const employeeCount = await Employee.countDocuments({ department: id }).session(session);
                 const designationCount = await Designation.countDocuments({ department: id }).session(session);
-                if (employeeCount > 0 || designationCount > 0) {
+                const teamCount = await Team.countDocuments({ department: id }).session(session);
+                if (employeeCount > 0 || designationCount > 0 || teamCount > 0) {
                     const inUse = new Error("Department is in use");
                     inUse.code = "DEPARTMENT_IN_USE";
                     throw inUse;
