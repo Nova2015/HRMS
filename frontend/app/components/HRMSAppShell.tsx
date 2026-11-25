@@ -105,7 +105,7 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
       </div>
       <div className="mt-4 flex items-center gap-2 border-t border-slate-200/70 px-2 pt-4">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><UserCircle2 size={19} /></span>
-        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-800">{displayName}</span><span className="block text-[10px] capitalize text-slate-400">{role}</span></span>
+        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-800">{displayName}</span><span className="block text-[10px] capitalize text-slate-400">{role === "team_leader" ? "Team Leader" : role}</span></span>
       </div>
     </aside>
   );
