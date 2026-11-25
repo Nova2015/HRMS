@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Department from "../models/Department.js";
 import Team from "../models/Team.js";
+import Employee from "../models/Employee.js";
 
 const validDepartment = async (departmentId) => {
     if (!mongoose.isValidObjectId(departmentId)) return null;
@@ -82,6 +83,16 @@ export const updateTeam = async (req, res) => {
         if (updates.department !== undefined && !(await validDepartment(updates.department))) {
             return res.status(400).json({ success: false, message: "Select an active department" });
         }
+        const currentTeam = await Team.findById(id);
+        if (!currentTeam) return res.status(404).json({ success: false, message: "Team not found" });
+        if (updates.department !== undefined && updates.department.toString() !== currentTeam.department.toString()) {
+            const assignedEmployees = await Employee.countDocuments({ team: id });
+            if (assignedEmployees > 0) return res.status(409).json({ success: false, message: "Reassign employees before moving this team to another department" });
+        }
+        if (updates.isActive === false) {
+            const assignedEmployees = await Employee.countDocuments({ team: id });
+            if (assignedEmployees > 0) return res.status(409).json({ success: false, message: "Reassign employees before deactivating this team" });
+        }
         const team = await Team.findByIdAndUpdate(id, { $set: updates }, { new: true, runValidators: true })
             .populate("department", "name code");
         if (!team) return res.status(404).json({ success: false, message: "Team not found" });
@@ -98,8 +109,11 @@ export const deleteTeam = async (req, res) => {
     try {
         const { id } = req.params;
         if (!mongoose.isValidObjectId(id)) return res.status(400).json({ success: false, message: "Invalid team ID" });
-        const team = await Team.findByIdAndDelete(id);
+        const team = await Team.findById(id);
         if (!team) return res.status(404).json({ success: false, message: "Team not found" });
+        const assignedEmployees = await Employee.countDocuments({ team: id });
+        if (assignedEmployees > 0) return res.status(409).json({ success: false, message: "Reassign employees before deleting this team" });
+        await team.deleteOne();
         return res.status(200).json({ success: true, message: "Team deleted successfully" });
     } catch {
         return res.status(500).json({ success: false, message: "Unable to delete team" });
