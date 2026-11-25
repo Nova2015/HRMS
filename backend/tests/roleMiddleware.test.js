@@ -82,10 +82,22 @@ test("Approval Inbox role allowlist accepts admin, hr and manager", () => {
     }
 });
 
+test("Team Leader is not granted manager-only approval permissions", () => {
+    const middleware = authorizeRoles("admin", "hr", "manager");
+    const req = { user: { role: "team_leader" } };
+    const res = createResponse();
+    let nextCalled = false;
+
+    middleware(req, res, () => { nextCalled = true; });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res.statusCode, 403);
+});
+
 test("Expense and Employee Update decision allowlist excludes manager and employee", () => {
     const middleware = authorizeRoles("admin", "hr");
 
-    for (const role of ["manager", "employee"]) {
+    for (const role of ["manager", "team_leader", "employee"]) {
         const req = { user: { role } };
         const res = createResponse();
         let nextCalled = false;
