@@ -15,6 +15,7 @@ const employeeSchema = new mongoose.Schema(
         phone: { type: String, trim: true, default: "" },
         profilePhoto: { type: String, default: "", select: false },
         department: { type: mongoose.Schema.Types.ObjectId, ref: "Department", required: true },
+        team: { type: mongoose.Schema.Types.ObjectId, ref: "Team", default: null, index: true },
         designation: { type: mongoose.Schema.Types.ObjectId, ref: "Designation", required: true },
         shift: { type: mongoose.Schema.Types.ObjectId, ref: "Shift", default: null },
         leaveRequestVersion: { type: Number, default: 0, select: false },
