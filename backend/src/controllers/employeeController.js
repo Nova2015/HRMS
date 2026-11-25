@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import Department from "../models/Department.js";
 import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
+import Team from "../models/Team.js";
 import { createsReportingCycle, hasDirectReports } from "../services/reportingHierarchy.js";
 import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
 import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
@@ -18,6 +19,7 @@ const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
 const populateEmployee = (query) => {
     return query
         .populate("department", "name code")
+        .populate("team", "name code department isActive")
         .populate("designation", "name")
         .populate("shift", "name code startTime endTime gracePeriodMinutes")
         .populate("reportingManager", "employeeCode firstName lastName");
@@ -51,6 +53,7 @@ export const createEmployee = async (req, res) => {
             email,
             phone,
             department,
+            team = null,
             designation,
             joiningDate,
             shift = null,
@@ -154,6 +157,12 @@ export const createEmployee = async (req, res) => {
             });
         }
 
+        if (team) {
+            if (!mongoose.isValidObjectId(team)) return res.status(400).json({ success: false, message: "Invalid team ID" });
+            const selectedTeam = await Team.findOne({ _id: team, department, isActive: true });
+            if (!selectedTeam) return res.status(400).json({ success: false, message: "Selected team must be active and belong to the selected department" });
+        }
+
         if (shift && (!mongoose.isValidObjectId(shift) || !(await Shift.exists({ _id: shift, isActive: true })))) {
             return res.status(400).json({ success: false, message: "Selected shift is invalid or inactive" });
         }
@@ -183,6 +192,11 @@ export const createEmployee = async (req, res) => {
         try {
             await session.withTransaction(async () => {
                 await lockEmployeeReferences({ departmentId: department, designationId: designation, shiftId: shift, session });
+                if (team && !(await Team.exists({ _id: team, department, isActive: true }).session(session))) {
+                    const invalidTeam = new Error("Selected team is inactive or does not belong to the selected department");
+                    invalidTeam.code = "TEAM_INVALID";
+                    throw invalidTeam;
+                }
                 if (reportingManager) {
                     await lockReportingManager(reportingManager, session);
                     const managerUser = await User.findOne({ employee: reportingManager, role: "manager", isActive: true }).session(session);
@@ -199,6 +213,7 @@ export const createEmployee = async (req, res) => {
                     email: normalizedEmail,
                     phone: phone || "",
                     department,
+                    team: team || null,
                     designation,
                     shift,
                     reportingManager: reportingManager || null,
@@ -391,6 +406,7 @@ export const updateEmployee = async (req, res) => {
             "email",
             "phone",
             "department",
+            "team",
             "designation",
             "shift",
             "reportingManager",
@@ -545,6 +561,15 @@ export const updateEmployee = async (req, res) => {
             });
         }
 
+        const teamId = updates.team !== undefined ? updates.team : employee.team;
+        if (teamId) {
+            if (!mongoose.isValidObjectId(teamId)) return res.status(400).json({ success: false, message: "Invalid team ID" });
+            const selectedTeam = await Team.findOne({ _id: teamId, department: departmentId, isActive: true });
+            if (!selectedTeam) return res.status(400).json({ success: false, message: "Selected team must be active and belong to the selected department" });
+        } else {
+            updates.team = null;
+        }
+
         if (
             updates.employmentStatus !== undefined &&
             !ALLOWED_STATUSES.includes(updates.employmentStatus)
@@ -585,6 +610,11 @@ export const updateEmployee = async (req, res) => {
                     shiftId: updates.shift !== undefined ? updates.shift : employee.shift,
                     session
                 });
+                if (teamId && !(await Team.exists({ _id: teamId, department: departmentId, isActive: true }).session(session))) {
+                    const invalidTeam = new Error("Selected team is inactive or does not belong to the selected department");
+                    invalidTeam.code = "TEAM_INVALID";
+                    throw invalidTeam;
+                }
                 if (updates.reportingManager) {
                     await lockReportingManager(updates.reportingManager, session);
                     const managerUser = await User.findOne({ employee: updates.reportingManager, role: "manager", isActive: true }).session(session);
