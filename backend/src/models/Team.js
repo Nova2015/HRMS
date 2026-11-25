@@ -6,7 +6,8 @@ const teamSchema = new mongoose.Schema(
         code: { type: String, required: true, trim: true, uppercase: true, maxlength: 20 },
         department: { type: mongoose.Schema.Types.ObjectId, ref: "Department", required: true, index: true },
         description: { type: String, default: "", trim: true, maxlength: 500 },
-        isActive: { type: Boolean, default: true, index: true }
+        isActive: { type: Boolean, default: true, index: true },
+        assignmentVersion: { type: Number, default: 0, select: false }
     },
     { timestamps: true }
 );
