@@ -11,7 +11,7 @@ import Team from "../models/Team.js";
 import { createsReportingCycle, hasDirectReports } from "../services/reportingHierarchy.js";
 import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
 import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
-import { lockEmployeeReferences, lockReportingManager } from "../services/employeeReferenceGuards.js";
+import { lockEmployeeReferences, lockReportingManager, lockTeamReference } from "../services/employeeReferenceGuards.js";
 
 const ALLOWED_ROLES = ["employee", "manager", "hr", "admin"];
 const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
@@ -606,6 +606,13 @@ export const updateEmployee = async (req, res) => {
                     teamId,
                     session
                 });
+                // Lock the previous team as well as the destination team. This
+                // serializes reassignment against deletion/deactivation of either team.
+                const previousTeamId = employee.team ? employee.team.toString() : null;
+                const nextTeamId = teamId ? teamId.toString() : null;
+                if (previousTeamId && previousTeamId !== nextTeamId) {
+                    await lockTeamReference(previousTeamId, employee.department, session);
+                }
                 if (updates.reportingManager) {
                     await lockReportingManager(updates.reportingManager, session);
                     const managerUser = await User.findOne({ employee: updates.reportingManager, role: "manager", isActive: true }).session(session);
