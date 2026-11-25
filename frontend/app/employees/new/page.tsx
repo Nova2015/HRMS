@@ -207,6 +207,10 @@ function AddEmployeeForm() {
       setError("Please select department and designation.");
       return;
     }
+    if (form.role === "team_leader" && !form.team) {
+      setError("A Team Leader must be assigned to a team.");
+      return;
+    }
 
     const token = sessionStorage.getItem("hrms_token");
 
@@ -236,7 +240,7 @@ function AddEmployeeForm() {
           joiningDate: form.joiningDate,
           role: form.role,
           reportingManager:
-            form.role === "employee" && !isFounderOrCoFounder
+            ["employee", "team_leader"].includes(form.role) && !isFounderOrCoFounder
               ? form.reportingManager || null
               : null,
           initialPassword: form.initialPassword,
@@ -464,6 +468,7 @@ function AddEmployeeForm() {
                   onChange={(e) => updateField("role", e.target.value)}
                 >
                   <option value="employee">Employee</option>
+                  <option value="team_leader">Team Leader</option>
                   <option value="manager">{isFounderOrCoFounder ? "Founder" : "Manager"}</option>
                   <option value="hr">HR</option>
                   <option value="admin">Admin</option>
