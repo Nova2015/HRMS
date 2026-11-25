@@ -96,16 +96,28 @@ type Designation = {
   isActive: boolean;
 };
 
+type Team = {
+  _id: string;
+  name: string;
+  code: string;
+  department: Department | string;
+  description?: string;
+  isActive: boolean;
+};
+
 function OrganizationManagement() {
   const router = useRouter();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [departmentEditId, setDepartmentEditId] = useState("");
   const [designationEditId, setDesignationEditId] = useState("");
+  const [teamEditId, setTeamEditId] = useState("");
+  const [teamForm, setTeamForm] = useState({ name: "", code: "", department: "", description: "" });
   const [departmentForm, setDepartmentForm] = useState({ name: "", code: "", description: "" });
   const [designationForm, setDesignationForm] = useState({ name: "", department: "", description: "" });
 
@@ -141,12 +153,14 @@ function OrganizationManagement() {
     setLoading(true);
     setError("");
     try {
-      const [departmentResult, designationResult] = await Promise.all([
+      const [departmentResult, designationResult, teamResult] = await Promise.all([
         apiRequest("/departments"),
         apiRequest("/designations"),
+        apiRequest("/teams"),
       ]);
       setDepartments(departmentResult.data || []);
       setDesignations(designationResult.data || []);
+      setTeams(teamResult.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load organization data");
     } finally {
@@ -225,6 +239,43 @@ function OrganizationManagement() {
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update designation");
+    } finally { setSaving(false); }
+  };
+
+  const submitTeam = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true); setError(""); setMessage("");
+    try {
+      const path = teamEditId ? `/teams/${teamEditId}` : "/teams";
+      const result = await apiRequest(path, {
+        method: teamEditId ? "PUT" : "POST",
+        body: JSON.stringify({
+          name: teamForm.name.trim(),
+          code: teamForm.code.trim().toUpperCase(),
+          department: teamForm.department,
+          description: teamForm.description.trim(),
+        }),
+      });
+      setMessage(result.message || "Team saved.");
+      setTeamForm({ name: "", code: "", department: "", description: "" });
+      setTeamEditId("");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save team");
+    } finally { setSaving(false); }
+  };
+
+  const toggleTeam = async (team: Team) => {
+    setSaving(true); setError(""); setMessage("");
+    try {
+      const result = await apiRequest(`/teams/${team._id}`, {
+        method: "PUT",
+        body: JSON.stringify({ isActive: !team.isActive }),
+      });
+      setMessage(result.message || "Team status updated.");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update team");
     } finally { setSaving(false); }
   };
 
@@ -317,6 +368,42 @@ function OrganizationManagement() {
                     <div className="flex shrink-0 gap-2">
                       <button type="button" title="Edit designation" onClick={() => { const dep = typeof designation.department === "string" ? designation.department : designation.department?._id || ""; setDesignationEditId(designation._id); setDesignationForm({ name: designation.name, department: dep, description: designation.description || "" }); }} className="rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50"><Pencil size={15} /></button>
                       <button type="button" title={designation.isActive ? "Deactivate" : "Activate"} disabled={saving} onClick={() => toggleDesignation(designation)} className="rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50"><Power size={15} /></button>
+                    </div>
+                  </div>
+                ))}
+              </ScrollableList>
+            )}
+          </section>
+          <section className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-4 flex items-center gap-2.5">
+              <div className="rounded-lg bg-emerald-100 p-2"><Building2 size={18} className="text-emerald-600" /></div>
+              <div><h2 className="text-base font-bold text-slate-900">Teams / Sub-Sections</h2><p className="text-sm text-slate-500">{teams.length} total</p></div>
+            </div>
+            <form onSubmit={submitTeam} className="mb-4 grid gap-2 sm:grid-cols-2">
+              <input required maxLength={100} value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} placeholder="Team name *" className="min-w-0 rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+              <input required maxLength={20} value={teamForm.code} onChange={(e) => setTeamForm({ ...teamForm, code: e.target.value })} placeholder="Team code *" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm uppercase" />
+              <select required value={teamForm.department} onChange={(e) => setTeamForm({ ...teamForm, department: e.target.value })} className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
+                <option value="">Select department *</option>
+                {departments.filter((d) => d.isActive).map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
+              </select>
+              <input maxLength={500} value={teamForm.description} onChange={(e) => setTeamForm({ ...teamForm, description: e.target.value })} placeholder="Description (optional)" className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm" />
+              <div className="flex gap-2 sm:col-span-2">
+                <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"><Plus size={16} /> {saving ? "Saving..." : teamEditId ? "Update Team" : "Add Team"}</button>
+                {teamEditId && <button type="button" onClick={() => { setTeamEditId(""); setTeamForm({ name: "", code: "", department: "", description: "" }); }} className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm">Cancel</button>}
+              </div>
+            </form>
+            {loading ? <p className="py-6 text-center text-slate-500">Loading teams...</p> : teams.length === 0 ? <p className="py-6 text-center text-slate-500">No teams found. Add teams under the relevant departments.</p> : (
+              <ScrollableList label="teams" count={teams.length}>
+                {teams.map((team) => (
+                  <div key={team._id} className="flex items-center justify-between gap-2 py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900">{team.name} <span className="text-[11px] font-normal text-slate-500">({team.code})</span></p>
+                      <p className="text-[11px] text-slate-500">{departmentName(team.department)}{team.description?.trim() ? ` · ${team.description}` : ""}</p>
+                      <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${team.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>{team.isActive ? "Active" : "Inactive"}</span>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button type="button" title="Edit team" onClick={() => { const dep = typeof team.department === "string" ? team.department : team.department?._id || ""; setTeamEditId(team._id); setTeamForm({ name: team.name, code: team.code, department: dep, description: team.description || "" }); }} className="rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50"><Pencil size={15} /></button>
+                      <button type="button" title={team.isActive ? "Deactivate" : "Activate"} disabled={saving} onClick={() => toggleTeam(team)} className="rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50"><Power size={15} /></button>
                     </div>
                   </div>
                 ))}
