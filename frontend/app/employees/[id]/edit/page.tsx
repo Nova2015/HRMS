@@ -432,7 +432,7 @@ function EditEmployeeForm() {
 
                 <div>
                   <label className={labelClass}>Team / Sub-Section</label>
-                  <select className={inputClass} value={form.team} onChange={(e) => updateField("team", e.target.value)} disabled={!form.department || filteredTeams.length === 0}>
+                  <select required={form.role === "team_leader"} className={inputClass} value={form.team} onChange={(e) => updateField("team", e.target.value)} disabled={!form.department || filteredTeams.length === 0}>
                     <option value="">{form.department ? "No team assigned" : "Select department first"}</option>
                     {filteredTeams.map((team) => <option key={team._id} value={team._id}>{team.name}{team.code ? " (" + team.code + ")" : ""}</option>)}
                   </select>
