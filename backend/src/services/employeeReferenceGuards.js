@@ -1,6 +1,7 @@
 import Department from "../models/Department.js";
 import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
+import Team from "../models/Team.js";
 import Employee from "../models/Employee.js";
 
 // Every assignment and deactivation writes the same referenced document in its
@@ -21,7 +22,7 @@ const lockActive = async (Model, id, session, label) => {
     return locked;
 };
 
-export const lockEmployeeReferences = async ({ departmentId, designationId, shiftId = null, session }) => {
+export const lockEmployeeReferences = async ({ departmentId, designationId, shiftId = null, teamId = null, session }) => {
     const department = await lockActive(Department, departmentId, session, "department");
     const designation = await lockActive(Designation, designationId, session, "designation");
     if (designation.department.toString() !== department._id.toString()) {
@@ -31,12 +32,29 @@ export const lockEmployeeReferences = async ({ departmentId, designationId, shif
         throw error;
     }
     const shift = shiftId ? await lockActive(Shift, shiftId, session, "shift") : null;
-    return { department, designation, shift };
+    const team = teamId ? await lockTeamReference(teamId, department._id, session) : null;
+    return { department, designation, shift, team };
 };
 
 export const lockDepartmentReference = (id, session) => lockActive(Department, id, session, "department");
 export const lockDesignationReference = (id, session) => lockActive(Designation, id, session, "designation");
 export const lockShiftReference = (id, session) => lockActive(Shift, id, session, "shift");
+
+export const lockTeamReference = async (teamId, departmentId, session) => {
+    if (!teamId) return null;
+    const team = await Team.findOneAndUpdate(
+        { _id: teamId, department: departmentId, isActive: true },
+        { $inc: { assignmentVersion: 1 } },
+        { new: true, session }
+    );
+    if (!team) {
+        const error = new Error("Selected team is missing, inactive or belongs to another department");
+        error.code = "TEAM_INVALID";
+        error.statusCode = 409;
+        throw error;
+    }
+    return team;
+};
 
 export const lockReportingManager = async (managerId, session) => {
     if (!managerId) return null;
