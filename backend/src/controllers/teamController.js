@@ -137,6 +137,11 @@ export const updateTeam = async (req, res) => {
                     if (!current) return;
                     const departmentChanged = updates.department !== undefined &&
                         updates.department.toString() !== current.department.toString();
+                    // A move must serialize against lifecycle operations on both
+                    // the source and destination departments.
+                    if (departmentChanged) {
+                        await lockDepartmentReference(current.department, session);
+                    }
                     if (updates.isActive === false || departmentChanged) {
                         const assignedEmployees = await Employee.countDocuments({ team: id }).session(session);
                         if (assignedEmployees > 0) {
