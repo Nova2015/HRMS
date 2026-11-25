@@ -14,6 +14,7 @@ import { getDatabaseReadiness } from "./utils/databaseReadiness.js";
 // Routes
 import departmentRoutes from "./routes/departmentRoutes.js";
 import designationRoutes from "./routes/designationRoutes.js";
+import teamRoutes from "./routes/teamRoutes.js";
 import employeeRoutes from "./routes/employeeRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
@@ -98,6 +99,7 @@ app.get("/api/ready", (req, res) => {
 
 app.use("/api/departments", departmentRoutes);
 app.use("/api/designations", designationRoutes);
+app.use("/api/teams", teamRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/employee-hr-details", employeeHrDetailsRoutes);
 app.use("/api/auth", authRoutes);
