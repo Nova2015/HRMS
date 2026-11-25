@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Department from "../models/Department.js";
 import Team from "../models/Team.js";
 import Employee from "../models/Employee.js";
+import User from "../models/User.js";
 import { lockDepartmentReference } from "../services/employeeReferenceGuards.js";
 import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
 
@@ -89,6 +90,7 @@ export const getTeams = async (req, res) => {
         }
         if (req.query.activeOnly === "true") filter.isActive = true;
         const teams = await Team.find(filter).populate("department", "name code").sort({ name: 1 });
+        await Team.populate(teams, { path: "primaryTeamLeader", select: "employeeCode firstName lastName" });
         return res.status(200).json({ success: true, count: teams.length, data: teams });
     } catch {
         return res.status(500).json({ success: false, message: "Unable to load teams" });
@@ -102,7 +104,7 @@ export const updateTeam = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid team ID" });
         }
 
-        const allowedFields = ["name", "code", "department", "description", "isActive"];
+        const allowedFields = ["name", "code", "department", "description", "isActive", "primaryTeamLeader"];
         const updates = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) updates[field] = req.body[field];
@@ -125,8 +127,15 @@ export const updateTeam = async (req, res) => {
         if (updates.department !== undefined && !(await validDepartment(updates.department))) {
             return res.status(400).json({ success: false, message: "Select an active department" });
         }
+        if (updates.primaryTeamLeader !== undefined) {
+            if (updates.primaryTeamLeader === "" || updates.primaryTeamLeader === null) updates.primaryTeamLeader = null;
+            else if (!mongoose.isValidObjectId(updates.primaryTeamLeader)) {
+                return res.status(400).json({ success: false, message: "Select a valid Primary Team Leader" });
+            }
+        }
 
-        const mustProtectAssignments = updates.isActive === false || updates.department !== undefined;
+        const mustProtectAssignments = updates.isActive === false ||
+            updates.department !== undefined || updates.primaryTeamLeader !== undefined;
         let team;
         if (mustProtectAssignments) {
             const session = await mongoose.startSession();
@@ -150,9 +159,25 @@ export const updateTeam = async (req, res) => {
                             throw inUse;
                         }
                     }
+                    if (updates.primaryTeamLeader) {
+                        const leaderEmployee = await Employee.findOne({
+                            _id: updates.primaryTeamLeader,
+                            team: id,
+                            employmentStatus: "active",
+                            isArchived: { $ne: true }
+                        }).session(session);
+                        const leaderUser = leaderEmployee
+                            ? await User.findOne({ employee: leaderEmployee._id, role: "team_leader", isActive: true }).session(session)
+                            : null;
+                        if (!leaderUser) {
+                            const invalidLeader = new Error("Primary Team Leader must be an active Team Leader login assigned to this team");
+                            invalidLeader.code = "INVALID_PRIMARY_TEAM_LEADER";
+                            throw invalidLeader;
+                        }
+                    }
                     team = await Team.findByIdAndUpdate(id, { $set: updates }, {
                         new: true, runValidators: true, session
-                    }).populate("department", "name code");
+                    }).populate("department", "name code").populate("primaryTeamLeader", "employeeCode firstName lastName");
                 });
             } finally {
                 await session.endSession();
@@ -164,9 +189,11 @@ export const updateTeam = async (req, res) => {
         if (!team) return res.status(404).json({ success: false, message: "Team not found" });
         return res.status(200).json({ success: true, message: "Team updated successfully", data: team });
     } catch (error) {
-        return res.status(conflictStatus(error)).json({
+        return res.status(error.code === "INVALID_PRIMARY_TEAM_LEADER" ? 400 : conflictStatus(error)).json({
             success: false,
-            message: errorMessage(error, "Unable to update team")
+            message: error.code === "INVALID_PRIMARY_TEAM_LEADER"
+                ? "Primary Team Leader must be an active Team Leader login assigned to this team"
+                : errorMessage(error, "Unable to update team")
         });
     }
 };
