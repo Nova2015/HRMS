@@ -13,7 +13,7 @@ import { generateAppointmentLetterDocument } from "../services/employeeDocumentG
 import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
 import { lockEmployeeReferences, lockReportingManager, lockTeamReference } from "../services/employeeReferenceGuards.js";
 
-const ALLOWED_ROLES = ["employee", "manager", "hr", "admin"];
+const ALLOWED_ROLES = ["employee", "team_leader", "manager", "hr", "admin"];
 const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
 
 const populateEmployee = (query) => {
@@ -99,6 +99,13 @@ export const createEmployee = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 message: "Only an Admin can create another Admin account"
+            });
+        }
+
+        if (role === "team_leader" && !team) {
+            return res.status(400).json({
+                success: false,
+                message: "A Team Leader must be assigned to an active team"
             });
         }
 
@@ -557,6 +564,12 @@ export const updateEmployee = async (req, res) => {
         }
 
         const teamId = updates.team !== undefined ? updates.team : employee.team;
+        const nextRoleForValidation = requestedRole === undefined
+            ? linkedUser.role
+            : String(requestedRole).trim().toLowerCase();
+        if (nextRoleForValidation === "team_leader" && !teamId) {
+            return res.status(400).json({ success: false, message: "A Team Leader must be assigned to an active team" });
+        }
         if (teamId) {
             if (!mongoose.isValidObjectId(teamId)) return res.status(400).json({ success: false, message: "Invalid team ID" });
             const selectedTeam = await Team.findOne({ _id: teamId, department: departmentId, isActive: true });
@@ -628,6 +641,19 @@ export const updateEmployee = async (req, res) => {
                 const nextStatus = updates.employmentStatus === undefined
                     ? employee.employmentStatus
                     : updates.employmentStatus;
+                const isCurrentPrimaryTeamLeader = await Team.exists({ primaryTeamLeader: employee._id }).session(session);
+                const teamLeaderEligibilityChanged =
+                    (requestedRole !== undefined && nextRole !== linkedUser.role) ||
+                    (updates.employmentStatus !== undefined && nextStatus !== employee.employmentStatus) ||
+                    (teamId && employee.team && teamId.toString() !== employee.team.toString());
+                if (isCurrentPrimaryTeamLeader && teamLeaderEligibilityChanged &&
+                    (nextRole !== "team_leader" || nextStatus !== "active" ||
+                     (teamId && employee.team && teamId.toString() !== employee.team.toString()))) {
+                    const primaryLeader = new Error("Assign another Primary Team Leader or clear the current assignment before changing this employee's role, team or active status");
+                    primaryLeader.code = 40903;
+                    throw primaryLeader;
+                }
+
                 const managerEligibilityChanged =
                     (requestedRole !== undefined && nextRole !== linkedUser.role) ||
                     (updates.employmentStatus !== undefined && nextStatus !== employee.employmentStatus);
@@ -678,7 +704,7 @@ export const updateEmployee = async (req, res) => {
     } catch (error) {
         console.error("Update employee error:", error);
 
-        const isConflict = error.code === 11000 || error.code === 40901 || error.code === 40902;
+        const isConflict = error.code === 11000 || error.code === 40901 || error.code === 40902 || error.code === 40903;
         const isTransactionFailure = isTransactionUnavailable(error);
         return res.status(isConflict ? 409 : isTransactionFailure ? 503 : 400).json({
             success: false,
@@ -688,7 +714,9 @@ export const updateEmployee = async (req, res) => {
                     ? "Employee login account could not be synchronized"
                     : error.code === 40902
                         ? "Reassign all employees reporting to this manager before changing their role or employment status"
-                        : isTransactionFailure
+                        : error.code === 40903
+                            ? "Assign another Primary Team Leader or clear the current assignment before changing this employee's role, team or active status"
+                            : isTransactionFailure
                         ? "Employee update could not be completed safely. Please retry."
                         : "Unable to update employee"
         });
