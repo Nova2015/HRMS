@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import Employee from "../src/models/Employee.js";
 import Department from "../src/models/Department.js";
 import Designation from "../src/models/Designation.js";
+import Team from "../src/models/Team.js";
 import { updateDepartment } from "../src/controllers/departmentController.js";
 import { updateDesignation } from "../src/controllers/designationController.js";
 
@@ -25,6 +26,7 @@ const withTransactionStubs = async (overrides, run) => {
         startSession: mongoose.startSession,
         employeeCount: Employee.countDocuments,
         designationCount: Designation.countDocuments,
+        teamCount: Team.countDocuments,
         departmentLock: Department.findOneAndUpdate,
         designationLock: Designation.findOneAndUpdate,
         departmentUpdate: Department.findByIdAndUpdate,
@@ -35,6 +37,7 @@ const withTransactionStubs = async (overrides, run) => {
         mongoose.startSession = async () => session;
         Employee.countDocuments = overrides.employeeCount || (() => makeQuery(0));
         Designation.countDocuments = overrides.designationCount || (() => makeQuery(0));
+        Team.countDocuments = overrides.teamCount || (() => makeQuery(0));
         Department.findOneAndUpdate = overrides.departmentLock || (async () => ({ _id: ID, isActive: true }));
         Designation.findOneAndUpdate = overrides.designationLock || (async () => ({
             _id: ID, isActive: true, department: ID
@@ -48,6 +51,7 @@ const withTransactionStubs = async (overrides, run) => {
         mongoose.startSession = originals.startSession;
         Employee.countDocuments = originals.employeeCount;
         Designation.countDocuments = originals.designationCount;
+        Team.countDocuments = originals.teamCount;
         Department.findOneAndUpdate = originals.departmentLock;
         Designation.findOneAndUpdate = originals.designationLock;
         Department.findByIdAndUpdate = originals.departmentUpdate;
@@ -67,7 +71,7 @@ test("department cannot be deactivated while active employees are assigned", asy
         const res = response();
         await updateDepartment({ params: { id: ID }, body: { isActive: false } }, res);
         assert.equal(res.statusCode, 409);
-        assert.match(res.body.message, /active employees or designations/);
+        assert.match(res.body.message, /active employees, designations or teams/);
         assert.equal(updateAttempted, false);
     });
 });
