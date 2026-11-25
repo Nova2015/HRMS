@@ -160,6 +160,11 @@ export const updateTeam = async (req, res) => {
                         }
                     }
                     if (updates.primaryTeamLeader) {
+                        if (!current.isActive || updates.isActive === false) {
+                            const invalidLeader = new Error("A Primary Team Leader can only be assigned to an active team");
+                            invalidLeader.code = "INVALID_PRIMARY_TEAM_LEADER";
+                            throw invalidLeader;
+                        }
                         const leaderEmployee = await Employee.findOne({
                             _id: updates.primaryTeamLeader,
                             team: id,
