@@ -475,7 +475,7 @@ function AddEmployeeForm() {
                 </select>
               </div>
 
-              {form.role === "employee" && !isFounderOrCoFounder && (
+              {["employee", "team_leader"].includes(form.role) && !isFounderOrCoFounder && (
                 <div>
                   <label className={labelClass}>Reporting Manager</label>
                   <select
