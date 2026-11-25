@@ -101,8 +101,19 @@ type Team = {
   name: string;
   code: string;
   department: Department | string;
+  primaryTeamLeader?: { _id: string; firstName: string; lastName: string; employeeCode: string } | null;
   description?: string;
   isActive: boolean;
+};
+
+type EmployeeOption = {
+  _id: string;
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  employmentStatus: string;
+  team: string | { _id: string } | null;
+  account: { role: string; isActive: boolean } | null;
 };
 
 function OrganizationManagement() {
@@ -110,6 +121,7 @@ function OrganizationManagement() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -153,14 +165,16 @@ function OrganizationManagement() {
     setLoading(true);
     setError("");
     try {
-      const [departmentResult, designationResult, teamResult] = await Promise.all([
+      const [departmentResult, designationResult, teamResult, employeeResult] = await Promise.all([
         apiRequest("/departments"),
         apiRequest("/designations"),
         apiRequest("/teams"),
+        apiRequest("/employees"),
       ]);
       setDepartments(departmentResult.data || []);
       setDesignations(designationResult.data || []);
       setTeams(teamResult.data || []);
+      setEmployees(employeeResult.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load organization data");
     } finally {
@@ -262,6 +276,20 @@ function OrganizationManagement() {
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save team");
+    } finally { setSaving(false); }
+  };
+
+  const updatePrimaryTeamLeader = async (team: Team, employeeId: string) => {
+    setSaving(true); setError(""); setMessage("");
+    try {
+      const result = await apiRequest(`/teams/${team._id}`, {
+        method: "PUT",
+        body: JSON.stringify({ primaryTeamLeader: employeeId || null }),
+      });
+      setMessage(result.message || "Primary Team Leader updated.");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update Primary Team Leader");
     } finally { setSaving(false); }
   };
 
@@ -400,6 +428,25 @@ function OrganizationManagement() {
                       <p className="text-sm font-semibold text-slate-900">{team.name} <span className="text-[11px] font-normal text-slate-500">({team.code})</span></p>
                       <p className="text-[11px] text-slate-500">{departmentName(team.department)}{team.description?.trim() ? ` · ${team.description}` : ""}</p>
                       <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${team.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>{team.isActive ? "Active" : "Inactive"}</span>
+                      <div className="mt-2 max-w-xs">
+                        <label className="mb-1 block text-[11px] font-semibold text-slate-600">Primary Team Leader</label>
+                        <select
+                          aria-label={`Primary Team Leader for ${team.name}`}
+                          value={team.primaryTeamLeader?._id || ""}
+                          disabled={saving || !team.isActive}
+                          onChange={(e) => updatePrimaryTeamLeader(team, e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
+                        >
+                          <option value="">Not assigned</option>
+                          {employees.filter((employee) => {
+                            const employeeTeamId = typeof employee.team === "string" ? employee.team : employee.team?._id;
+                            return employeeTeamId === team._id && employee.employmentStatus === "active" &&
+                              employee.account?.role === "team_leader" && employee.account.isActive;
+                          }).map((employee) => (
+                            <option key={employee._id} value={employee._id}>{employee.firstName} {employee.lastName} ({employee.employeeCode})</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <button type="button" title="Edit team" onClick={() => { const dep = typeof team.department === "string" ? team.department : team.department?._id || ""; setTeamEditId(team._id); setTeamForm({ name: team.name, code: team.code, department: dep, description: team.description || "" }); }} className="rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50"><Pencil size={15} /></button>
