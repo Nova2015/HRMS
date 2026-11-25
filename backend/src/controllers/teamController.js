@@ -10,14 +10,16 @@ const validDepartment = async (departmentId) => {
     return Department.findOne({ _id: departmentId, isActive: true });
 };
 
-const lockTeamForMutation = async (id, session) => {
+const lockTeamForMutation = async (id, session, { checkAssignments = true } = {}) => {
     const team = await Team.findOneAndUpdate(
         { _id: id },
         { $inc: { assignmentVersion: 1 } },
         { new: true, session }
     );
     if (!team) return null;
-    const assignedEmployees = await Employee.countDocuments({ team: id }).session(session);
+    const assignedEmployees = checkAssignments
+        ? await Employee.countDocuments({ team: id }).session(session)
+        : 0;
     if (assignedEmployees > 0) {
         const inUse = new Error("Reassign employees before changing or deleting this team");
         inUse.code = "TEAM_IN_USE";
@@ -130,8 +132,18 @@ export const updateTeam = async (req, res) => {
             const session = await mongoose.startSession();
             try {
                 await session.withTransaction(async () => {
-                    const current = await lockTeamForMutation(id, session);
+                    const current = await lockTeamForMutation(id, session, { checkAssignments: false });
                     if (!current) return;
+                    const departmentChanged = updates.department !== undefined &&
+                        updates.department.toString() !== current.department.toString();
+                    if (updates.isActive === false || departmentChanged) {
+                        const assignedEmployees = await Employee.countDocuments({ team: id }).session(session);
+                        if (assignedEmployees > 0) {
+                            const inUse = new Error("Reassign employees before deactivating or moving this team");
+                            inUse.code = "TEAM_IN_USE";
+                            throw inUse;
+                        }
+                    }
                     team = await Team.findByIdAndUpdate(id, { $set: updates }, {
                         new: true, runValidators: true, session
                     }).populate("department", "name code");
