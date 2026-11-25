@@ -14,6 +14,7 @@ import { getDatabaseReadiness } from "./utils/databaseReadiness.js";
 // Routes
 import departmentRoutes from "./routes/departmentRoutes.js";
 import designationRoutes from "./routes/designationRoutes.js";
+import teamRoutes from "./routes/teamRoutes.js";
 import employeeRoutes from "./routes/employeeRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
@@ -35,6 +36,7 @@ import performanceRoutes from "./routes/performanceRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import auditLogRoutes from "./routes/auditLogRoutes.js";
 import companyEventRoutes from "./routes/companyEventRoutes.js";
+import workAssignmentRoutes from "./routes/workAssignmentRoutes.js";
 
 const app = express();
 
@@ -98,6 +100,7 @@ app.get("/api/ready", (req, res) => {
 
 app.use("/api/departments", departmentRoutes);
 app.use("/api/designations", designationRoutes);
+app.use("/api/teams", teamRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/employee-hr-details", employeeHrDetailsRoutes);
 app.use("/api/auth", authRoutes);
@@ -119,6 +122,7 @@ app.use("/api/performance", performanceRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api/calendar/events", companyEventRoutes);
+app.use("/api/work-assignments", workAssignmentRoutes);
 
 app.use((req, res) => {
     res.status(404).json({

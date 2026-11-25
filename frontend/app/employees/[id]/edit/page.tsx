@@ -15,6 +15,14 @@ type Department = {
   isActive?: boolean;
 };
 
+type Team = {
+  _id: string;
+  name: string;
+  code?: string;
+  department: string | { _id: string };
+  isActive?: boolean;
+};
+
 type Designation = {
   _id: string;
   name: string;
@@ -39,11 +47,12 @@ type Employee = {
   email: string;
   phone?: string;
   department: { _id: string } | null;
+  team: { _id: string } | null;
   designation: { _id: string } | null;
   reportingManager: { _id: string } | null;
   joiningDate: string;
   employmentStatus: "active" | "inactive" | "resigned" | "terminated";
-  account?: { email: string; role: "employee" | "manager" | "hr" | "admin"; isActive: boolean } | null;
+  account?: { email: string; role: "employee" | "team_leader" | "manager" | "hr" | "admin"; isActive: boolean } | null;
 };
 
 function EditEmployeeForm() {
@@ -53,6 +62,7 @@ function EditEmployeeForm() {
 
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,6 +77,7 @@ function EditEmployeeForm() {
     phone: "",
     department: "",
     designation: "",
+    team: "",
     reportingManager: "",
     joiningDate: "",
     employmentStatus: "active",
@@ -86,19 +97,21 @@ function EditEmployeeForm() {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [employeeResponse, departmentResponse, designationResponse, employeesResponse] =
+      const [employeeResponse, departmentResponse, designationResponse, teamResponse, employeesResponse] =
         await Promise.all([
           fetch(`${API_URL}/employees/${id}`, { headers, cache: "no-store" }),
           fetch(`${API_URL}/departments`, { headers, cache: "no-store" }),
           fetch(`${API_URL}/designations`, { headers, cache: "no-store" }),
+          fetch(`${API_URL}/teams?activeOnly=true`, { headers, cache: "no-store" }),
           fetch(`${API_URL}/employees`, { headers, cache: "no-store" }),
         ]);
 
-      const [employeeResult, departmentResult, designationResult, employeesResult] =
+      const [employeeResult, departmentResult, designationResult, teamResult, employeesResult] =
         await Promise.all([
           employeeResponse.json(),
           departmentResponse.json(),
           designationResponse.json(),
+          teamResponse.json(),
           employeesResponse.json(),
         ]);
 
@@ -106,6 +119,7 @@ function EditEmployeeForm() {
         employeeResponse.status === 401 ||
         departmentResponse.status === 401 ||
         designationResponse.status === 401 ||
+        teamResponse.status === 401 ||
         employeesResponse.status === 401
       ) {
         sessionStorage.removeItem("hrms_token");
@@ -125,6 +139,9 @@ function EditEmployeeForm() {
       if (!designationResponse.ok || !designationResult.success) {
         throw new Error(designationResult.message || "Unable to load designations");
       }
+      if (!teamResponse.ok || !teamResult.success) {
+        throw new Error(teamResult.message || "Unable to load teams");
+      }
       if (!employeesResponse.ok || !employeesResult.success) {
         throw new Error(employeesResult.message || "Unable to load manager list");
       }
@@ -139,6 +156,7 @@ function EditEmployeeForm() {
         phone: employee.phone || "",
         department: employee.department?._id || "",
         designation: employee.designation?._id || "",
+        team: employee.team?._id || "",
         reportingManager: employee.reportingManager?._id || "",
         joiningDate: employee.joiningDate
           ? new Date(employee.joiningDate).toISOString().slice(0, 10)
@@ -158,6 +176,7 @@ function EditEmployeeForm() {
           (item: Designation) => item.isActive !== false
         )
       );
+      setTeams((teamResult.data || []).filter((item: Team) => item.isActive !== false));
       setManagers((employeesResult.data || []).filter((item: ManagerOption) =>
         item._id !== id &&
         item.employmentStatus === "active" &&
@@ -183,6 +202,10 @@ function EditEmployeeForm() {
 
     return departmentId === form.department;
   });
+  const filteredTeams = teams.filter((item) => {
+    const departmentId = typeof item.department === "string" ? item.department : item.department?._id;
+    return departmentId === form.department && item.isActive !== false;
+  });
   const selectedDesignationName =
     designations.find((item) => item._id === form.designation)?.name || "";
   const isFounderOrCoFounder = /^(co[\s-]?founder|founder)$/i.test(
@@ -193,7 +216,7 @@ function EditEmployeeForm() {
     setForm((previous) => ({
       ...previous,
       [field]: value,
-      ...(field === "department" ? { designation: "", reportingManager: "" } : {}),
+      ...(field === "department" ? { designation: "", team: "", reportingManager: "" } : {}),
       ...(field === "designation" &&
       /^(co[\s-]?founder|founder)$/i.test(
         designations.find((item) => item._id === value)?.name?.trim() || ""
@@ -210,6 +233,10 @@ function EditEmployeeForm() {
 
     if (!form.department || !form.designation) {
       setError("Please select department and designation.");
+      return;
+    }
+    if (form.role === "team_leader" && !form.team) {
+      setError("A Team Leader must be assigned to a team.");
       return;
     }
 
@@ -237,6 +264,7 @@ function EditEmployeeForm() {
           phone: form.phone,
           department: form.department,
           designation: form.designation,
+          team: form.team || null,
           joiningDate: form.joiningDate,
           employmentStatus: form.employmentStatus,
           role: form.role,
@@ -403,6 +431,15 @@ function EditEmployeeForm() {
                 </div>
 
                 <div>
+                  <label className={labelClass}>Team / Sub-Section</label>
+                  <select required={form.role === "team_leader"} className={inputClass} value={form.team} onChange={(e) => updateField("team", e.target.value)} disabled={!form.department || filteredTeams.length === 0}>
+                    <option value="">{form.department ? "No team assigned" : "Select department first"}</option>
+                    {filteredTeams.map((team) => <option key={team._id} value={team._id}>{team.name}{team.code ? " (" + team.code + ")" : ""}</option>)}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">Only active teams under the selected department are shown.</p>
+                </div>
+
+                <div>
                   <label className={labelClass}>Designation *</label>
                   <select
                     required
@@ -492,6 +529,7 @@ function EditEmployeeForm() {
                     onChange={(e) => updateField("role", e.target.value)}
                   >
                     <option value="employee">Employee</option>
+                    <option value="team_leader">Team Leader</option>
                     <option value="manager">{isFounderOrCoFounder ? "Founder" : "Manager"}</option>
                     <option value="hr">HR</option>
                     <option value="admin">Admin</option>

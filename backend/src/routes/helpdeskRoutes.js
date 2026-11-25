@@ -15,6 +15,6 @@ router.use(protect);
 router.get("/", getHelpdeskWorkspace);
 router.post("/tickets", auditAction("helpdesk", "helpdesk.ticket_created"), createHelpdeskTicket);
 router.patch("/tickets/:id/assign", authorizeRoles("admin", "hr", "manager"), auditAction("helpdesk", "helpdesk.ticket_assigned"), assignHelpdeskTicket);
-router.patch("/tickets/:id/status", authorizeRoles("admin", "hr", "manager", "employee"), auditAction("helpdesk", "helpdesk.ticket_status_updated"), updateHelpdeskTicketStatus);
+router.patch("/tickets/:id/status", authorizeRoles("admin", "hr", "manager", "employee", "team_leader"), auditAction("helpdesk", "helpdesk.ticket_status_updated"), updateHelpdeskTicketStatus);
 
 export default router;

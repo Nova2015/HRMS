@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import AuditLog from "../src/models/AuditLog.js";
 import { authorizeRoles } from "../src/middleware/roleMiddleware.js";
+import helpdeskRoutes from "../src/routes/helpdeskRoutes.js";
 
 const createResponse = () => {
     const response = {
@@ -82,10 +83,45 @@ test("Approval Inbox role allowlist accepts admin, hr and manager", () => {
     }
 });
 
+test("Team Leader may update own Helpdesk tickets but cannot assign tickets", () => {
+    const statusRoute = helpdeskRoutes.stack.find((layer) =>
+        layer.route?.path === "/tickets/:id/status" && layer.route.methods.patch
+    );
+    const assignRoute = helpdeskRoutes.stack.find((layer) =>
+        layer.route?.path === "/tickets/:id/assign" && layer.route.methods.patch
+    );
+    assert.ok(statusRoute);
+    assert.ok(assignRoute);
+
+    const teamLeader = { user: { role: "team_leader" } };
+    const statusResponse = createResponse();
+    let statusNextCalled = false;
+    statusRoute.route.stack[0].handle(teamLeader, statusResponse, () => { statusNextCalled = true; });
+    assert.equal(statusNextCalled, true);
+
+    const assignResponse = createResponse();
+    let assignNextCalled = false;
+    assignRoute.route.stack[0].handle(teamLeader, assignResponse, () => { assignNextCalled = true; });
+    assert.equal(assignNextCalled, false);
+    assert.equal(assignResponse.statusCode, 403);
+});
+
+test("Team Leader is not granted manager-only approval permissions", () => {
+    const middleware = authorizeRoles("admin", "hr", "manager");
+    const req = { user: { role: "team_leader" } };
+    const res = createResponse();
+    let nextCalled = false;
+
+    middleware(req, res, () => { nextCalled = true; });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res.statusCode, 403);
+});
+
 test("Expense and Employee Update decision allowlist excludes manager and employee", () => {
     const middleware = authorizeRoles("admin", "hr");
 
-    for (const role of ["manager", "employee"]) {
+    for (const role of ["manager", "team_leader", "employee"]) {
         const req = { user: { role } };
         const res = createResponse();
         let nextCalled = false;

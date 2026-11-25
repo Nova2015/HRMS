@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Department from "../models/Department.js";
 import Employee from "../models/Employee.js";
 import Designation from "../models/Designation.js";
+import Team from "../models/Team.js";
 import { lockDepartmentReference } from "../services/employeeReferenceGuards.js";
 import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
 
@@ -117,8 +118,12 @@ export const updateDepartment = async (req, res) => {
                         department: id,
                         isActive: true
                     }).session(session);
-                    if (activeEmployeeCount > 0 || activeDesignationCount > 0) {
-                        const inUse = new Error("Department has active employees or designations");
+                    const activeTeamCount = await Team.countDocuments({
+                        department: id,
+                        isActive: true
+                    }).session(session);
+                    if (activeEmployeeCount > 0 || activeDesignationCount > 0 || activeTeamCount > 0) {
+                        const inUse = new Error("Department has active employees, designations or teams");
                         inUse.code = "DEPARTMENT_IN_USE";
                         throw inUse;
                     }
@@ -153,7 +158,7 @@ export const updateDepartment = async (req, res) => {
             message: error.code === 11000
                 ? "Department name or code already exists"
                 : error.code === "DEPARTMENT_IN_USE"
-                    ? "Department has active employees or designations. Reassign employees and deactivate designations first."
+                    ? "Department has active employees, designations or teams. Reassign employees and deactivate teams/designations first."
                     : isTransactionUnavailable(error)
                         ? "Department update is temporarily unavailable; please retry"
                         : "Unable to update department"
@@ -183,7 +188,8 @@ export const deleteDepartment = async (req, res) => {
                 if (!locked) return;
                 const employeeCount = await Employee.countDocuments({ department: id }).session(session);
                 const designationCount = await Designation.countDocuments({ department: id }).session(session);
-                if (employeeCount > 0 || designationCount > 0) {
+                const teamCount = await Team.countDocuments({ department: id }).session(session);
+                if (employeeCount > 0 || designationCount > 0 || teamCount > 0) {
                     const inUse = new Error("Department is in use");
                     inUse.code = "DEPARTMENT_IN_USE";
                     throw inUse;

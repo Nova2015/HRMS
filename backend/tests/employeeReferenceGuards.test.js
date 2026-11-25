@@ -3,18 +3,21 @@ import assert from "node:assert/strict";
 import Department from "../src/models/Department.js";
 import Designation from "../src/models/Designation.js";
 import Shift from "../src/models/Shift.js";
+import Team from "../src/models/Team.js";
 import Employee from "../src/models/Employee.js";
 import {
     lockEmployeeReferences,
     lockReportingManager,
     lockDepartmentReference,
     lockDesignationReference,
-    lockShiftReference
+    lockShiftReference,
+    lockTeamReference
 } from "../src/services/employeeReferenceGuards.js";
 
 const DEPARTMENT_ID = "64b000000000000000000061";
 const DESIGNATION_ID = "64b000000000000000000062";
 const SHIFT_ID = "64b000000000000000000063";
+const TEAM_ID = "64b000000000000000000066";
 const MANAGER_ID = "64b000000000000000000064";
 
 const withMethodStubs = async (stubs, run) => {
@@ -121,4 +124,34 @@ test("department, designation and shift deactivation use active-only transaction
         ], async () => lock(id, session));
         assert.equal(options.session, session);
     }
+});
+
+
+test("team reference guard locks only an active team in the selected department", async () => {
+    const session = {};
+    let captured;
+    await withMethodStubs([
+        [Team, "findOneAndUpdate", async (filter, update, options) => {
+            captured = { filter, update, options };
+            return { _id: TEAM_ID, department: DEPARTMENT_ID, isActive: true };
+        }]
+    ], async () => {
+        await lockTeamReference(TEAM_ID, DEPARTMENT_ID, session);
+    });
+    assert.deepEqual(captured.filter, {
+        _id: TEAM_ID, department: DEPARTMENT_ID, isActive: true
+    });
+    assert.deepEqual(captured.update, { $inc: { assignmentVersion: 1 } });
+    assert.equal(captured.options.session, session);
+});
+
+test("team reference guard rejects inactive or cross-department teams", async () => {
+    await withMethodStubs([
+        [Team, "findOneAndUpdate", async () => null]
+    ], async () => {
+        await assert.rejects(
+            lockTeamReference(TEAM_ID, DEPARTMENT_ID, {}),
+            (error) => error.code === "TEAM_INVALID" && error.statusCode === 409
+        );
+    });
 });

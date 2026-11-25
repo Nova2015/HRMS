@@ -209,9 +209,10 @@ export const getMe = async (req, res) => {
         const user = await User.findById(req.user.userId)
             .populate({
                 path: "employee",
-                select: "employeeCode firstName lastName email phone department designation shift reportingManager joiningDate employmentStatus +profilePhoto",
+                select: "employeeCode firstName lastName email phone department team designation shift reportingManager joiningDate employmentStatus +profilePhoto",
                 populate: [
                     { path: "department", select: "name code" },
+                    { path: "team", select: "name code department isActive" },
                     { path: "designation", select: "name" },
                     { path: "shift", select: "name weeklyOffDays startTime endTime" },
                     { path: "reportingManager", select: "employeeCode firstName lastName" }

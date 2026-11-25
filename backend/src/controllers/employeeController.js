@@ -7,17 +7,19 @@ import User from "../models/User.js";
 import Department from "../models/Department.js";
 import Designation from "../models/Designation.js";
 import Shift from "../models/Shift.js";
+import Team from "../models/Team.js";
 import { createsReportingCycle, hasDirectReports } from "../services/reportingHierarchy.js";
 import { generateAppointmentLetterDocument } from "../services/employeeDocumentGenerator.js";
 import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
-import { lockEmployeeReferences, lockReportingManager } from "../services/employeeReferenceGuards.js";
+import { lockEmployeeReferences, lockReportingManager, lockTeamReference } from "../services/employeeReferenceGuards.js";
 
-const ALLOWED_ROLES = ["employee", "manager", "hr", "admin"];
+const ALLOWED_ROLES = ["employee", "team_leader", "manager", "hr", "admin"];
 const ALLOWED_STATUSES = ["active", "inactive", "resigned", "terminated"];
 
 const populateEmployee = (query) => {
     return query
         .populate("department", "name code")
+        .populate("team", "name code department isActive")
         .populate("designation", "name")
         .populate("shift", "name code startTime endTime gracePeriodMinutes")
         .populate("reportingManager", "employeeCode firstName lastName");
@@ -51,6 +53,7 @@ export const createEmployee = async (req, res) => {
             email,
             phone,
             department,
+            team = null,
             designation,
             joiningDate,
             shift = null,
@@ -96,6 +99,13 @@ export const createEmployee = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 message: "Only an Admin can create another Admin account"
+            });
+        }
+
+        if (role === "team_leader" && !team) {
+            return res.status(400).json({
+                success: false,
+                message: "A Team Leader must be assigned to an active team"
             });
         }
 
@@ -154,6 +164,12 @@ export const createEmployee = async (req, res) => {
             });
         }
 
+        if (team) {
+            if (!mongoose.isValidObjectId(team)) return res.status(400).json({ success: false, message: "Invalid team ID" });
+            const selectedTeam = await Team.findOne({ _id: team, department, isActive: true });
+            if (!selectedTeam) return res.status(400).json({ success: false, message: "Selected team must be active and belong to the selected department" });
+        }
+
         if (shift && (!mongoose.isValidObjectId(shift) || !(await Shift.exists({ _id: shift, isActive: true })))) {
             return res.status(400).json({ success: false, message: "Selected shift is invalid or inactive" });
         }
@@ -182,7 +198,7 @@ export const createEmployee = async (req, res) => {
         const session = await mongoose.startSession();
         try {
             await session.withTransaction(async () => {
-                await lockEmployeeReferences({ departmentId: department, designationId: designation, shiftId: shift, session });
+                await lockEmployeeReferences({ departmentId: department, designationId: designation, shiftId: shift, teamId: team, session });
                 if (reportingManager) {
                     await lockReportingManager(reportingManager, session);
                     const managerUser = await User.findOne({ employee: reportingManager, role: "manager", isActive: true }).session(session);
@@ -199,6 +215,7 @@ export const createEmployee = async (req, res) => {
                     email: normalizedEmail,
                     phone: phone || "",
                     department,
+                    team: team || null,
                     designation,
                     shift,
                     reportingManager: reportingManager || null,
@@ -391,6 +408,7 @@ export const updateEmployee = async (req, res) => {
             "email",
             "phone",
             "department",
+            "team",
             "designation",
             "shift",
             "reportingManager",
@@ -545,6 +563,21 @@ export const updateEmployee = async (req, res) => {
             });
         }
 
+        const teamId = updates.team !== undefined ? updates.team : employee.team;
+        const nextRoleForValidation = requestedRole === undefined
+            ? linkedUser.role
+            : String(requestedRole).trim().toLowerCase();
+        if (nextRoleForValidation === "team_leader" && !teamId) {
+            return res.status(400).json({ success: false, message: "A Team Leader must be assigned to an active team" });
+        }
+        if (teamId) {
+            if (!mongoose.isValidObjectId(teamId)) return res.status(400).json({ success: false, message: "Invalid team ID" });
+            const selectedTeam = await Team.findOne({ _id: teamId, department: departmentId, isActive: true });
+            if (!selectedTeam) return res.status(400).json({ success: false, message: "Selected team must be active and belong to the selected department" });
+        } else {
+            updates.team = null;
+        }
+
         if (
             updates.employmentStatus !== undefined &&
             !ALLOWED_STATUSES.includes(updates.employmentStatus)
@@ -583,8 +616,16 @@ export const updateEmployee = async (req, res) => {
                     departmentId: updates.department || employee.department,
                     designationId: updates.designation || employee.designation,
                     shiftId: updates.shift !== undefined ? updates.shift : employee.shift,
+                    teamId,
                     session
                 });
+                // Lock the previous team as well as the destination team. This
+                // serializes reassignment against deletion/deactivation of either team.
+                const previousTeamId = employee.team ? employee.team.toString() : null;
+                const nextTeamId = teamId ? teamId.toString() : null;
+                if (previousTeamId && previousTeamId !== nextTeamId) {
+                    await lockTeamReference(previousTeamId, employee.department, session);
+                }
                 if (updates.reportingManager) {
                     await lockReportingManager(updates.reportingManager, session);
                     const managerUser = await User.findOne({ employee: updates.reportingManager, role: "manager", isActive: true }).session(session);
@@ -600,6 +641,21 @@ export const updateEmployee = async (req, res) => {
                 const nextStatus = updates.employmentStatus === undefined
                     ? employee.employmentStatus
                     : updates.employmentStatus;
+                const isCurrentPrimaryTeamLeader = employee.team
+                    ? await Team.exists({ primaryTeamLeader: employee._id }).session(session)
+                    : false;
+                const teamLeaderEligibilityChanged =
+                    (requestedRole !== undefined && nextRole !== linkedUser.role) ||
+                    (updates.employmentStatus !== undefined && nextStatus !== employee.employmentStatus) ||
+                    (teamId && employee.team && teamId.toString() !== employee.team.toString());
+                if (isCurrentPrimaryTeamLeader && teamLeaderEligibilityChanged &&
+                    (nextRole !== "team_leader" || nextStatus !== "active" ||
+                     (teamId && employee.team && teamId.toString() !== employee.team.toString()))) {
+                    const primaryLeader = new Error("Assign another Primary Team Leader or clear the current assignment before changing this employee's role, team or active status");
+                    primaryLeader.code = 40903;
+                    throw primaryLeader;
+                }
+
                 const managerEligibilityChanged =
                     (requestedRole !== undefined && nextRole !== linkedUser.role) ||
                     (updates.employmentStatus !== undefined && nextStatus !== employee.employmentStatus);
@@ -650,7 +706,7 @@ export const updateEmployee = async (req, res) => {
     } catch (error) {
         console.error("Update employee error:", error);
 
-        const isConflict = error.code === 11000 || error.code === 40901 || error.code === 40902;
+        const isConflict = error.code === 11000 || error.code === 40901 || error.code === 40902 || error.code === 40903;
         const isTransactionFailure = isTransactionUnavailable(error);
         return res.status(isConflict ? 409 : isTransactionFailure ? 503 : 400).json({
             success: false,
@@ -660,7 +716,9 @@ export const updateEmployee = async (req, res) => {
                     ? "Employee login account could not be synchronized"
                     : error.code === 40902
                         ? "Reassign all employees reporting to this manager before changing their role or employment status"
-                        : isTransactionFailure
+                        : error.code === 40903
+                            ? "Assign another Primary Team Leader or clear the current assignment before changing this employee's role, team or active status"
+                            : isTransactionFailure
                         ? "Employee update could not be completed safely. Please retry."
                         : "Unable to update employee"
         });

@@ -52,6 +52,20 @@ const managerLinks = [
   ...employeeLinks.slice(2),
 ];
 
+// Team Leaders retain employee self-service permissions. Team-level work
+// visibility will be added only with the dedicated Work Tracking API/page.
+const teamLeaderLinks = [
+  { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Attendance", href: "/attendance", icon: ClipboardList },
+  { label: "Leave Management", href: "/leaves", icon: CalendarDays },
+  { label: "Payroll", href: "/payroll", icon: Wallet },
+  { label: "Expenses", href: "/expenses", icon: ReceiptText },
+  { label: "Documents", href: "/documents", icon: FileText },
+  { label: "Work & Helpdesk", href: "/helpdesk", icon: Headset },
+  { label: "Performance", href: "/performance", icon: Award },
+  { label: "Settings", href: "/settings", icon: Settings },
+];
+
 export default function HRMSAppShell({ children, onLogout, showLogout = true }: Props) {
   const pathname = usePathname() || "/";
   const [role, setRole] = useState("employee");
@@ -72,7 +86,14 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
   useEffect(() => setMobileOpen(false), [pathname]);
 
   const isAdmin = role === "admin" || role === "hr";
-  const links = isAdmin ? adminLinks : role === "manager" ? managerLinks : employeeLinks;
+  const links = isAdmin
+    ? adminLinks
+    : role === "manager"
+      ? managerLinks
+      : role === "team_leader"
+        ? teamLeaderLinks
+        : employeeLinks;
+  const workspaceLabel = role === "team_leader" ? "Team Leader Workspace" : "Workspace";
   const active = useMemo(() => links.find((item) => item.href !== "/" && (pathname === item.href || pathname.startsWith(item.href + "/")))?.href || (pathname === "/" ? "/" : ""), [links, pathname]);
   const pageTitle = links.find((item) => item.href === active)?.label || (pathname === "/" ? "Dashboard" : "HRMS Workspace");
   const sidebar = (
@@ -84,7 +105,7 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
         <span className="min-w-0"><span className="block truncate text-[15px] font-black tracking-tight text-slate-900">PROTOVERGE LLP</span><span className="block text-[10px] font-bold uppercase tracking-[.2em] text-slate-400">HR Management</span></span>
       </Link><button type="button" onClick={() => setMobileOpen(false)} aria-label="Close navigation" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 lg:hidden"><X size={17}/></button></div>
 
-      <div className="mb-3 px-3 text-[10px] font-extrabold uppercase tracking-[.2em] text-slate-400">Workspace</div>
+      <div className="mb-3 px-3 text-[10px] font-extrabold uppercase tracking-[.2em] text-slate-400">{workspaceLabel}</div>
       <nav aria-label="Main navigation" className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
         {links.map(({ label, href, icon: Icon }) => {
           const selected = href === "/" ? pathname === "/" : active === href;
@@ -105,7 +126,7 @@ export default function HRMSAppShell({ children, onLogout, showLogout = true }: 
       </div>
       <div className="mt-4 flex items-center gap-2 border-t border-slate-200/70 px-2 pt-4">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><UserCircle2 size={19} /></span>
-        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-800">{displayName}</span><span className="block text-[10px] capitalize text-slate-400">{role}</span></span>
+        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-800">{displayName}</span><span className="block text-[10px] capitalize text-slate-400">{role === "team_leader" ? "Team Leader" : role}</span></span>
       </div>
     </aside>
   );

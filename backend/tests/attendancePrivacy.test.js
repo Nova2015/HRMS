@@ -136,6 +136,39 @@ test("manager team endpoint returns only active direct reports", async () => {
     }
 });
 
+test("team leader attendance register is restricted to their own records", async () => {
+    let captured;
+    Attendance.countDocuments = async (filter) => { captured = filter; return 0; };
+    Attendance.find = (filter) => { captured = filter; return makeQuery([]); };
+    try {
+        const res = response();
+        await getAttendanceRegister({
+            query: { employeeId: OUTSIDE_ID, date: "2026-02-10" },
+            user: { role: "team_leader", employeeId: EMPLOYEE_ID }
+        }, res);
+        assert.equal(res.statusCode, 200);
+        assert.equal(captured.employee, EMPLOYEE_ID);
+        assert.equal(captured.dateKey, "2026-02-10");
+    } finally {
+        Attendance.countDocuments = originals.attendanceCount;
+        Attendance.find = originals.attendanceFind;
+    }
+});
+
+test("team leader cannot use the manager team-attendance endpoint", async () => {
+    const originalFind = Employee.find;
+    let employeeQueryCalled = false;
+    Employee.find = () => { employeeQueryCalled = true; throw new Error("Should not query team members"); };
+    try {
+        const res = response();
+        await getAttendanceTeam({ user: { role: "team_leader", employeeId: EMPLOYEE_ID } }, res);
+        assert.equal(res.statusCode, 403);
+        assert.equal(employeeQueryCalled, false);
+    } finally {
+        Employee.find = originalFind;
+    }
+});
+
 test.after(() => {
     Attendance.find = originals.attendanceFind;
     Attendance.countDocuments = originals.attendanceCount;
