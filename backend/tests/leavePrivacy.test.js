@@ -84,6 +84,23 @@ test("manager cannot filter leave register to an employee outside their team", a
     }
 });
 
+test("team leader leave register is restricted to own requests", async () => {
+    let captured;
+    mockLeaveFind((filter) => { captured = filter; });
+    try {
+        const res = response();
+        await getLeaveRequests({
+            query: { status: "approved", employeeId: OUTSIDE_ID },
+            user: { role: "team_leader", employeeId: EMPLOYEE_ID }
+        }, res);
+        assert.equal(res.statusCode, 200);
+        assert.equal(captured.employee, EMPLOYEE_ID);
+        assert.equal("status" in captured, false);
+    } finally {
+        LeaveRequest.find = originalLeaveFind;
+    }
+});
+
 test.after(() => {
     Employee.find = originalEmployeeFind;
     LeaveRequest.find = originalLeaveFind;
