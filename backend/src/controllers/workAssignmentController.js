@@ -36,13 +36,13 @@ const getAccess = async (req) => {
     };
 };
 
-const loadAssignee = async (employeeId, { department, team }) => {
+const loadAssignee = async (employeeId, { department, team, allowedRoles = ["employee", "team_leader"] }) => {
     if (!mongoose.isValidObjectId(employeeId)) return null;
     const employee = await activeEmployee(employeeId);
     if (!employee || !employee.team || employee.department.toString() !== department.toString() ||
         employee.team.toString() !== team.toString()) return null;
     const user = await User.findOne({ employee: employee._id, isActive: true }).select("_id role");
-    if (!user || user.role === "admin" || user.role === "hr") return null;
+    if (!user || !allowedRoles.includes(user.role)) return null;
     return { employee, user };
 };
 
@@ -103,7 +103,10 @@ export const createWorkAssignment = async (req, res) => {
         const teamDoc = await Team.findOne({ _id: team, department, isActive: true });
         if (!teamDoc) return fail(res, 400, "Select an active team from the selected department");
         const target = await loadAssignee(assignedTo, { department, team });
-        if (!target) return fail(res, 400, "Assignee must be an active employee in the selected team with a valid account");
+        if (!target) return fail(res, 400, "Assignee must be an active Employee or Team Leader in the selected team");
+        if (target.user.role === "team_leader" && teamDoc.primaryTeamLeader?.toString() !== target.employee._id.toString()) {
+            return fail(res, 400, "Assign Team Leader work only to the Team Master Primary Team Leader");
+        }
         const days = Number(givenDays);
         const now = new Date();
         const reviewer = access.employee?._id || req.user.employeeId;
@@ -123,6 +126,8 @@ export const createWorkAssignment = async (req, res) => {
                 toStatus: "assigned"
             }]
         });
+        assignment.rootAssignment = assignment._id;
+        await assignment.save();
         return res.status(201).json({
             success: true,
             message: "Work assigned successfully",
@@ -146,7 +151,8 @@ export const delegateWorkAssignment = async (req, res) => {
         if (!actor?.team || actor.team.toString() !== parent.team.toString()) return fail(res, 403, "Team Leader can delegate only within their assigned team");
         const target = await loadAssignee(req.body.assignedTo, {
             department: parent.department,
-            team: parent.team
+            team: parent.team,
+            allowedRoles: ["employee"]
         });
         if (!target || target.employee._id.toString() === actor._id.toString()) return fail(res, 400, "Select another active employee from your team");
         const givenDays = Number(req.body.givenDays);
