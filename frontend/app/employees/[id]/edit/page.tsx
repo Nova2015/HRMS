@@ -52,7 +52,7 @@ type Employee = {
   reportingManager: { _id: string } | null;
   joiningDate: string;
   employmentStatus: "active" | "inactive" | "resigned" | "terminated";
-  account?: { email: string; role: "employee" | "manager" | "hr" | "admin"; isActive: boolean } | null;
+  account?: { email: string; role: "employee" | "team_leader" | "manager" | "hr" | "admin"; isActive: boolean } | null;
 };
 
 function EditEmployeeForm() {
@@ -233,6 +233,10 @@ function EditEmployeeForm() {
 
     if (!form.department || !form.designation) {
       setError("Please select department and designation.");
+      return;
+    }
+    if (form.role === "team_leader" && !form.team) {
+      setError("A Team Leader must be assigned to a team.");
       return;
     }
 
@@ -525,6 +529,7 @@ function EditEmployeeForm() {
                     onChange={(e) => updateField("role", e.target.value)}
                   >
                     <option value="employee">Employee</option>
+                    <option value="team_leader">Team Leader</option>
                     <option value="manager">{isFounderOrCoFounder ? "Founder" : "Manager"}</option>
                     <option value="hr">HR</option>
                     <option value="admin">Admin</option>
