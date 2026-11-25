@@ -641,7 +641,9 @@ export const updateEmployee = async (req, res) => {
                 const nextStatus = updates.employmentStatus === undefined
                     ? employee.employmentStatus
                     : updates.employmentStatus;
-                const isCurrentPrimaryTeamLeader = await Team.exists({ primaryTeamLeader: employee._id }).session(session);
+                const isCurrentPrimaryTeamLeader = employee.team
+                    ? await Team.exists({ primaryTeamLeader: employee._id }).session(session)
+                    : false;
                 const teamLeaderEligibilityChanged =
                     (requestedRole !== undefined && nextRole !== linkedUser.role) ||
                     (updates.employmentStatus !== undefined && nextStatus !== employee.employmentStatus) ||
