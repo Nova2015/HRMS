@@ -132,6 +132,7 @@ export const updateTeam = async (req, res) => {
             const session = await mongoose.startSession();
             try {
                 await session.withTransaction(async () => {
+                    if (updates.department !== undefined) await lockDepartmentReference(updates.department, session);
                     const current = await lockTeamForMutation(id, session, { checkAssignments: false });
                     if (!current) return;
                     const departmentChanged = updates.department !== undefined &&
