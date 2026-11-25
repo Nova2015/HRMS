@@ -12,6 +12,41 @@ const expenseClaimSchema = new mongoose.Schema(
         receiptStoredName: { type: String, required: true, unique: true },
         receiptMimeType: { type: String, enum: ["application/pdf", "image/jpeg", "image/png"], required: true },
         receiptSize: { type: Number, required: true, min: 1, max: 10 * 1024 * 1024 },
+        storageProvider: {
+            type: String,
+            enum: ["local", "google_drive"],
+            default: "local"
+        },
+        storageMigrationStartedAt: {
+            type: Date,
+            default: null
+        },
+        storageMigrationStatus: {
+            type: String,
+            enum: ["not_started", "in_progress", "verified", "failed"],
+            default: "not_started"
+        },
+        googleDriveFileId: {
+            type: String,
+            trim: true,
+            default: null
+        },
+        googleDriveChecksumSha256: {
+            type: String,
+            lowercase: true,
+            match: /^[a-f0-9]{64}$/,
+            default: null
+        },
+        googleDriveVerifiedAt: {
+            type: Date,
+            default: null
+        },
+        storageMigrationError: {
+            type: String,
+            trim: true,
+            maxlength: 500,
+            default: ""
+        },
         status: { type: String, enum: ["pending", "approved", "rejected", "reimbursed"], default: "pending", index: true },
         policyLimitAtSubmission: { type: Number, default: null, min: 0 },
         overLimitAtSubmission: { type: Boolean, default: false },
