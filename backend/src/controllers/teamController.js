@@ -2,11 +2,40 @@ import mongoose from "mongoose";
 import Department from "../models/Department.js";
 import Team from "../models/Team.js";
 import Employee from "../models/Employee.js";
+import { lockDepartmentReference } from "../services/employeeReferenceGuards.js";
+import { isTransactionUnavailable } from "../utils/isTransactionUnavailable.js";
 
 const validDepartment = async (departmentId) => {
     if (!mongoose.isValidObjectId(departmentId)) return null;
     return Department.findOne({ _id: departmentId, isActive: true });
 };
+
+const lockTeamForMutation = async (id, session) => {
+    const team = await Team.findOneAndUpdate(
+        { _id: id },
+        { $inc: { assignmentVersion: 1 } },
+        { new: true, session }
+    );
+    if (!team) return null;
+    const assignedEmployees = await Employee.countDocuments({ team: id }).session(session);
+    if (assignedEmployees > 0) {
+        const inUse = new Error("Reassign employees before changing or deleting this team");
+        inUse.code = "TEAM_IN_USE";
+        throw inUse;
+    }
+    return team;
+};
+
+const conflictStatus = (error) => error.code === 11000 || error.code === "TEAM_IN_USE" ? 409
+    : isTransactionUnavailable(error) ? 503 : 400;
+
+const errorMessage = (error, fallback) => error.code === 11000
+    ? "Team name or code already exists in this department"
+    : error.code === "TEAM_IN_USE"
+        ? "Reassign employees before deactivating, moving or deleting this team"
+        : isTransactionUnavailable(error)
+            ? "Team change is temporarily unavailable; please retry"
+            : fallback;
 
 export const createTeam = async (req, res) => {
     try {
@@ -21,17 +50,28 @@ export const createTeam = async (req, res) => {
         if (name.length > 100 || code.length > 20 || description.length > 500) {
             return res.status(400).json({ success: false, message: "Team name, code or description exceeds the allowed length" });
         }
-        if (!(await validDepartment(department))) {
+        if (!mongoose.isValidObjectId(department)) {
             return res.status(400).json({ success: false, message: "Select an active department" });
         }
 
-        const team = await Team.create({ name, code, department, description });
+        const session = await mongoose.startSession();
+        let team;
+        try {
+            await session.withTransaction(async () => {
+                await lockDepartmentReference(department, session);
+                [team] = await Team.create([{ name, code, department, description }], { session });
+            });
+        } finally {
+            await session.endSession();
+        }
         await team.populate("department", "name code");
         return res.status(201).json({ success: true, message: "Team created successfully", data: team });
     } catch (error) {
-        return res.status(error.code === 11000 ? 409 : 400).json({
+        return res.status(conflictStatus(error)).json({
             success: false,
-            message: error.code === 11000 ? "Team name or code already exists in this department" : "Unable to create team"
+            message: error.code === "REFERENCE_INACTIVE"
+                ? "Select an active department"
+                : errorMessage(error, "Unable to create team")
         });
     }
 };
@@ -83,24 +123,32 @@ export const updateTeam = async (req, res) => {
         if (updates.department !== undefined && !(await validDepartment(updates.department))) {
             return res.status(400).json({ success: false, message: "Select an active department" });
         }
-        const currentTeam = await Team.findById(id);
-        if (!currentTeam) return res.status(404).json({ success: false, message: "Team not found" });
-        if (updates.department !== undefined && updates.department.toString() !== currentTeam.department.toString()) {
-            const assignedEmployees = await Employee.countDocuments({ team: id });
-            if (assignedEmployees > 0) return res.status(409).json({ success: false, message: "Reassign employees before moving this team to another department" });
+
+        const mustProtectAssignments = updates.isActive === false || updates.department !== undefined;
+        let team;
+        if (mustProtectAssignments) {
+            const session = await mongoose.startSession();
+            try {
+                await session.withTransaction(async () => {
+                    const current = await lockTeamForMutation(id, session);
+                    if (!current) return;
+                    team = await Team.findByIdAndUpdate(id, { $set: updates }, {
+                        new: true, runValidators: true, session
+                    }).populate("department", "name code");
+                });
+            } finally {
+                await session.endSession();
+            }
+        } else {
+            team = await Team.findByIdAndUpdate(id, { $set: updates }, { new: true, runValidators: true })
+                .populate("department", "name code");
         }
-        if (updates.isActive === false) {
-            const assignedEmployees = await Employee.countDocuments({ team: id });
-            if (assignedEmployees > 0) return res.status(409).json({ success: false, message: "Reassign employees before deactivating this team" });
-        }
-        const team = await Team.findByIdAndUpdate(id, { $set: updates }, { new: true, runValidators: true })
-            .populate("department", "name code");
         if (!team) return res.status(404).json({ success: false, message: "Team not found" });
         return res.status(200).json({ success: true, message: "Team updated successfully", data: team });
     } catch (error) {
-        return res.status(error.code === 11000 ? 409 : 400).json({
+        return res.status(conflictStatus(error)).json({
             success: false,
-            message: error.code === 11000 ? "Team name or code already exists in this department" : "Unable to update team"
+            message: errorMessage(error, "Unable to update team")
         });
     }
 };
@@ -109,13 +157,24 @@ export const deleteTeam = async (req, res) => {
     try {
         const { id } = req.params;
         if (!mongoose.isValidObjectId(id)) return res.status(400).json({ success: false, message: "Invalid team ID" });
-        const team = await Team.findById(id);
-        if (!team) return res.status(404).json({ success: false, message: "Team not found" });
-        const assignedEmployees = await Employee.countDocuments({ team: id });
-        if (assignedEmployees > 0) return res.status(409).json({ success: false, message: "Reassign employees before deleting this team" });
-        await team.deleteOne();
+        const session = await mongoose.startSession();
+        let deleted = false;
+        try {
+            await session.withTransaction(async () => {
+                const team = await lockTeamForMutation(id, session);
+                if (!team) return;
+                await Team.deleteOne({ _id: id }, { session });
+                deleted = true;
+            });
+        } finally {
+            await session.endSession();
+        }
+        if (!deleted) return res.status(404).json({ success: false, message: "Team not found" });
         return res.status(200).json({ success: true, message: "Team deleted successfully" });
-    } catch {
-        return res.status(500).json({ success: false, message: "Unable to delete team" });
+    } catch (error) {
+        return res.status(conflictStatus(error)).json({
+            success: false,
+            message: errorMessage(error, "Unable to delete team")
+        });
     }
 };
