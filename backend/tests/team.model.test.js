@@ -45,3 +45,10 @@ test("Team has unique department-scoped name and code indexes", () => {
     assert.ok(indexes.some(([fields, options]) => fields.department === 1 && fields.name === 1 && options.unique === true));
     assert.ok(indexes.some(([fields, options]) => fields.department === 1 && fields.code === 1 && options.unique === true));
 });
+
+
+test("Team has a transactional assignment version counter", () => {
+    const team = new Team({ name: "IT Team", code: "IT", department: departmentId });
+    assert.equal(team.assignmentVersion, 0);
+    assert.equal(Team.schema.path("assignmentVersion").options.select, false);
+});
